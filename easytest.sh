@@ -1,11 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 abort_action=0
 
 OUTPUT_FREQ=434.0
-DEFAUL_JPG_PICTURE_LOC=src/resources/SAMPLE_IMAGE.jpg
-DEFAULT_WAV_FILE_MONO_LOC=src/resources/SAMPLE_MONO_AUDIO.wav
-DEFAULT_WAV_FILE_STEREO_LOC=src/resources/SAMPLE_STEREO_AUDIO.wav
-DEFAULT_RF_FREEDV_FILE_LOC=src/resources/SAMPLE_FREEDV.rf
+RESOURCES_LOCATION=src/resources
 DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
@@ -32,17 +29,30 @@ fi
 
 }
 
-do_file_choose()
-{
+do_file_choose() {
+	local file_type_info="$1"
+	local directory="$2"
+    local extension="$3"
+    files=$(ls $directory | grep $extension)
+	
+	if [ -z "$files" ]; then
+		whiptail --title "No Files Found" --msgbox "No files with the extension $extension were found in $directory" 8 78
+		abort_action=1
+		return
+	fi
 
-LAST_ITEM="$menuchoice"
-if FILE_LOC=$(whiptail --inputbox "Enter $1 file location. Default is $2" 8 78 $2 --title "Select a file to transmit" 3>&1 1>&2 2>&3); then
-	do_check_file_existance "$FILE_LOC"
-	abort_action=$?
-else
-	abort_action=1
-fi
-
+	file_list=()
+	for file in $files; do
+		file_list+=("$file" "")
+	done
+    
+	displayed_info="Choose $file_type_info file \nlocated in $directory:"
+	if selected_file=$(whiptail --noitem --title "Select a file to transmit" --menu "$displayed_info" 21 82 12 "${file_list[@]}" 3>&1 1>&2 2>&3); then
+        FILE_LOC="$directory/$selected_file"
+		abort_action=0
+    else
+        abort_action=1
+    fi
 }
 
 do_enter_message()
@@ -161,7 +171,7 @@ do_freq_setup
 			do_status
 			;;
 			
-			2\ *) do_file_choose "320x256 .jpg" "$DEFAUL_JPG_PICTURE_LOC"
+			2\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
 			if [ $abort_action -eq 0 ]; then
 				"./testspectrum.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
@@ -172,42 +182,42 @@ do_freq_setup
 			do_status
 			;;
 			
-			4\ *) do_file_choose ".wav" "$DEFAULT_WAV_FILE_STEREO_LOC"
+			4\ *) do_file_choose ".wav" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
      			"./testfmrds.sh" "$OUTPUT_FREQ" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$DEFAULT_WAV_FILE_MONO_LOC"
+			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
 				"./testnfm.sh" "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$DEFAULT_WAV_FILE_MONO_LOC"
+			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
 				"./testssb.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$DEFAULT_WAV_FILE_MONO_LOC"
+			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
 				"./testam.sh" "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			8\ *) do_file_choose "FreeDV .rf" "$DEFAULT_RF_FREEDV_FILE_LOC"
+			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" ".rf"
 			if [ $abort_action -eq 0 ]; then
 				"./testfreedv.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			9\ *) do_file_choose "320x256 .jpg" "$DEFAUL_JPG_PICTURE_LOC"
+			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
 			if [ $abort_action -eq 0 ]; then
 				"./testsstv.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
