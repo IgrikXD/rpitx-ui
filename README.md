@@ -3,15 +3,15 @@
 **rpitx** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. **rpitx-ui** includes changes to the _./easytest.sh_ script to make it easier to interact with the **rpitx** package via a console user interface.
 
 # Installation process
-Update the list of available software packages, download and install **rpitx-ui**.
+Update the list of available software packages, download and install **rpitx-ui** package:
 ```sh
 sudo apt update
 git clone https://github.com/IgrikXD/rpitx-ui
-cd rpitx
+cd rpitx-ui
 ./install.sh
 ```
 
-Make a reboot in order to use **rpitx-ui** in a stable state.
+Make a reboot in order to use **rpitx-ui** in a stable state:
 ```sh
 sudo reboot
 ```
