@@ -36,7 +36,6 @@ RPITX_CONFIGURATION_FILENAME=.rpitx_profile
 echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' > $RPITX_CONFIGURATION_FILENAME
 echo '# rpitx package configuration' >> ~/.bashrc
 echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
-source .bashrc
 
 echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx need to modify /boot/config.txt"
 echo "$(tput setaf 3)[INFO]$(tput sgr0): Setting the GPU frequency to 250 MHz for stable rpitx operation."
@@ -46,5 +45,16 @@ grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
 #PI4
 LINE='force_turbo=1'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
-echo "$(tput setaf 2)Installation completed!$(tput sgr0)"
+echo "$(tput setaf 2)Installation completed!"
+
+echo "$(tput setaf 3)[ACTION REQUIRED]$(tput sgr0): A reboot is required to complete the installation!"
+read -p "Execute now? (y/n): " choice
+
+# Check the user's choice
+if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+  echo "$(tput setaf 3)[INFO]$(tput sgr0) Rebooting now..."
+  sudo reboot  # You may need to run this with sudo privileges
+else
+  echo "$(tput setaf 3)[INFO]$(tput sgr0) Reboot canceled."
+fi
 
