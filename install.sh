@@ -32,7 +32,7 @@ sudo make install
 cd .. || exit
 
 export RPITX_RESOURCES_LOCATION=$PWD/src/resources
-echo 'export RPITX_RESOURCE_LOCATION='$RPITX_RESOURCES_LOCATION'' >> ~/.bashrc
+echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' >> ~/.bashrc
 
 printf "\n\n"
 printf "In order to run properly, rpitx need to modify /boot/config.txt. Are you sure (y/n) "
