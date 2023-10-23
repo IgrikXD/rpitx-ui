@@ -1,4 +1,4 @@
-![rpitx banner](/doc/rpitxlogo.png)
+![rpitx-ui-logo](/doc/rpitx-ui-logo.png)
 # About rpitx-ui
 **rpitx** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. **rpitx-ui** includes changes to the _./easytest.sh_ script to make it easier to interact with the **rpitx** package via a console user interface.
 
@@ -43,8 +43,7 @@ Added the ability to send a custom message when working in the "_**Pocsag**_" an
 Added the ability to specify your call sign when working in "_**Opera**_" mode. If you enter an empty call sign, an error message will be displayed and the transmission will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
 
-Fixed a bug with displaying the "_Bye bye_" message when exiting the program - now it is displayed correctly.  
-![rpitx-ui-bye-bye-message](./doc/rpitx-ui-bye-bye-message.gif)
+Fixed a bug with displaying the "_Bye bye_" message when exiting the program - now it is displayed correctly.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
