@@ -155,7 +155,7 @@ do_freq_setup
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
-			whiptail --title "Bye bye" --msgbox "Thx for using rpitx" 8 78
+			whiptail --title "Bye bye" --msgbox "Thanks for using rpitx-ui!" 8 78
     		exit 0
 		elif [ $RET -eq 0 ]; then
 			case "$menuchoice" in
