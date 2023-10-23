@@ -6,3 +6,4 @@
 /pisstv
 /rpitx
 *.o
+.rpitx_profile

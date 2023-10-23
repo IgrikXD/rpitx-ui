@@ -2,7 +2,7 @@
 abort_action=0
 
 OUTPUT_FREQ=434.0
-RESOURCES_LOCATION=src/resources
+RESOURCES_LOCATION="$RPITX_RESOURCES_LOCATION"
 DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
@@ -33,7 +33,7 @@ do_file_choose() {
 	local file_type_info="$1"
 	local directory="$2"
     local extension="$3"
-    files=$(ls $directory | grep $extension)
+    files=$(ls $directory 2> /dev/null | grep $extension)
 	
 	if [ -z "$files" ]; then
 		whiptail --title "No Files Found" --msgbox "No files with the extension $extension were found in $directory" 8 78
@@ -155,7 +155,7 @@ do_freq_setup
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
-			whiptail --title "Bye bye" --msgbox "Thx for using rpitx" 8 78
+			whiptail --title "Bye bye" --msgbox "Thanks for using rpitx-ui!" 8 78
     		exit 0
 		elif [ $RET -eq 0 ]; then
 			case "$menuchoice" in
