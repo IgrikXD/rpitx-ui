@@ -11,11 +11,6 @@ cd rpitx
 ./install.sh
 ```
 
-Create a symbolic link to _easytest.sh_ to be able to run _easytest.sh_ from anywhere on the system by running the **rpitx-ui** command.
-```sh
-sudo ln -s "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
-```
-
 Make a reboot in order to use **rpitx-ui** in a stable state.
 ```sh
 sudo reboot
