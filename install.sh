@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 echo Install rpitx - some package need internet connection -
 
@@ -31,8 +31,12 @@ make
 sudo make install
 cd .. || exit
 
-export RPITX_RESOURCES_LOCATION=$PWD/src/resources
-echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' >> ~/.bashrc
+RPITX_RESOURCES_LOCATION=$PWD/src/resources
+RPITX_CONFIGURATION_FILENAME=.rpitx_profile
+echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' > $RPITX_CONFIGURATION_FILENAME
+echo '# rpitx package configuration' >> ~/.bashrc
+echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
+source .rpitx_profile
 
 printf "\n\n"
 printf "In order to run properly, rpitx need to modify /boot/config.txt. Are you sure (y/n) "
