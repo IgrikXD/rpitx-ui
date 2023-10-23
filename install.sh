@@ -38,8 +38,8 @@ echo '# rpitx package configuration' >> ~/.bashrc
 echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
 source .rpitx_profile
 
-printf "In order to run properly, rpitx need to modify /boot/config.txt"
-echo "Set GPU to 250Mhz in order to be stable"
+echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx need to modify /boot/config.txt"
+echo "$(tput setaf 3)[INFO]$(tput sgr0): Setting the GPU frequency to 250 MHz for stable rpitx operation."
 LINE='gpu_freq=250'
 FILE='/boot/config.txt'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
