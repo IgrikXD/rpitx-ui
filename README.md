@@ -25,6 +25,11 @@ sudo reboot
 # Usage 
 Plug a wire (acts as an antenna) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board will be the best option, as it will allow you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
 
+Run **rpitx-ui** application:
+```sh
+rpitx-ui
+```
+
 # Differences from the [original rpitx](https://github.com/F5OEO/rpitx) package
 You no longer need to run the **./easytest.sh** command from the project directory every time. You can simply run the **rpitx-ui** command, which is a symbolic link to the ./easytest.sh file and allows you to run it from anywhere on the system.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
