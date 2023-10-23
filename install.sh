@@ -43,6 +43,10 @@ grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
 #PI4
 LINE='force_turbo=1'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
+
+sudo ln -s "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
+echo "$(tput setaf 3)[INFO]$(tput sgr0): Symbolic link created! You can now use the rpitx-ui command to run the application.."
+
 echo "$(tput setaf 2)Installation completed!"
 
 echo "$(tput setaf 3)[ACTION REQUIRED]$(tput sgr0): A reboot is required to complete the installation!"
@@ -51,7 +55,7 @@ read -p "Execute now? (y/n): " choice
 # Check the user's choice
 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
   echo "$(tput setaf 3)[INFO]$(tput sgr0) Rebooting now..."
-  sudo reboot  # You may need to run this with sudo privileges
+  sudo reboot
 else
   echo "$(tput setaf 3)[INFO]$(tput sgr0) Reboot canceled."
 fi
