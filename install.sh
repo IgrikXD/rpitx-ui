@@ -2,9 +2,7 @@
 
 echo "$(tput setaf 3)Installing rpitx!$(tput sgr0)"
 
-sudo apt update
-sudo apt install -y libsndfile1-dev git
-sudo apt install -y imagemagick libfftw3-dev
+sudo apt install -y libsndfile1-dev imagemagick libfftw3-dev
 #For rtl-sdr use
 sudo apt install -y rtl-sdr buffer
 # We use CSDR as a dsp for analogs modes thanks to HA7ILM
@@ -37,8 +35,8 @@ echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' > $RPITX_CONF
 echo '# rpitx-ui package configuration' >> ~/.bashrc
 echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
 
-echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx need to modify /boot/config.txt"
-echo "$(tput setaf 3)[INFO]$(tput sgr0): Setting the GPU frequency to 250 MHz for stable rpitx operation."
+echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx-ui need to modify /boot/config.txt"
+echo "$(tput setaf 3)[INFO]$(tput sgr0): Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
 LINE='gpu_freq=250'
 FILE='/boot/config.txt'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
