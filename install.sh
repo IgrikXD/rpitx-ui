@@ -45,7 +45,7 @@ LINE='force_turbo=1'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
 
 sudo ln -s "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
-echo "$(tput setaf 3)[INFO]$(tput sgr0): Symbolic link created! You can now use the rpitx-ui command to run the application.."
+echo "$(tput setaf 3)[INFO]$(tput sgr0): Symbolic link created! You can now use the rpitx-ui command to run the application."
 
 echo "$(tput setaf 2)Installation completed!"
 
