@@ -33,7 +33,7 @@ do_file_choose() {
 	local file_type_info="$1"
 	local directory="$2"
     local extension="$3"
-    files=$(ls $directory | grep $extension)
+    files=$(ls $directory 2> /dev/null | grep $extension)
 	
 	if [ -z "$files" ]; then
 		whiptail --title "No Files Found" --msgbox "No files with the extension $extension were found in $directory" 8 78
