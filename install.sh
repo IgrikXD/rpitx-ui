@@ -34,7 +34,7 @@ cd .. || exit
 RPITX_RESOURCES_LOCATION=$PWD/src/resources
 RPITX_CONFIGURATION_FILENAME=.rpitx_profile
 echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' > $RPITX_CONFIGURATION_FILENAME
-echo '# rpitx package configuration' >> ~/.bashrc
+echo '# rpitx-ui package configuration' >> ~/.bashrc
 echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
 
 echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx need to modify /boot/config.txt"
