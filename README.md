@@ -10,7 +10,6 @@ git clone https://github.com/IgrikXD/rpitx-ui
 cd rpitx
 ./install.sh
 ```
-During installation, you must confirm the modification of the _**/boot/config.txt**_ file for stable rpitx operation!
 
 Create a symbolic link to _easytest.sh_ to be able to run _easytest.sh_ from anywhere on the system by running the **rpitx-ui** command.
 ```sh
