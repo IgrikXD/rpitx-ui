@@ -191,7 +191,7 @@ do_freq_setup
 			
 			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				"./testnfm.sh" "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
+				"./testnfm.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
@@ -205,7 +205,7 @@ do_freq_setup
 			
 			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				"./testam.sh" "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
+				"./testam.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
