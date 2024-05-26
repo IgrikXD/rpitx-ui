@@ -2,7 +2,7 @@
 
 echo "$(tput setaf 3)Installing rpitx!$(tput sgr0)"
 
-sudo apt install -y libsndfile1-dev imagemagick libfftw3-dev
+sudo apt install -y libsndfile1-dev imagemagick libfftw3-dev libraspberrypi-dev
 #For rtl-sdr use
 sudo apt install -y rtl-sdr buffer
 # We use CSDR as a dsp for analogs modes thanks to HA7ILM
