@@ -2,11 +2,15 @@
 # About rpitx-ui
 **rpitx** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. **rpitx-ui** includes changes to the _./easytest.sh_ script to make it easier to interact with the **rpitx** package via a console user interface.
 
+> [!WARNING]
+>Version **rpitx-ui-stable-1.1** has _src/dvb/dvbsenco8.s_ compilation errors! Thix error is also present in the [original repository](https://github.com/F5OEO/rpitx). It is recommended to use version **rpitx-ui-stable-1.0**!
+
 # Installation process
 Update the list of available software packages, download and install **rpitx-ui** package:
 ```sh
 sudo apt update
 git clone https://github.com/IgrikXD/rpitx-ui
+git checkout rpitx-ui-stable-1.0
 cd rpitx-ui
 ./install.sh
 ```
