@@ -14,7 +14,14 @@ cd ../ || exit
 cd src || exit
 git clone https://github.com/F5OEO/librpitx
 cd librpitx/src || exit
-make && sudo make install
+make
+if ! sudo make install 2>/dev/null; then
+  echo "$(tput setaf 3)[INFO]$(tput sgr0): librpitx shared library build failed (missing libbcm_host), installing static library and headers manually..."
+  sudo install -m 0644 librpitx.a /usr/local/lib/librpitx.a
+  sudo mkdir -p /usr/local/include/librpitx
+  sudo cp *.h /usr/local/include/librpitx/
+  sudo ldconfig
+fi
 cd ../../ || exit
 
 cd pift8
