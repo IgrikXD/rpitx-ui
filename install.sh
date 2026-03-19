@@ -14,7 +14,16 @@ cd ../ || exit
 cd src || exit
 git clone https://github.com/F5OEO/librpitx
 cd librpitx/src || exit
-make && sudo make install
+if ldconfig -p | grep -q libbcm_host; then
+  make && sudo make install
+else
+  echo "$(tput setaf 3)[INFO]$(tput sgr0): libbcm_host not found, building librpitx as static library only..."
+  make librpitx.a
+  sudo mkdir -p /usr/local/include/librpitx
+  sudo cp *.h /usr/local/include/librpitx/
+  sudo install -m 0644 librpitx.a /usr/local/lib/librpitx.a
+  sudo ldconfig
+fi
 cd ../../ || exit
 
 cd pift8
@@ -44,7 +53,7 @@ grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
 LINE='force_turbo=1'
 grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
 
-sudo ln -s "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
+sudo ln -sf "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
 echo "$(tput setaf 3)[INFO]$(tput sgr0): Symbolic link created! You can now use the rpitx-ui command to run the application."
 
 echo "$(tput setaf 2)Installation completed!"
