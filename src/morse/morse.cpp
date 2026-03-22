@@ -225,7 +225,7 @@ int main(int argc, char * argv[])
 	char cw[23];
 	float symbol_rate = wpm/1.25;
 
-	for (int i = 0; i < strlen(msg); i++)
+	for (size_t i = 0; i < strlen(msg); i++)
 	{
 		dits = text_to_morse(msg[i]);
 		morse_to_cw(dits, cw);
