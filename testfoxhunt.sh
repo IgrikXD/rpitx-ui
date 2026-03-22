@@ -1,2 +1,2 @@
 #!/bin/sh
-sudo ./foxhunt "$1" 90000
+sudo foxhunt "$1" 90000

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-sudo ./pifsq "Test" "$1"
+sudo pifsq "Test" "$1"

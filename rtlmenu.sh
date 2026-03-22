@@ -52,7 +52,7 @@ do_freq_setup
         case "$menuchoice" in
 		0\ *) rtl_sdr -s 250000 -g "$INPUT_GAIN" -f "$INPUT_RTLSDR"e6 record.iq >/dev/null 2>/dev/null &
 		do_status;;
-		1\ *) sudo ./sendiq -s 250000 -f "$OUTPUT_FREQ"e6 -t u8 -i record.iq >/dev/null 2>/dev/null &
+		1\ *) sudo sendiq -s 250000 -f "$OUTPUT_FREQ"e6 -t u8 -i record.iq >/dev/null 2>/dev/null &
 		do_status;;
 		2\ *) FREQ_IN="$INPUT_RTLSDR"M GAIN="$INPUT_GAIN" FREQ_OUT="$OUTPUT_FREQ"e6 . "$PWD/transponder.sh" >/dev/null 2>/dev/null &
 		do_status;;
