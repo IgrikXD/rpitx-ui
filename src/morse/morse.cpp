@@ -229,7 +229,7 @@ int main(int argc, char * argv[])
 	{
 		dits = text_to_morse(msg[i]);
 		morse_to_cw(dits, cw);
-		printf("msg[%02d]: %c\tmorse[%s]\tcw[%s]\n", i, toupper(msg[i]), dits, cw);
+		printf("msg[%02zu]: %c\tmorse[%s]\tcw[%s]\n", i, toupper(msg[i]), dits, cw);
 		Send_CW_OOK(freq, symbol_rate, cw);
 	}
 }
