@@ -691,7 +691,7 @@ int main(int argc, char *argv[]) {
 
             encodeTransmission(msgIndex, address, SetFunctionBits, message, transmission);
             size_t beforeLength = completeLength + 0;
-            fprintf(stderr, "DEBUG DATA = I=%d   P=%p T=%d L=%d\n", msgIndex, completeTransmission, completeLength, messageLength);
+            fprintf(stderr, "DEBUG DATA = I=%d   P=%p T=%zu L=%zu\n", msgIndex, completeTransmission, completeLength, messageLength);
             completeLength += messageLength;
             completeTransmission = (uint32_t *)realloc(completeTransmission, sizeof(uint32_t) * completeLength);
             for (size_t byteI = 0; byteI < messageLength; byteI++) {
