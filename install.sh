@@ -81,18 +81,6 @@ cmake --build build -j$(nproc)
 sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
-# Update .bashrc to set rpitx-ui configuration file
-RPITX_PROFILE="$PWD/.rpitx_profile"
-echo "export RPITX_RESOURCES_LOCATION=$PWD/src/resources" > "$RPITX_PROFILE"
-PROFILE_SOURCE_LINE="source $RPITX_PROFILE"
-if ! grep -qF "$PROFILE_SOURCE_LINE" ~/.bashrc; then
-  echo '# rpitx-ui package configuration' >> ~/.bashrc
-  echo "$PROFILE_SOURCE_LINE" >> ~/.bashrc
-  echo "${INFO}: .bashrc updated with rpitx-ui configuration."
-else
-  echo "${INFO}: .bashrc already contains rpitx-ui configuration, skipping."
-fi
-
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspbian version
 echo "${INFO}: In order to run properly, rpitx-ui need to modify boot config."
 echo "${INFO}: Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
@@ -108,13 +96,9 @@ for LINE in 'gpu_freq=250' 'force_turbo=1'; do
 done
 echo "${INFO}: Boot configuration updated successfully!"
 
-# Create symbolic link for easy access to the ./easytest.sh script
-sudo ln -sf "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
-echo "${INFO}: Symbolic link created! You can now use the rpitx-ui command to run the application."
-
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
-# Prompt the user to reboot the system to apply changes in /boot/config.txt
+# Prompt the user to reboot the system to apply boot configuration changes
 echo "${ACTION}: A reboot is required to complete the installation!"
 read -p "Execute now? (y/n): " choice
 # Check the user's choice

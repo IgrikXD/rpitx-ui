@@ -54,9 +54,9 @@ do_freq_setup
 		do_status;;
 		1\ *) sudo sendiq -s 250000 -f "$OUTPUT_FREQ"e6 -t u8 -i record.iq >/dev/null 2>/dev/null &
 		do_status;;
-		2\ *) FREQ_IN="$INPUT_RTLSDR"M GAIN="$INPUT_GAIN" FREQ_OUT="$OUTPUT_FREQ"e6 . "$PWD/transponder.sh" >/dev/null 2>/dev/null &
+		2\ *) FREQ_IN="$INPUT_RTLSDR"M GAIN="$INPUT_GAIN" FREQ_OUT="$OUTPUT_FREQ"e6 . transponder.sh >/dev/null 2>/dev/null &
 		do_status;;
-		3\ *) FREQ_IN="$INPUT_RTLSDR"M GAIN="$INPUT_GAIN" FREQ_OUT="$OUTPUT_FREQ"e6 . "$PWD/fm2ssb.sh" >/dev/null 2>/dev/null &
+		3\ *) FREQ_IN="$INPUT_RTLSDR"M GAIN="$INPUT_GAIN" FREQ_OUT="$OUTPUT_FREQ"e6 . fm2ssb.sh >/dev/null 2>/dev/null &
 		do_status;;
 		4\ *)
 		do_freq_setup;;
