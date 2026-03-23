@@ -93,8 +93,13 @@ print_banner "$COLOR_YELLOW" 'Removing ft8_lib...'
 if [ -f /usr/lib/libft8.a ]; then
   sudo rm -f /usr/lib/libft8.a
   echo "${INFO}: Removed /usr/lib/libft8.a"
-  sudo ldconfig
 fi
+
+if [ -d /usr/local/include/ft8_lib ]; then
+  sudo rm -rf /usr/local/include/ft8_lib
+  echo "${INFO}: Removed /usr/local/include/ft8_lib/"
+fi
+sudo ldconfig
 echo "${INFO}: ft8_lib removed!"
 
 # Remove csdr

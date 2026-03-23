@@ -76,6 +76,10 @@ print_banner "$COLOR_YELLOW" 'ft8_lib installation...'
   git clone https://github.com/F5OEO/ft8_lib
   cd ft8_lib
   make && sudo make install
+  sudo mkdir -p /usr/local/include/ft8_lib/ft8
+  sudo mkdir -p /usr/local/include/ft8_lib/common
+  sudo cp ft8/*.h /usr/local/include/ft8_lib/ft8/
+  sudo cp common/*.h /usr/local/include/ft8_lib/common/
 )
 print_banner "$COLOR_YELLOW" 'ft8_lib installed successfully!'
 

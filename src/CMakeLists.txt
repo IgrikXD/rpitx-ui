@@ -64,6 +64,7 @@ target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 # --- pift8 ---
 add_executable(pift8 pift8/pift8.cpp)
 target_compile_options(pift8 PRIVATE -Wno-write-strings)
+target_include_directories(pift8 PRIVATE /usr/local/include)
 target_link_libraries(pift8 PRIVATE ${FT8_LIBRARY} ${RPITX_COMMON_LIBS})
 
 # --- piopera ---
