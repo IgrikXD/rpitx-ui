@@ -5,10 +5,12 @@
 > [!WARNING]
 >Current version of **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a _dvb/dvbsenco8.s_ build error! Current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7) and has no build errors.
 
+# Build system
+Unlike the original **[rpitx](https://github.com/F5OEO/rpitx)**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its build system. The `install.sh` script automates the entire process: installs system dependencies via `apt`, builds third-party libraries (**csdr**, **librpitx**, **ft8_lib**) from source, then configures and builds **rpitx-ui** using CMake. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`.
+
 # Installation process
 Update the list of available software packages, download and install **rpitx-ui** package:
 ```sh
-sudo apt update
 git clone https://github.com/IgrikXD/rpitx-ui
 cd rpitx-ui
 ./install.sh
@@ -19,6 +21,14 @@ Make a reboot in order to use **rpitx-ui** in a stable state:
 sudo reboot
 ```
 
+# Uninstallation process
+To completely remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
+```sh
+cd rpitx-ui
+./uninstall.sh
+```
+This will remove all installed binaries, shell scripts, resource files, and third-party libraries (**librpitx**, **ft8_lib**).
+
 # Usage 
 Plug a wire (acts as an antenna) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board will be the best option, as it will allow you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
 
@@ -28,7 +38,7 @@ rpitx-ui
 ```
 
 # Differences from the [original rpitx](https://github.com/F5OEO/rpitx) package
-You no longer need to run the **./easytest.sh** command from the project directory every time. You can simply run the **rpitx-ui** command, which is a symbolic link to the ./easytest.sh file and allows you to run it from anywhere on the system.  
+You no longer need to run the **./easytest.sh** command from the project directory every time. You can simply run the **rpitx-ui** command from anywhere on the system - during installation, **easytest.sh** is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
 **easytest.sh** now has a friendlier user interface and allows you to select the specific file you want to use when transferring. The files you need should be added to the **src/resources** directory, after which you will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. **easytest.sh** selects files of the extension that a specific operating mode requires: for example, for the "FmRds" mode you will be asked to select only _.wav_ files from the list of all files available in the **src/resources** directory, and for the "_**SSTV**_" mode you will be asked to select file with the extension _.jpg_.  
