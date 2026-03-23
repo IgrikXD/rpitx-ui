@@ -118,8 +118,8 @@ echo "${ACTION}: A reboot is required to complete the installation!"
 read -p "Execute now? (y/n): " choice
 # Check the user's choice
 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO} Rebooting now..."
+  echo "${INFO}: Rebooting now..."
   sudo reboot
 else
-  echo "${INFO} Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
+  echo "${INFO}: Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
 fi
