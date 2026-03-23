@@ -182,17 +182,24 @@ install(PROGRAMS ${CMAKE_SOURCE_DIR}/easytest.sh
     RENAME rpitx-ui
 )
 
-# Helper scripts invoked by rpitx-ui and rtlmenu
-set(INSTALL_SCRIPTS
-    fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
+# UI-related scripts in the source root
+set(ROOT_SCRIPTS ft8menu.sh rtlmenu.sh)
+
+foreach(SCRIPT ${ROOT_SCRIPTS})
+    install(PROGRAMS ${CMAKE_SOURCE_DIR}/${SCRIPT} DESTINATION bin)
+endforeach()
+
+# Helper scripts in the scripts/ subdirectory
+set(SCRIPTS_DIR_SCRIPTS
+    fm2ssb.sh snap2spectrum.sh snapsstv.sh
     sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
     testfreedv.sh testfsq.sh testnfm.sh testopera.sh testpocsag.sh
     testrtty.sh testspectrum.sh testssb.sh testsstv.sh testvfo.sh
     transponder.sh
 )
 
-foreach(SCRIPT ${INSTALL_SCRIPTS})
-    install(PROGRAMS ${CMAKE_SOURCE_DIR}/${SCRIPT} DESTINATION bin)
+foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
+    install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/${SCRIPT} DESTINATION bin)
 endforeach()
 
 # ----------------------------------------------------------
