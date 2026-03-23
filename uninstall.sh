@@ -90,30 +90,29 @@ echo "${INFO}: librpitx removed!"
 
 # Remove ft8_lib
 print_banner "$COLOR_YELLOW" 'Removing ft8_lib...'
-if [ -f /usr/local/lib/libft8.a ]; then
-  sudo rm -f /usr/local/lib/libft8.a
-  echo "${INFO}: Removed /usr/local/lib/libft8.a"
+if [ -f /usr/lib/libft8.a ]; then
+  sudo rm -f /usr/lib/libft8.a
+  echo "${INFO}: Removed /usr/lib/libft8.a"
+  sudo ldconfig
 fi
-
-if [ -d /usr/local/include/ft8 ]; then
-  sudo rm -rf /usr/local/include/ft8
-  echo "${INFO}: Removed /usr/local/include/ft8/"
-fi
-sudo ldconfig
 echo "${INFO}: ft8_lib removed!"
 
 # Remove csdr
 print_banner "$COLOR_YELLOW" 'Removing csdr...'
-if [ -f /usr/local/bin/csdr ]; then
-  sudo rm -f /usr/local/bin/csdr
-  echo "${INFO}: Removed /usr/local/bin/csdr"
-fi
+for BIN in csdr csdr-fm nmux; do
+  if [ -f "/usr/bin/${BIN}" ]; then
+    sudo rm -f "/usr/bin/${BIN}"
+    echo "${INFO}: Removed /usr/bin/${BIN}"
+  fi
+done
 
-if [ -f /usr/local/lib/libcsdr.so ]; then
-  sudo rm -f /usr/local/lib/libcsdr.so
-  echo "${INFO}: Removed /usr/local/lib/libcsdr.so"
-  sudo ldconfig
-fi
+for LIB in /usr/lib/libcsdr.so*; do
+  if [ -f "${LIB}" ]; then
+    sudo rm -f "${LIB}"
+    echo "${INFO}: Removed ${LIB}"
+  fi
+done
+sudo ldconfig
 echo "${INFO}: csdr removed!"
 
 # Revert boot configuration changes
