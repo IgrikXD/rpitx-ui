@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(rpitx-ui
-    VERSION 2.0
+    VERSION 1.3
     DESCRIPTION "Radio transmitter for Raspberry Pi"
     LANGUAGES C CXX ASM
 )
