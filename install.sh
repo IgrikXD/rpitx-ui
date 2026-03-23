@@ -33,6 +33,7 @@ print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 
 # System dependency installation via package manager
 print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
+sudo apt update
 sudo apt install -y \
   buffer \
   cmake \
