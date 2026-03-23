@@ -6,4 +6,7 @@
 /pisstv
 /rpitx
 *.o
-.rpitx_profile
+build/
+csdr/
+src/librpitx/
+src/pift8/ft8_lib/
