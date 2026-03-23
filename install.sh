@@ -93,10 +93,16 @@ else
   echo "${INFO}: .bashrc already contains rpitx-ui configuration, skipping."
 fi
 
-# Update /boot/config.txt
-echo "${INFO}: In order to run properly, rpitx-ui need to modify /boot/config.txt"
+# Update /boot/config.txt or /boot/firmware/config.txt depending on Raspbian version
+echo "${INFO}: In order to run properly, rpitx-ui need to modify boot config."
 echo "${INFO}: Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
-FILE='/boot/config.txt'
+if [ ! -f /boot/firmware/config.txt ]; then
+  echo "${INFO}: Raspbian 11 or below detected, using /boot/config.txt"
+  FILE='/boot/config.txt'
+else
+  echo "${INFO}: Raspbian 12 or above detected, using /boot/firmware/config.txt"
+  FILE='/boot/firmware/config.txt'
+fi
 for LINE in 'gpu_freq=250' 'force_turbo=1'; do
   grep -qF "$LINE" "$FILE" || echo "$LINE" | sudo tee --append "$FILE"
 done
