@@ -105,7 +105,7 @@ do_stop_transmit()
 	case "$menuchoice" in
 			
 			0\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
-			1\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
+			1\ *) sudo killall testchirp.sh >/dev/null 2>/dev/null ;;
 			2\ *) sudo killall testspectrum.sh >/dev/null 2>/dev/null ;; 
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
 			4\ *) sudo killall testfmrds.sh >/dev/null 2>/dev/null ;;
