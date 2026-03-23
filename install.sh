@@ -104,8 +104,9 @@ else
   FILE='/boot/firmware/config.txt'
 fi
 for LINE in 'gpu_freq=250' 'force_turbo=1'; do
-  grep -qF "$LINE" "$FILE" || echo "$LINE" | sudo tee --append "$FILE"
+  grep -qF "$LINE" "$FILE" || echo "$LINE" | sudo tee --append "$FILE" > /dev/null
 done
+echo "${INFO}: Boot configuration updated successfully!"
 
 # Create symbolic link for easy access to the ./easytest.sh script
 sudo ln -sf "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
