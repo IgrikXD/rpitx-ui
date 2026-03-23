@@ -4,7 +4,6 @@
 PACKAGE_VERSION='1.3'
 
 # Terminal color helpers
-COLOR_RED=$(tput setaf 1)
 COLOR_GREEN=$(tput setaf 2)
 COLOR_YELLOW=$(tput setaf 3)
 COLOR_BLUE=$(tput setaf 4)
@@ -30,7 +29,7 @@ print_banner() {
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-print_banner "$COLOR_RED" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
+print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
