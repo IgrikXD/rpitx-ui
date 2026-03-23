@@ -158,7 +158,7 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    pisstv foxhunt pirtty piopera pifsq pichirp
+    pisstv foxhunt pirtty piopera pifsq pichirp morse corel8
     sendiq tune freedv rpitx sendook pift8 pifmrds
     spectrumpaint pocsag
 )
