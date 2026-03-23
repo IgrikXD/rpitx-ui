@@ -7,6 +7,3 @@
 /rpitx
 *.o
 build/
-csdr/
-src/librpitx/
-src/pift8/ft8_lib/

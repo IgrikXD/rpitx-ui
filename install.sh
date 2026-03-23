@@ -44,8 +44,13 @@ sudo apt install -y \
 print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
 
 # rpitx-ui dependencies installation from source in an independent subshell
+# Build dependencies in a temporary directory to keep the source tree clean
+BUILD_TMPDIR=$(mktemp -d)
+trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
+
 print_banner "$COLOR_YELLOW" 'csdr installation...'
 (
+  cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/csdr
   cd csdr
   make && sudo make install
@@ -54,7 +59,7 @@ print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
 
 print_banner "$COLOR_YELLOW" 'librpitx installation...'
 (
-  cd src
+  cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/librpitx
   cd librpitx/src
   make librpitx.a
@@ -67,7 +72,7 @@ print_banner "$COLOR_YELLOW" 'librpitx installed successfully!'
 
 print_banner "$COLOR_YELLOW" 'ft8_lib installation...'
 (
-  cd src/pift8
+  cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/ft8_lib
   cd ft8_lib
   make && sudo make install
