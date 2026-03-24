@@ -1,4 +1,4 @@
-name: rpitx-ui Build & Install Test
+name: rpitx-ui build
 
 on:
   push:
