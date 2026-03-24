@@ -1,0 +1,258 @@
+name: rpitx-ui Build & Install Test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '**/CMakeLists.txt'
+      - '*.sh'
+  pull_request:
+    branches: [ "**" ]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '**/CMakeLists.txt'
+      - '*.sh'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test on Raspberry Pi OS 64-bit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build & verify on Raspberry Pi OS (arm64)
+        uses: pguyot/arm-runner-action@v2
+        with:
+          base_image: raspios_lite_arm64:latest
+          cpu: cortex-a72
+          image_additional_mb: 4096
+          commands: |
+            set -eu
+
+            export TERM=xterm
+
+            # ==============================================================
+            # 0. System information
+            # ==============================================================
+            echo "::group::System information"
+            echo "--- OS Release ---"
+            cat /etc/os-release
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 1. Install rpitx-ui
+            # ==============================================================
+            echo "::group::Install rpitx-ui"
+            echo "n" | bash ./install.sh
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 2. Verify boot configuration was modified
+            # ==============================================================
+            echo "::group::Verify boot configuration"
+            if [ -f /boot/firmware/config.txt ]; then
+              BOOT_CONFIG=/boot/firmware/config.txt
+            else
+              BOOT_CONFIG=/boot/config.txt
+            fi
+            grep -qF 'gpu_freq=250' "$BOOT_CONFIG"   || { echo "FAIL: gpu_freq=250 not found in $BOOT_CONFIG"; exit 1; }
+            grep -qF 'force_turbo=1' "$BOOT_CONFIG"   || { echo "FAIL: force_turbo=1 not found in $BOOT_CONFIG"; exit 1; }
+            echo "PASS: boot configuration verified"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 3. Verify all installed binaries
+            # ==============================================================
+            echo "::group::Verify installed binaries"
+            REQUIRED_BINARIES=(
+              corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
+              piopera pirtty pisstv pocsag rpitx sendiq sendook
+              spectrumpaint tune
+              piam pidcf77 pifm rds_wav testssb
+            )
+            OPTIONAL_BINARIES=(dvbrf pissb)
+
+            for bin in "${REQUIRED_BINARIES[@]}"; do
+              test -x "/usr/bin/${bin}" || { echo "FAIL: required binary /usr/bin/${bin} missing"; exit 1; }
+              echo "  OK: /usr/bin/${bin}"
+            done
+
+            for bin in "${OPTIONAL_BINARIES[@]}"; do
+              if test -x "/usr/bin/${bin}"; then
+                echo "  OK: /usr/bin/${bin} (optional)"
+              else
+                echo "  SKIP: /usr/bin/${bin} not built (optional)"
+              fi
+            done
+            echo "PASS: all required binaries installed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 4. Verify all installed scripts
+            # ==============================================================
+            echo "::group::Verify installed scripts"
+            INSTALLED_SCRIPTS=(
+              rpitx-ui ft8menu.sh rtlmenu.sh
+              fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
+              testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
+              testfreedv.sh testfsq.sh testnfm.sh testopera.sh
+              testpocsag.sh testrtty.sh testspectrum.sh testssb.sh
+              testsstv.sh testvfo.sh transponder.sh
+            )
+
+            for s in "${INSTALLED_SCRIPTS[@]}"; do
+              test -x "/usr/bin/${s}" || { echo "FAIL: script /usr/bin/${s} missing"; exit 1; }
+              echo "  OK: /usr/bin/${s}"
+            done
+            echo "PASS: all scripts installed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 5. Verify resource files
+            # ==============================================================
+            echo "::group::Verify installed resources"
+            RESOURCES=(
+              SAMPLE_FREEDV.rf
+              SAMPLE_IMAGE.jpg
+              SAMPLE_MONO_AUDIO.wav
+              SAMPLE_STEREO_AUDIO.wav
+            )
+
+            test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
+
+            for res in "${RESOURCES[@]}"; do
+              test -f "/usr/share/rpitx-ui/${res}" || { echo "FAIL: resource /usr/share/rpitx-ui/${res} missing"; exit 1; }
+              echo "  OK: /usr/share/rpitx-ui/${res}"
+            done
+            echo "PASS: all resources installed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 6. Verify rpitx-ui is callable from any directory
+            # ==============================================================
+            echo "::group::Verify rpitx-ui callable from any directory"
+            pushd /tmp > /dev/null
+            command -v rpitx-ui > /dev/null || { echo "FAIL: rpitx-ui not found in PATH"; exit 1; }
+            RPITX_PATH=$(command -v rpitx-ui)
+            test -x "${RPITX_PATH}" || { echo "FAIL: rpitx-ui is not executable"; exit 1; }
+            echo "  rpitx-ui resolved to: ${RPITX_PATH}"
+
+            # Verify it's a shell script (not a broken symlink, etc.)
+            file "${RPITX_PATH}" | grep -qi "script\|text" || { echo "FAIL: rpitx-ui is not a shell script"; exit 1; }
+            popd > /dev/null
+            echo "PASS: rpitx-ui is callable from any directory"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 7. Uninstall rpitx-ui
+            # ==============================================================
+            echo "::group::Uninstall rpitx-ui"
+            echo "n" | bash ./uninstall.sh
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 8. Verify all binaries removed
+            # ==============================================================
+            echo "::group::Verify binaries removed"
+            ALL_BINARIES=(
+              corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
+              piopera pirtty pisstv pocsag rpitx sendiq sendook
+              spectrumpaint tune
+              dvbrf piam pidcf77 pifm pissb rds_wav testssb
+            )
+
+            for bin in "${ALL_BINARIES[@]}"; do
+              if test -f "/usr/bin/${bin}"; then
+                echo "FAIL: /usr/bin/${bin} still exists after uninstall"
+                exit 1
+              fi
+            done
+            echo "PASS: all binaries removed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 9. Verify all scripts removed
+            # ==============================================================
+            echo "::group::Verify scripts removed"
+            ALL_SCRIPTS=(
+              rpitx-ui ft8menu.sh rtlmenu.sh
+              fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
+              testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
+              testfreedv.sh testfsq.sh testnfm.sh testopera.sh
+              testpocsag.sh testrtty.sh testspectrum.sh testssb.sh
+              testsstv.sh testvfo.sh transponder.sh
+            )
+
+            for s in "${ALL_SCRIPTS[@]}"; do
+              if test -f "/usr/bin/${s}"; then
+                echo "FAIL: /usr/bin/${s} still exists after uninstall"
+                exit 1
+              fi
+            done
+            echo "PASS: all scripts removed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 10. Verify resources removed
+            # ==============================================================
+            echo "::group::Verify resources removed"
+            if test -d /usr/share/rpitx-ui; then
+              echo "FAIL: /usr/share/rpitx-ui still exists after uninstall"
+              exit 1
+            fi
+            echo "PASS: resources directory removed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 11. Verify dependency libraries removed
+            # ==============================================================
+            echo "::group::Verify dependency libraries removed"
+            test ! -d /usr/local/include/librpitx   || { echo "FAIL: /usr/local/include/librpitx still exists";  exit 1; }
+            test ! -f /usr/local/lib/librpitx.a      || { echo "FAIL: /usr/local/lib/librpitx.a still exists";   exit 1; }
+            test ! -f /usr/lib/libft8.a               || { echo "FAIL: /usr/lib/libft8.a still exists";           exit 1; }
+            test ! -d /usr/local/include/ft8_lib      || { echo "FAIL: /usr/local/include/ft8_lib still exists";  exit 1; }
+
+            for bin in csdr csdr-fm nmux; do
+              test ! -f "/usr/bin/${bin}" || { echo "FAIL: /usr/bin/${bin} still exists"; exit 1; }
+            done
+
+            for lib in /usr/lib/libcsdr.so*; do
+              test ! -f "${lib}" || { echo "FAIL: ${lib} still exists"; exit 1; }
+            done
+            echo "PASS: all dependency libraries removed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 12. Verify boot configuration reverted
+            # ==============================================================
+            echo "::group::Verify boot configuration reverted"
+            if [ -f /boot/firmware/config.txt ]; then
+              BOOT_CONFIG=/boot/firmware/config.txt
+            else
+              BOOT_CONFIG=/boot/config.txt
+            fi
+            if grep -qF 'gpu_freq=250' "$BOOT_CONFIG" 2>/dev/null; then
+              echo "FAIL: gpu_freq=250 still present in $BOOT_CONFIG"
+              exit 1
+            fi
+            if grep -qF 'force_turbo=1' "$BOOT_CONFIG" 2>/dev/null; then
+              echo "FAIL: force_turbo=1 still present in $BOOT_CONFIG"
+              exit 1
+            fi
+            echo "PASS: boot configuration reverted"
+            echo "::endgroup::"
+
+            echo ""
+            echo "========================================"
+            echo " ALL TESTS PASSED"
+            echo "========================================"
