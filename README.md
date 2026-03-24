@@ -1,5 +1,5 @@
 ![rpitx-ui-logo](/doc/rpitx-ui-logo.png)
-# About rpitx-ui
+## About rpitx-ui
 **[rpitx](https://github.com/F5OEO/rpitx)** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. **rpitx-ui** includes changes to the [`easytest.sh`](./easytest.sh) script to make it easier to interact with the **rpitx** package via a console user interface. 
 
 Unlike the original **[rpitx](https://github.com/F5OEO/rpitx)**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its build system. The [`install.sh`](./install.sh) script automates the entire process: installs system dependencies via `apt`, builds third-party libraries (_csdr, librpitx, ft8_lib_) from source, then configures and builds **rpitx-ui** using CMake. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`, making it possible to run **rpitx-ui** from any directory without being tied to the cloned repository.
@@ -7,12 +7,12 @@ Unlike the original **[rpitx](https://github.com/F5OEO/rpitx)**, which relies on
 > [!WARNING]
 > Current version of **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a `dvb/dvbsenco8.s` build error! Current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
 
-# Project support
+## Project support
 [![BTC: Make a donation][BTC-badge]](https://nowpayments.io/donation/wsprbeacon)&nbsp;[![PayPal: Make a donation][PayPal-badge]](https://www.paypal.com/donate/?hosted_button_id=Q8PRFPXKKSDAQ)&nbsp;[![Revolut: Make a donation][Revolut-badge]](https://revolut.me/iharygxob)
 
 Your support helps me continue developing open-source projects like [WSPR-beacon](#WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
-# Installation process
+## Installation process
 Download and install **rpitx-ui** package:
 ```sh
 git clone https://github.com/IgrikXD/rpitx-ui
@@ -20,7 +20,7 @@ cd rpitx-ui
 ./install.sh
 ```
 
-# Uninstallation process
+## Uninstallation process
 To completely remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
 ```sh
 cd rpitx-ui
@@ -28,7 +28,7 @@ cd rpitx-ui
 ```
 This will remove all installed binaries, shell scripts, resource files, and third-party libraries (_csdr, librpitx, ft8_lib_).
 
-# Usage 
+## Usage 
 Plug a wire (_acts as an antenna_) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board will be the best option, as it will allow you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
 
 Run **rpitx-ui** application:
@@ -36,7 +36,7 @@ Run **rpitx-ui** application:
 rpitx-ui
 ```
 
-# Differences from the [original rpitx](https://github.com/F5OEO/rpitx) package
+## Differences from the [original rpitx](https://github.com/F5OEO/rpitx) package
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
