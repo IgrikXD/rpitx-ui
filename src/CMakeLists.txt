@@ -132,26 +132,25 @@ endif()
 add_executable(pidcf77 dcf77/pidcf77.c)
 target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- piam, pifm, testssb (require libsndfile), pissb (requires libsndfile + libliquid) ---
-if(SNDFILE_LIBRARY)
-    add_executable(piam am/piam.c)
-    target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+# --- piam ---
+add_executable(piam am/piam.c)
+target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-    add_executable(pifm fm/pifm.c)
-    target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+# --- pifm ---
+add_executable(pifm fm/pifm.c)
+target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-    if(LIQUID_LIBRARY)
-        add_executable(pissb ssbgen/liquid_ssb.c)
-        target_link_libraries(pissb PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY} ${LIQUID_LIBRARY})
-    else()
-        message(STATUS "libliquid not found - skipping pissb target")
-    endif()
-
-    add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
-    target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
+# --- pissb (requires libliquid) ---
+if(LIQUID_LIBRARY)
+    add_executable(pissb ssbgen/liquid_ssb.c)
+    target_link_libraries(pissb PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY} ${LIQUID_LIBRARY})
 else()
-    message(STATUS "libsndfile not found - skipping piam, pifm, pissb, testssb targets")
+    message(STATUS "libliquid not found - skipping pissb target")
 endif()
+
+# --- testssb ---
+add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
+target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
 
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
