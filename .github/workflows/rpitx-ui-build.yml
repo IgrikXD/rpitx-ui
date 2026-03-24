@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build & Test on Raspberry Pi OS 64-bit
+    name: Build on latest Raspberry Pi OS 64-bit
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -53,6 +53,7 @@ jobs:
             # 1. Install rpitx-ui
             # ==============================================================
             echo "::group::Install rpitx-ui"
+            sudo apt-get update && sudo apt-get install -y git
             echo "n" | bash ./install.sh
             echo "::endgroup::"
 
