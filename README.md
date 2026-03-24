@@ -5,7 +5,7 @@
 Unlike the original **[rpitx](https://github.com/F5OEO/rpitx)**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its build system. The [`install.sh`](./install.sh) script automates the entire process: installs system dependencies via `apt`, builds third-party libraries (_csdr, librpitx, ft8_lib_) from source, then configures and builds **rpitx-ui** using CMake. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`, making it possible to run **rpitx-ui** from any directory without being tied to the cloned repository.
 
 > [!WARNING]
-> Current version of **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a _dvb/dvbsenco8.s_ build error! Current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
+> Current version of **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a `dvb/dvbsenco8.s` build error! Current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
 
 # Installation process
 Download and install **rpitx-ui** package:
