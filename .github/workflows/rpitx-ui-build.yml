@@ -35,6 +35,7 @@ jobs:
         with:
           base_image: raspios_lite_arm64:latest
           cpu: cortex-a72
+          shell: /bin/bash
           image_additional_mb: 4096
           commands: |
             set -eu
@@ -48,22 +49,12 @@ jobs:
             cat /etc/os-release
             echo "::endgroup::"
 
-            echo "::group::Setup swap"
-            sudo fallocate -l 1G /swapfile
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            echo "PASS: 1 GB swap enabled"
-            echo "::endgroup::"
-
             # ==============================================================
             # 1. Install rpitx-ui
             # ==============================================================
             echo "::group::Install rpitx-ui"
             sudo apt-get update && sudo apt-get install -y git
             echo "n" | bash ./install.sh
-            sudo apt-get clean
-            sudo rm -rf /var/lib/apt/lists/*
             echo "::endgroup::"
 
             # ==============================================================
