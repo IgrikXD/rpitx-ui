@@ -42,11 +42,18 @@ jobs:
             export TERM=xterm
 
             # ==============================================================
-            # 0. System information
+            # 0. System information & environment setup
             # ==============================================================
             echo "::group::System information"
-            echo "--- OS Release ---"
             cat /etc/os-release
+            echo "::endgroup::"
+
+            echo "::group::Setup swap"
+            sudo fallocate -l 1G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+            echo "PASS: 1 GB swap enabled"
             echo "::endgroup::"
 
             # ==============================================================
@@ -55,6 +62,8 @@ jobs:
             echo "::group::Install rpitx-ui"
             sudo apt-get update && sudo apt-get install -y git
             echo "n" | bash ./install.sh
+            sudo apt-get clean
+            sudo rm -rf /var/lib/apt/lists/*
             echo "::endgroup::"
 
             # ==============================================================
