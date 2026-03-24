@@ -3,11 +3,11 @@
 # rpitx-ui package version
 PACKAGE_VERSION='1.3'
 
-# Terminal color helpers
-COLOR_GREEN=$(tput setaf 2)
-COLOR_YELLOW=$(tput setaf 3)
-COLOR_BLUE=$(tput setaf 4)
-COLOR_RESET=$(tput sgr0)
+# Terminal color helpers (ANSI escape sequences)
+COLOR_GREEN=$'\033[32m'
+COLOR_YELLOW=$'\033[33m'
+COLOR_BLUE=$'\033[34m'
+COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
