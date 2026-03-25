@@ -64,8 +64,10 @@ jobs:
             else
               BOOT_CONFIG=/boot/config.txt
             fi
+            grep -qF '# BEGIN rpitx-ui related configuration' "$BOOT_CONFIG" || { echo "FAIL: rpitx-ui block not found in $BOOT_CONFIG"; exit 1; }
             grep -qF 'gpu_freq=250' "$BOOT_CONFIG"   || { echo "FAIL: gpu_freq=250 not found in $BOOT_CONFIG"; exit 1; }
             grep -qF 'force_turbo=1' "$BOOT_CONFIG"   || { echo "FAIL: force_turbo=1 not found in $BOOT_CONFIG"; exit 1; }
+            grep -qF '# END rpitx-ui related configuration' "$BOOT_CONFIG"   || { echo "FAIL: rpitx-ui block end marker not found in $BOOT_CONFIG"; exit 1; }
             echo "PASS: boot configuration verified"
             echo "::endgroup::"
 
@@ -239,6 +241,10 @@ jobs:
               BOOT_CONFIG=/boot/firmware/config.txt
             else
               BOOT_CONFIG=/boot/config.txt
+            fi
+            if grep -qF '# BEGIN rpitx-ui related configuration' "$BOOT_CONFIG" 2>/dev/null; then
+              echo "FAIL: rpitx-ui block still present in $BOOT_CONFIG"
+              exit 1
             fi
             if grep -qF 'gpu_freq=250' "$BOOT_CONFIG" 2>/dev/null; then
               echo "FAIL: gpu_freq=250 still present in $BOOT_CONFIG"
