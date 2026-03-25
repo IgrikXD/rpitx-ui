@@ -48,20 +48,28 @@ print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
 BUILD_TMPDIR=$(mktemp -d)
 trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
 
-print_banner "$COLOR_YELLOW" 'csdr installation...'
+# Pinned dependency commits (to ensure reproducible builds)
+CSDR_COMMIT='69bfc62'
+LIBRPITX_COMMIT='f01bdb6'
+FT8_LIB_COMMIT='91f2e64'
+
+print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}..."
 (
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/csdr
   cd csdr
+  git checkout "${CSDR_COMMIT}"
   make && sudo make install
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
 
-print_banner "$COLOR_YELLOW" 'librpitx installation...'
+print_banner "$COLOR_YELLOW" "librpitx installation, based on commit ${LIBRPITX_COMMIT}..."
 (
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/librpitx
-  cd librpitx/src
+  cd librpitx
+  git checkout "${LIBRPITX_COMMIT}"
+  cd src
   make librpitx.a
   sudo mkdir -p /usr/local/include/librpitx
   sudo cp *.h /usr/local/include/librpitx/
@@ -70,11 +78,12 @@ print_banner "$COLOR_YELLOW" 'librpitx installation...'
 )
 print_banner "$COLOR_YELLOW" 'librpitx installed successfully!'
 
-print_banner "$COLOR_YELLOW" 'ft8_lib installation...'
+print_banner "$COLOR_YELLOW" "ft8_lib installation, based on commit ${FT8_LIB_COMMIT}..."
 (
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/ft8_lib
   cd ft8_lib
+  git checkout "${FT8_LIB_COMMIT}"
   make && sudo make install
   sudo mkdir -p /usr/local/include/ft8_lib/ft8
   sudo mkdir -p /usr/local/include/ft8_lib/common
