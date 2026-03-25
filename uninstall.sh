@@ -129,12 +129,14 @@ else
 fi
 
 if [ -f "$FILE" ]; then
-  for LINE in 'gpu_freq=250' 'force_turbo=1'; do
-    if grep -qF "$LINE" "$FILE"; then
-      sudo sed -i "/^${LINE}$/d" "$FILE"
-      echo "${INFO}: Removed '${LINE}' from ${FILE}"
-    fi
-  done
+  BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+  END_MARKER='# END rpitx-ui related configuration'
+  if grep -qF "$BEGIN_MARKER" "$FILE"; then
+    sudo sed -i "/^${BEGIN_MARKER}$/,/^${END_MARKER}$/d" "$FILE"
+    echo "${INFO}: Removed rpitx-ui block from ${FILE}"
+  else
+    echo "${INFO}: No rpitx-ui block found in ${FILE}, nothing to revert."
+  fi
 fi
 echo "${INFO}: Boot configuration reverted!"
 

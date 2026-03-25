@@ -100,9 +100,13 @@ else
   echo "${INFO}: Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
   FILE='/boot/firmware/config.txt'
 fi
-for LINE in 'gpu_freq=250' 'force_turbo=1'; do
-  grep -qF "$LINE" "$FILE" || echo "$LINE" | sudo tee --append "$FILE" > /dev/null
-done
+BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+END_MARKER='# END rpitx-ui related configuration'
+if grep -qF "$BEGIN_MARKER" "$FILE"; then
+  echo "${INFO}: rpitx-ui block already present in ${FILE}, skipping."
+else
+  printf '%s\n' "$BEGIN_MARKER" 'gpu_freq=250' 'force_turbo=1' "$END_MARKER" | sudo tee --append "$FILE" > /dev/null
+fi
 echo "${INFO}: Boot configuration updated successfully!"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
