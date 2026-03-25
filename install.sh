@@ -90,14 +90,14 @@ cmake --build build -j$(nproc)
 sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
-# Update /boot/config.txt or /boot/firmware/config.txt depending on Raspbian version
+# Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
 echo "${INFO}: In order to run properly, rpitx-ui need to modify boot config."
 echo "${INFO}: Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
 if [ ! -f /boot/firmware/config.txt ]; then
-  echo "${INFO}: Raspbian 11 or below detected, using /boot/config.txt"
+  echo "${INFO}: Raspberry Pi OS 11 or below detected, using /boot/config.txt"
   FILE='/boot/config.txt'
 else
-  echo "${INFO}: Raspbian 12 or above detected, using /boot/firmware/config.txt"
+  echo "${INFO}: Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
   FILE='/boot/firmware/config.txt'
 fi
 for LINE in 'gpu_freq=250' 'force_turbo=1'; do
