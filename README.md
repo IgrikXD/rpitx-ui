@@ -5,23 +5,30 @@
 Unlike the original **[rpitx](https://github.com/F5OEO/rpitx)**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its build system. The [`install.sh`](./install.sh) script automates the entire process: installs system dependencies via `apt`, builds third-party libraries (_csdr, librpitx, ft8_lib_) from source, then configures and builds **rpitx-ui** using CMake. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`, making it possible to run **rpitx-ui** from any directory without being tied to the cloned repository.
 
 > [!WARNING]
-> Current version of **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a `dvb/dvbsenco8.s` build error! Current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
+> The current version of the **[rpitx](https://github.com/F5OEO/rpitx)** package in the original repository has a `dvb/dvbsenco8.s` build error. The current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
 
 ## Project support
 [![BTC: Make a donation][BTC-badge]](https://nowpayments.io/donation/wsprbeacon)&nbsp;[![PayPal: Make a donation][PayPal-badge]](https://www.paypal.com/donate/?hosted_button_id=Q8PRFPXKKSDAQ)&nbsp;[![Revolut: Make a donation][Revolut-badge]](https://revolut.me/iharygxob)
 
-Your support helps me continue developing open-source projects like [WSPR-beacon](#WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
+Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
 [![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.3-blue.svg?longCache=true&style=for-the-badge) 
 
 ## Installation process
-Download and install **rpitx-ui** package:
+Download the **rpitx-ui** package:
 ```sh
 git clone https://github.com/IgrikXD/rpitx-ui
 cd rpitx-ui
+```
+Optionally, you can add any resource files you need to the [`src/resources`](./src/resources/) directory before installation. They will be copied to the system resource directory `/usr/share/rpitx-ui` during the installation process.
+
+Install the **rpitx-ui** package:
+```sh
 ./install.sh
 ```
+
+To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
 
 ## Uninstallation process
 To remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
@@ -35,10 +42,10 @@ To also remove third-party dependencies, use the `--purge-deps` flag:
 ./uninstall.sh --purge-deps
 ```
 
-## Usage 
-Plug a wire (_acts as an antenna_) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board will be the best option, as it will allow you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
+## Usage
+Plug a wire (_acts as an antenna_) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [a separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board is the best option, as it allows you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
 
-Run **rpitx-ui** application:
+Run the **rpitx-ui** application:
 ```sh
 rpitx-ui
 ```
@@ -47,11 +54,7 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transferring. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files of the extension that a specific operating mode requires: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select file with the extension `.jpg`.
-
-**Before installation** - add the files you need to the [`src/resources`](./src/resources/) directory. They will be copied to the system resource directory during the installation process.
-
-**After installation** - the installed version reads resource files from `/usr/share/rpitx-ui`. To add new files for transmission, place them directly into `/usr/share/rpitx-ui`. You can override the resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.  
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transmitting. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files with the extension required for a specific operating mode: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select a file with the `.jpg` extension.
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message when working in the "_**Pocsag**_" and "_**RTTY**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
@@ -60,7 +63,7 @@ Added the ability to send a custom message when working in the "_**Pocsag**_" an
 Added the ability to specify your call sign when working in "_**Opera**_" mode. If you enter an empty call sign, an error message will be displayed and the transmission will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
 
-Fixed a bug with displaying the "_Bye bye_" message when exiting the program - now it is displayed correctly.
+Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
