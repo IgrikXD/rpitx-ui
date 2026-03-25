@@ -155,10 +155,11 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 7. Uninstall rpitx-ui
+            # 7. Uninstall rpitx-ui (with --purge-deps to also remove
+            #    third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
-            echo "n" | bash ./uninstall.sh
+            echo "n" | bash ./uninstall.sh --purge-deps
             echo "::endgroup::"
 
             # ==============================================================
