@@ -59,7 +59,7 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   git clone https://github.com/F5OEO/csdr
   cd csdr
   git checkout "${CSDR_COMMIT}"
-  make && sudo make install
+  make && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
 
@@ -84,6 +84,7 @@ print_banner "$COLOR_YELLOW" "ft8_lib installation, based on commit ${FT8_LIB_CO
   git clone https://github.com/F5OEO/ft8_lib
   cd ft8_lib
   git checkout "${FT8_LIB_COMMIT}"
+  # Note: ft8_lib Makefile hardcodes install path to /usr/lib (PREFIX not supported)
   make && sudo make install
   sudo mkdir -p /usr/local/include/ft8_lib/ft8
   sudo mkdir -p /usr/local/include/ft8_lib/common

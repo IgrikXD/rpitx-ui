@@ -29,6 +29,20 @@ print_banner() {
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Parse command-line flags
+PURGE_DEPS=false
+for arg in "$@"; do
+  case "$arg" in
+    --purge-deps) PURGE_DEPS=true ;;
+    -h|--help)
+      echo "Usage: $0 [--purge-deps]"
+      echo "  --purge-deps  Also remove third-party dependencies (librpitx, ft8_lib, csdr)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $arg"; exit 1 ;;
+  esac
+done
+
 print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 
 # Remove rpitx-ui binaries from /usr/bin
@@ -74,51 +88,56 @@ if [ -d /usr/share/rpitx-ui ]; then
 fi
 echo "${INFO}: Resources removed!"
 
-# Remove librpitx
-print_banner "$COLOR_YELLOW" 'Removing librpitx...'
-if [ -d /usr/local/include/librpitx ]; then
-  sudo rm -rf /usr/local/include/librpitx
-  echo "${INFO}: Removed /usr/local/include/librpitx/"
-fi
+# Remove third-party dependencies only when --purge-deps is specified
+if [ "$PURGE_DEPS" = true ]; then
+  print_banner "$COLOR_YELLOW" 'Removing third-party dependencies (--purge-deps)...'
 
-if [ -f /usr/local/lib/librpitx.a ]; then
-  sudo rm -f /usr/local/lib/librpitx.a
-  echo "${INFO}: Removed /usr/local/lib/librpitx.a"
+  # Remove librpitx
+  echo "${INFO}: Removing librpitx..."
+  if [ -d /usr/local/include/librpitx ]; then
+    sudo rm -rf /usr/local/include/librpitx
+    echo "${INFO}: Removed /usr/local/include/librpitx/"
+  fi
+
+  if [ -f /usr/local/lib/librpitx.a ]; then
+    sudo rm -f /usr/local/lib/librpitx.a
+    echo "${INFO}: Removed /usr/local/lib/librpitx.a"
+  fi
+
+  # Remove ft8_lib
+  echo "${INFO}: Removing ft8_lib..."
+  if [ -f /usr/lib/libft8.a ]; then
+    sudo rm -f /usr/lib/libft8.a
+    echo "${INFO}: Removed /usr/lib/libft8.a"
+  fi
+
+  if [ -d /usr/local/include/ft8_lib ]; then
+    sudo rm -rf /usr/local/include/ft8_lib
+    echo "${INFO}: Removed /usr/local/include/ft8_lib/"
+  fi
+
+  # Remove csdr
+  echo "${INFO}: Removing csdr..."
+  for BIN in csdr csdr-fm nmux; do
+    if [ -f "/usr/bin/${BIN}" ]; then
+      sudo rm -f "/usr/bin/${BIN}"
+      echo "${INFO}: Removed /usr/bin/${BIN}"
+    fi
+  done
+
+  for LIB in /usr/lib/libcsdr.so*; do
+    if [ -f "${LIB}" ]; then
+      sudo rm -f "${LIB}"
+      echo "${INFO}: Removed ${LIB}"
+    fi
+  done
+
   sudo ldconfig
+  echo "${INFO}: Third-party dependencies removed!"
+else
+  echo "${INFO}: Skipping third-party dependencies (librpitx, ft8_lib, csdr)."
+  echo "${INFO}: Use --purge-deps to remove them."
 fi
-echo "${INFO}: librpitx removed!"
-
-# Remove ft8_lib
-print_banner "$COLOR_YELLOW" 'Removing ft8_lib...'
-if [ -f /usr/lib/libft8.a ]; then
-  sudo rm -f /usr/lib/libft8.a
-  echo "${INFO}: Removed /usr/lib/libft8.a"
-fi
-
-if [ -d /usr/local/include/ft8_lib ]; then
-  sudo rm -rf /usr/local/include/ft8_lib
-  echo "${INFO}: Removed /usr/local/include/ft8_lib/"
-fi
-sudo ldconfig
-echo "${INFO}: ft8_lib removed!"
-
-# Remove csdr
-print_banner "$COLOR_YELLOW" 'Removing csdr...'
-for BIN in csdr csdr-fm nmux; do
-  if [ -f "/usr/bin/${BIN}" ]; then
-    sudo rm -f "/usr/bin/${BIN}"
-    echo "${INFO}: Removed /usr/bin/${BIN}"
-  fi
-done
-
-for LIB in /usr/lib/libcsdr.so*; do
-  if [ -f "${LIB}" ]; then
-    sudo rm -f "${LIB}"
-    echo "${INFO}: Removed ${LIB}"
-  fi
-done
-sudo ldconfig
-echo "${INFO}: csdr removed!"
 
 # Revert boot configuration changes
 print_banner "$COLOR_YELLOW" 'Reverting boot configuration...'

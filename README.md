@@ -21,12 +21,17 @@ cd rpitx-ui
 ```
 
 ## Uninstallation process
-To completely remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
+To remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
 ```sh
 cd rpitx-ui
 ./uninstall.sh
 ```
-This will remove all installed binaries, shell scripts, resource files, and third-party libraries (_csdr, librpitx, ft8_lib_).
+This will remove all **rpitx-ui** binaries, shell scripts, and resource files. Third-party dependencies (_csdr, librpitx, ft8_lib_) are **not** removed by default, because they may be shared with other SDR projects on the system.
+
+To also remove third-party dependencies, use the `--purge-deps` flag:
+```sh
+./uninstall.sh --purge-deps
+```
 
 ## Usage 
 Plug a wire (_acts as an antenna_) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board will be the best option, as it will allow you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
