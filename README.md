@@ -47,7 +47,11 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transferring. The files you need should be added to the [`src/resources`](./src/resources/) directory, after which you will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files of the extension that a specific operating mode requires: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files from the list of all files available in the [`src/resources`](./src/resources/) directory, and for the "_**SSTV**_" mode you will be asked to select file with the extension `.jpg`.  
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transferring. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files of the extension that a specific operating mode requires: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select file with the extension `.jpg`.
+
+**Before installation** - add the files you need to the [`src/resources`](./src/resources/) directory. They will be copied to the system resource directory during the installation process.
+
+**After installation** - the installed version reads resource files from `/usr/share/rpitx-ui`. To add new files for transmission, place them directly into `/usr/share/rpitx-ui`. You can override the resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message when working in the "_**Pocsag**_" and "_**RTTY**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
