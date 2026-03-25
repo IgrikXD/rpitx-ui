@@ -14,6 +14,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // makes strcasecmp() and strncasecmp() available when including optparse.h
 #ifdef _MSC_VER
     #include <string.h>
@@ -101,5 +105,9 @@ char *trim_ws(char *str);
 /// @param[in,out] str String to change inplace
 /// @return the stripped value of str
 char *remove_ws(char *str);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INCLUDE_OPTPARSE_H_ */

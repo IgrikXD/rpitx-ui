@@ -2,7 +2,7 @@
 abort_action=0
 
 OUTPUT_FREQ=434.0
-RESOURCES_LOCATION="$RPITX_RESOURCES_LOCATION"
+RESOURCES_LOCATION="${RPITX_RESOURCES_LOCATION:-/usr/share/rpitx-ui}"
 DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
@@ -105,7 +105,7 @@ do_stop_transmit()
 	case "$menuchoice" in
 			
 			0\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
-			1\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
+			1\ *) sudo killall testchirp.sh >/dev/null 2>/dev/null ;;
 			2\ *) sudo killall testspectrum.sh >/dev/null 2>/dev/null ;; 
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
 			4\ *) sudo killall testfmrds.sh >/dev/null 2>/dev/null ;;
@@ -163,84 +163,84 @@ do_freq_setup
 			F\ *) do_freq_setup 
 			;;
 			
-			0\ *) "./testvfo.sh" "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
+			0\ *) testvfo.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
 			do_status
 			;;
 			
-			1\ *) "./testchirp.sh" "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
+			1\ *) testchirp.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
 			do_status
 			;;
 			
 			2\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
 			if [ $abort_action -eq 0 ]; then
-				"./testspectrum.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testspectrum.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			3\ *) "./snap2spectrum.sh" "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
+			3\ *) snap2spectrum.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
 			do_status
 			;;
 			
 			4\ *) do_file_choose ".wav" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-     			"./testfmrds.sh" "$OUTPUT_FREQ" "$FILE_LOC" >/dev/null 2>/dev/null &
+     			testfmrds.sh "$OUTPUT_FREQ" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				"./testnfm.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testnfm.sh "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				"./testssb.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testssb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				"./testam.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testam.sh "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" ".rf"
 			if [ $abort_action -eq 0 ]; then
-				"./testfreedv.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testfreedv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
 			if [ $abort_action -eq 0 ]; then
-				"./testsstv.sh" "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
 			10\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
-				"./testpocsag.sh" "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
+				testpocsag.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
 			11\ *) do_enter_callsign
 			if [ $abort_action -eq 0 ]; then
-				"./testopera.sh" "$OUTPUT_FREQ""e6" "$CALLSIGN" >/dev/null 2>/dev/null &
+				testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
 			12\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
-				"./testrtty.sh" "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
+				testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;

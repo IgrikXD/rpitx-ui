@@ -1,71 +1,133 @@
 #!/bin/bash
 
-echo "$(tput setaf 3)Installing rpitx!$(tput sgr0)"
+# rpitx-ui package version
+PACKAGE_VERSION='1.3'
 
-sudo apt install -y libsndfile1-dev imagemagick libfftw3-dev
-#For rtl-sdr use
-sudo apt install -y rtl-sdr buffer
-# We use CSDR as a dsp for analogs modes thanks to HA7ILM
-git clone https://github.com/F5OEO/csdr
-cd csdr || exit
-make && sudo make install
-cd ../ || exit
+# Terminal color helpers (ANSI escape sequences)
+COLOR_GREEN=$'\033[32m'
+COLOR_YELLOW=$'\033[33m'
+COLOR_BLUE=$'\033[34m'
+COLOR_RESET=$'\033[0m'
 
-cd src || exit
-git clone https://github.com/F5OEO/librpitx
-cd librpitx/src || exit
-if ldconfig -p | grep -q libbcm_host; then
-  make && sudo make install
-else
-  echo "$(tput setaf 3)[INFO]$(tput sgr0): libbcm_host not found, building librpitx as static library only..."
+# Status message helpers
+INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
+ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
+SEPARATOR='----------------------------------------------------'
+
+# Print a colored banner: print_banner <color_var> <message>
+print_banner() {
+  local color=$1
+  local message=$2
+  echo "${color}${SEPARATOR}${COLOR_RESET}"
+  echo "${color}${message}${COLOR_RESET}"
+  echo "${color}${SEPARATOR}${COLOR_RESET}"
+}
+
+# ----------------------------------------------------------
+# Installation script entry point
+# ----------------------------------------------------------
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
+
+# System dependency installation via package manager
+print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
+sudo apt update
+sudo apt install -y \
+  buffer \
+  cmake \
+  imagemagick \
+  libfftw3-dev \
+  libsndfile1-dev \
+  rtl-sdr
+print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
+
+# rpitx-ui dependencies installation from source in an independent subshell
+# Build dependencies in a temporary directory to keep the source tree clean
+BUILD_TMPDIR=$(mktemp -d)
+trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
+
+# Pinned dependency commits (to ensure reproducible builds)
+CSDR_COMMIT='69bfc62'
+LIBRPITX_COMMIT='f01bdb6'
+FT8_LIB_COMMIT='91f2e64'
+
+print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}..."
+(
+  cd "${BUILD_TMPDIR}"
+  git clone https://github.com/F5OEO/csdr
+  cd csdr
+  git checkout "${CSDR_COMMIT}"
+  make && sudo make install PREFIX=/usr
+)
+print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
+
+print_banner "$COLOR_YELLOW" "librpitx installation, based on commit ${LIBRPITX_COMMIT}..."
+(
+  cd "${BUILD_TMPDIR}"
+  git clone https://github.com/F5OEO/librpitx
+  cd librpitx
+  git checkout "${LIBRPITX_COMMIT}"
+  cd src
   make librpitx.a
   sudo mkdir -p /usr/local/include/librpitx
   sudo cp *.h /usr/local/include/librpitx/
   sudo install -m 0644 librpitx.a /usr/local/lib/librpitx.a
   sudo ldconfig
+)
+print_banner "$COLOR_YELLOW" 'librpitx installed successfully!'
+
+print_banner "$COLOR_YELLOW" "ft8_lib installation, based on commit ${FT8_LIB_COMMIT}..."
+(
+  cd "${BUILD_TMPDIR}"
+  git clone https://github.com/F5OEO/ft8_lib
+  cd ft8_lib
+  git checkout "${FT8_LIB_COMMIT}"
+  # Note: ft8_lib Makefile hardcodes install path to /usr/lib (PREFIX not supported)
+  make && sudo make install
+  sudo mkdir -p /usr/local/include/ft8_lib/ft8
+  sudo mkdir -p /usr/local/include/ft8_lib/common
+  sudo cp ft8/*.h /usr/local/include/ft8_lib/ft8/
+  sudo cp common/*.h /usr/local/include/ft8_lib/common/
+)
+print_banner "$COLOR_YELLOW" 'ft8_lib installed successfully!'
+
+# rpitx-ui build and installation with CMake
+print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j$(nproc)
+sudo cmake --install build --prefix /usr
+print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
+
+# Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
+echo "${INFO}: In order to run properly, rpitx-ui need to modify boot config."
+echo "${INFO}: Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
+if [ ! -f /boot/firmware/config.txt ]; then
+  echo "${INFO}: Raspberry Pi OS 11 or below detected, using /boot/config.txt"
+  FILE='/boot/config.txt'
+else
+  echo "${INFO}: Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
+  FILE='/boot/firmware/config.txt'
 fi
-cd ../../ || exit
+BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+END_MARKER='# END rpitx-ui related configuration'
+if grep -qF "$BEGIN_MARKER" "$FILE"; then
+  echo "${INFO}: rpitx-ui block already present in ${FILE}, skipping."
+else
+  printf '%s\n' "$BEGIN_MARKER" 'gpu_freq=250' 'force_turbo=1' "$END_MARKER" | sudo tee --append "$FILE" > /dev/null
+fi
+echo "${INFO}: Boot configuration updated successfully!"
 
-cd pift8
-git clone https://github.com/F5OEO/ft8_lib
-cd ft8_lib
-make && sudo make install
-cd ../
-make
-cd ../
+print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
-make
-sudo make install
-cd .. || exit
-
-RPITX_RESOURCES_LOCATION=$PWD/src/resources
-RPITX_CONFIGURATION_FILENAME=.rpitx_profile
-echo 'export RPITX_RESOURCES_LOCATION='$RPITX_RESOURCES_LOCATION'' > $RPITX_CONFIGURATION_FILENAME
-echo '# rpitx-ui package configuration' >> ~/.bashrc
-echo 'source '$PWD'/'$RPITX_CONFIGURATION_FILENAME'' >> ~/.bashrc
-
-echo "$(tput setaf 3)[INFO]$(tput sgr0): In order to run properly, rpitx-ui need to modify /boot/config.txt"
-echo "$(tput setaf 3)[INFO]$(tput sgr0): Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
-LINE='gpu_freq=250'
-FILE='/boot/config.txt'
-grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
-#PI4
-LINE='force_turbo=1'
-grep -qF "$LINE" "$FILE"  || echo "$LINE" | sudo tee --append "$FILE"
-
-sudo ln -sf "$PWD/easytest.sh" /usr/local/bin/rpitx-ui
-echo "$(tput setaf 3)[INFO]$(tput sgr0): Symbolic link created! You can now use the rpitx-ui command to run the application."
-
-echo "$(tput setaf 2)Installation completed!"
-
-echo "$(tput setaf 3)[ACTION REQUIRED]$(tput sgr0): A reboot is required to complete the installation!"
+# Prompt the user to reboot the system to apply boot configuration changes
+echo "${ACTION}: A reboot is required to complete the installation!"
 read -p "Execute now? (y/n): " choice
-
 # Check the user's choice
 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "$(tput setaf 3)[INFO]$(tput sgr0) Rebooting now..."
+  echo "${INFO}: Rebooting now..."
   sudo reboot
 else
-  echo "$(tput setaf 3)[INFO]$(tput sgr0) Reboot canceled."
+  echo "${INFO}: Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
 fi
-
