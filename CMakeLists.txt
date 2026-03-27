@@ -6,8 +6,34 @@ project(rpitx-ui
 )
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ----------------------------------------------------------
+# Raspberry Pi platform check
+# ----------------------------------------------------------
+if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+    message(FATAL_ERROR
+        "rpitx-ui requires a Raspberry Pi (ARM). "
+        "Detected processor: ${CMAKE_SYSTEM_PROCESSOR}"
+    )
+endif()
+
+if(EXISTS "/proc/device-tree/model")
+    file(READ "/proc/device-tree/model" RPI_MODEL)
+    if(NOT RPI_MODEL MATCHES "Raspberry Pi")
+        message(FATAL_ERROR
+            "rpitx-ui requires a Raspberry Pi. "
+            "Detected board: ${RPI_MODEL}"
+        )
+    endif()
+    message(STATUS "Board: ${RPI_MODEL}")
+else()
+    message(WARNING
+        "/proc/device-tree/model not found - cannot verify Raspberry Pi board. "
+        "Build may fail at runtime on non-RPi ARM hardware."
+    )
+endif()
 
 # Common compile options (optimization and -g handled by CMAKE_BUILD_TYPE)
 add_compile_options(
