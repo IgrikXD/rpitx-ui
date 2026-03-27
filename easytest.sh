@@ -111,7 +111,7 @@ do_stop_transmit()
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
 			4\ *) sudo killall testfmrds.sh >/dev/null 2>/dev/null ;;
 			5\ *) sudo killall testnfm.sh >/dev/null 2>/dev/null ;;
-			6\ *) sudo killall testssb.sh >/dev/null 2>/dev/null ;;
+			6\ *) sudo killall testusb.sh >/dev/null 2>/dev/null ;;
 			7\ *) sudo killall testlsb.sh >/dev/null 2>/dev/null ;;
 			8\ *) sudo killall testam.sh >/dev/null 2>/dev/null ;;
 			9\ *) sudo killall testfreedv.sh >/dev/null 2>/dev/null ;;
@@ -201,7 +201,7 @@ do_freq_setup
 			
 			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testssb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testusb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
