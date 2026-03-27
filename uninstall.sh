@@ -50,7 +50,7 @@ print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
 BINARIES=(
   corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
   piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
-  dvbrf piam pidcf77 pifm pissb rds_wav testssb
+  dvbrf piam pidcf77 pifm pissb rds_wav
 )
 
 for BIN in "${BINARIES[@]}"; do

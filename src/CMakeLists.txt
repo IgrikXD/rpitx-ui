@@ -141,10 +141,6 @@ target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pissb ssbgen/ssb_stream.c)
 target_link_libraries(pissb PRIVATE m)
 
-# --- testssb ---
-add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
-target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
-
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
 # ----------------------------------------------------------
@@ -156,7 +152,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm rds_wav testssb)
+foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm rds_wav)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
