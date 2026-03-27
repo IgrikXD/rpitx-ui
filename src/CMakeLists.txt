@@ -16,9 +16,6 @@ set(RPITX_COMMON_LIBS ${RPITX_LIBRARY} m rt pthread)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 find_library(FT8_LIBRARY ft8 REQUIRED)
 
-# Optional external libraries
-find_library(LIQUID_LIBRARY liquid)
-
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
@@ -140,14 +137,6 @@ target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-# --- pissb (requires libliquid) ---
-if(LIQUID_LIBRARY)
-    add_executable(pissb ssbgen/liquid_ssb.c)
-    target_link_libraries(pissb PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY} ${LIQUID_LIBRARY})
-else()
-    message(STATUS "libliquid not found - skipping pissb target")
-endif()
-
 # --- testssb ---
 add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
 target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
@@ -167,7 +156,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm pissb rds_wav testssb)
+foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm rds_wav testssb)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
