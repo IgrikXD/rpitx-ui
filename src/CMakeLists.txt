@@ -142,7 +142,7 @@ add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
 target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
 
 # --- ssb_stream (stdin int16 -> stdout float IQ, no buffering) ---
-add_executable(ssb_stream ssbgen/ssb_stream.c ssbgen/ssb_gen.c)
+add_executable(ssb_stream ssbgen/ssb_stream.c)
 target_link_libraries(ssb_stream PRIVATE m)
 
 # ----------------------------------------------------------
