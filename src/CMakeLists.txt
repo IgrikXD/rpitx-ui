@@ -72,6 +72,10 @@ target_link_libraries(piopera PRIVATE ${RPITX_COMMON_LIBS})
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE ${RPITX_COMMON_LIBS})
 
+# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+add_executable(pissb pissb/pissb.c)
+target_link_libraries(pissb PRIVATE m)
+
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
 target_link_libraries(pisstv PRIVATE ${RPITX_COMMON_LIBS})
@@ -136,10 +140,6 @@ target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 # --- pifm ---
 add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
-
-# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
-add_executable(pissb pissb/pissb.c)
-target_link_libraries(pissb PRIVATE m)
 
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
