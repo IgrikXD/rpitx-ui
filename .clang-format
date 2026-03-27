@@ -1,0 +1,19 @@
+BasedOnStyle: Google
+Language: Cpp
+
+UseTab: Never # Use spaces instead of tabs
+IndentWidth: 4 # Use 4 spaces for indentation
+
+ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: None # Never collapse short functions into a single line
+BinPackArguments: false # Do not pack many function arguments onto a single line
+
+NamespaceIndentation: All # Indent code inside all namespaces
+AccessModifierOffset: -4 # Align 'public:/private:/protected:' with the class keyword
+
+AlignConsecutiveAssignments: true # Vertically align consecutive assignment operators
+
+DerivePointerAlignment: false # Do not infer pointer style from existing code
+PointerAlignment: Left # Format pointers as 'int* ptr;' (star sticks to the type)
+
+SpaceBeforeRangeBasedForLoopColon: false # No space before colon in range-based for loops
