@@ -100,7 +100,7 @@ do_stop_transmit()
 	sudo killall freedv 2>/dev/null
 	sudo killall pisstv 2>/dev/null
 	sudo killall csdr 2>/dev/null
-	sudo killall ssb_stream 2>/dev/null
+	sudo killall pissb 2>/dev/null
 	sudo killall pirtty 2>/dev/null
 
 	case "$menuchoice" in

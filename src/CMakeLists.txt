@@ -137,13 +137,13 @@ target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
+# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+add_executable(pissb ssbgen/ssb_stream.c)
+target_link_libraries(pissb PRIVATE m)
+
 # --- testssb ---
 add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
 target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
-
-# --- ssb_stream (stdin int16 -> stdout float IQ, no buffering) ---
-add_executable(ssb_stream ssbgen/ssb_stream.c)
-target_link_libraries(ssb_stream PRIVATE m)
 
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
@@ -151,8 +151,8 @@ target_link_libraries(ssb_stream PRIVATE m)
 # Install required targets
 set(INSTALL_TARGETS 
     corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8 
-    piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
-    ssb_stream
+    piopera pirtty pissb pisstv pocsag rpitx sendiq sendook 
+    spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
