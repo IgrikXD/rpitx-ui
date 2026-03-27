@@ -147,7 +147,7 @@ do_freq_setup
 	"3 RfMyFace" "Snap with Raspicam and RF paint" \
 	"4 FmRds" "Broadcast modulation with RDS" \
 	"5 NFM" "Narrow band FM" \
-	"6 SSB" "Upper Side Band modulation" \
+	"6 USB" "Upper Side Band modulation" \
 	"7 LSB" "Lower Side Band modulation" \
 	"8 AM" "Amplitude Modulation (Poor quality)" \
 	"9 FreeDV" "Digital voice mode 800XA" \
