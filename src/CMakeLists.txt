@@ -17,6 +17,18 @@ find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 find_library(FT8_LIBRARY ft8 REQUIRED)
 
 # ----------------------------------------------------------
+# Shared DSP and I/O utility library
+# ----------------------------------------------------------
+add_library(rpitx_utils STATIC
+    utils/agc.cpp
+    utils/biquad.cpp
+    utils/hilbert.cpp
+    utils/wav_utils.cpp
+)
+target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+target_link_libraries(rpitx_utils PRIVATE m)
+
+# ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
 # --- corel8 ---
@@ -73,8 +85,11 @@ add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
-add_executable(pissb pissb/pissb.c)
-target_link_libraries(pissb PRIVATE m)
+add_executable(pissb
+    pissb/main.cpp
+    pissb/ssb_processor.cpp
+)
+target_link_libraries(pissb PRIVATE rpitx_utils)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
