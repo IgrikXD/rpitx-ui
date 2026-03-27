@@ -16,8 +16,17 @@ set(RPITX_COMMON_LIBS ${RPITX_LIBRARY} m rt pthread)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 find_library(FT8_LIBRARY ft8 REQUIRED)
 
-# Optional external libraries
-find_library(LIQUID_LIBRARY liquid)
+# ----------------------------------------------------------
+# Shared DSP and I/O utility library
+# ----------------------------------------------------------
+add_library(rpitx_utils STATIC
+    utils/agc.cpp
+    utils/biquad.cpp
+    utils/hilbert.cpp
+    utils/wav_utils.cpp
+)
+target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+target_link_libraries(rpitx_utils PRIVATE m)
 
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
@@ -74,6 +83,13 @@ target_link_libraries(piopera PRIVATE ${RPITX_COMMON_LIBS})
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE ${RPITX_COMMON_LIBS})
+
+# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+add_executable(pissb
+    pissb/main.cpp
+    pissb/ssb_processor.cpp
+)
+target_link_libraries(pissb PRIVATE rpitx_utils)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
@@ -140,29 +156,18 @@ target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-# --- pissb (requires libliquid) ---
-if(LIQUID_LIBRARY)
-    add_executable(pissb ssbgen/liquid_ssb.c)
-    target_link_libraries(pissb PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY} ${LIQUID_LIBRARY})
-else()
-    message(STATUS "libliquid not found - skipping pissb target")
-endif()
-
-# --- testssb ---
-add_executable(testssb ssbgen/test_ssb.c ssbgen/ssb_gen.c)
-target_link_libraries(testssb PRIVATE ${SNDFILE_LIBRARY} m)
-
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS 
     corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8 
-    piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
+    piopera pirtty pissb pisstv pocsag rpitx sendiq sendook 
+    spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm pissb rds_wav testssb)
+foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm rds_wav)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
@@ -192,8 +197,8 @@ endforeach()
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh
     sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-    testfreedv.sh testfsq.sh testnfm.sh testopera.sh testpocsag.sh
-    testrtty.sh testspectrum.sh testssb.sh testsstv.sh testvfo.sh
+    testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh testpocsag.sh
+    testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
     transponder.sh
 )
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.3'
+PACKAGE_VERSION='1.4'
 
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
@@ -50,7 +50,7 @@ print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
 BINARIES=(
   corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
   piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
-  dvbrf piam pidcf77 pifm pissb rds_wav testssb
+  dvbrf piam pidcf77 pifm pissb rds_wav
 )
 
 for BIN in "${BINARIES[@]}"; do
@@ -67,8 +67,8 @@ SCRIPTS=(
   rpitx-ui
   fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
   sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-  testfreedv.sh testfsq.sh testnfm.sh testopera.sh testpocsag.sh
-  testrtty.sh testspectrum.sh testssb.sh testsstv.sh testvfo.sh
+  testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh testpocsag.sh
+  testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
   transponder.sh
 )
 

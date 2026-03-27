@@ -1,0 +1,57 @@
+/**
+ * @file agc.h
+ * @brief Fast automatic gain control (AGC) for IQ signals.
+ */
+
+#pragma once
+
+#include "iq_sample.h"
+
+/**
+ * @brief Configuration parameters for the AGC.
+ *
+ * All fields must be explicitly provided - no domain-specific defaults.
+ *
+ * @code
+ * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f, .initialEnvelope = 1e-4f}};
+ * @endcode
+ */
+struct AgcConfig {
+    float target;           ///< Target output amplitude.
+    float attack;           ///< Envelope attack coefficient (fast response to level increase).
+    float decay;            ///< Envelope decay coefficient (slow response to level decrease).
+    float initialEnvelope;  ///< Initial envelope estimate.
+};
+
+/**
+ * @brief Fast envelope-tracking AGC for IQ sample pairs.
+ *
+ * Tracks the signal envelope with asymmetric attack/decay smoothing
+ * and applies gain to maintain a constant output amplitude.
+ *
+ * @code
+ * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f, .initialEnvelope = 1e-4f}};
+ * auto normalized{agc.process(iq)};
+ * @endcode
+ */
+class Agc {
+public:
+    /**
+     * @brief Construct an AGC with the given configuration.
+     * @param config AGC parameters.
+     */
+    explicit Agc(AgcConfig config);
+
+    /**
+     * @brief Apply AGC to an IQ sample pair.
+     * @param sample Input IQ sample.
+     * @return Gain-adjusted IQ sample.
+     */
+    [[nodiscard]] IqSample process(IqSample sample);
+
+private:
+    float target_;  ///< Target output amplitude.
+    float attack_;  ///< Envelope attack coefficient.
+    float decay_;   ///< Envelope decay coefficient.
+    float env_;     ///< Current envelope estimate.
+};

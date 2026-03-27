@@ -77,11 +77,11 @@ jobs:
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
               corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-              piopera pirtty pisstv pocsag rpitx sendiq sendook
+              piopera pirtty pissb pisstv pocsag rpitx sendiq sendook
               spectrumpaint tune
-              piam pidcf77 pifm rds_wav testssb
+              piam pidcf77 pifm rds_wav
             )
-            OPTIONAL_BINARIES=(dvbrf pissb)
+            OPTIONAL_BINARIES=(dvbrf)
 
             for bin in "${REQUIRED_BINARIES[@]}"; do
               test -x "/usr/bin/${bin}" || { echo "FAIL: required binary /usr/bin/${bin} missing"; exit 1; }
@@ -106,8 +106,8 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testnfm.sh testopera.sh
-              testpocsag.sh testrtty.sh testspectrum.sh testssb.sh
+              testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh
+              testpocsag.sh testrtty.sh testspectrum.sh testusb.sh
               testsstv.sh testvfo.sh transponder.sh
             )
 
@@ -168,9 +168,9 @@ jobs:
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
               corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-              piopera pirtty pisstv pocsag rpitx sendiq sendook
+              piopera pirtty pissb pisstv pocsag rpitx sendiq sendook
               spectrumpaint tune
-              dvbrf piam pidcf77 pifm pissb rds_wav testssb
+              dvbrf piam pidcf77 pifm rds_wav
             )
 
             for bin in "${ALL_BINARIES[@]}"; do
@@ -190,8 +190,8 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testnfm.sh testopera.sh
-              testpocsag.sh testrtty.sh testspectrum.sh testssb.sh
+              testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh
+              testpocsag.sh testrtty.sh testspectrum.sh testusb.sh
               testsstv.sh testvfo.sh transponder.sh
             )
 
