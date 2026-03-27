@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(rpitx-ui
-    VERSION 1.3
+    VERSION 1.4
     DESCRIPTION "RF transmitter for Raspberry Pi with improved UI functionality, built with CMake."
     LANGUAGES C CXX ASM
 )

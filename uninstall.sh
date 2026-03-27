@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.3'
+PACKAGE_VERSION='1.4'
 
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
