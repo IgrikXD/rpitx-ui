@@ -38,8 +38,8 @@ std::optional<CarryBuffer> skipWavHeader(std::FILE* input) {
             return std::nullopt;
         }
 
-        auto chunkSize = static_cast<uint32_t>(chunkHdr[4]) | (static_cast<uint32_t>(chunkHdr[5]) << 8) |
-                         (static_cast<uint32_t>(chunkHdr[6]) << 16) | (static_cast<uint32_t>(chunkHdr[7]) << 24);
+        auto chunkSize{static_cast<uint32_t>(chunkHdr[4]) | (static_cast<uint32_t>(chunkHdr[5]) << 8) |
+                       (static_cast<uint32_t>(chunkHdr[6]) << 16) | (static_cast<uint32_t>(chunkHdr[7]) << 24)};
 
         if (std::memcmp(chunkHdr, "data", 4) == 0) {
             return CarryBuffer{};
