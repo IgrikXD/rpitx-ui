@@ -112,12 +112,13 @@ do_stop_transmit()
 			4\ *) sudo killall testfmrds.sh >/dev/null 2>/dev/null ;;
 			5\ *) sudo killall testnfm.sh >/dev/null 2>/dev/null ;;
 			6\ *) sudo killall testssb.sh >/dev/null 2>/dev/null ;;
-			7\ *) sudo killall testam.sh >/dev/null 2>/dev/null ;;
-			8\ *) sudo killall testfreedv.sh >/dev/null 2>/dev/null ;;
-			9\ *) sudo killall testsstv.sh >/dev/null 2>/dev/null ;;
-			10\ *) sudo killall testpocsag.sh >/dev/null 2>/dev/null ;;
-			11\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
-			12\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
+			7\ *) sudo killall testlsb.sh >/dev/null 2>/dev/null ;;
+			8\ *) sudo killall testam.sh >/dev/null 2>/dev/null ;;
+			9\ *) sudo killall testfreedv.sh >/dev/null 2>/dev/null ;;
+			10\ *) sudo killall testsstv.sh >/dev/null 2>/dev/null ;;
+			11\ *) sudo killall testpocsag.sh >/dev/null 2>/dev/null ;;
+			12\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
+			13\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
 			
 	esac		
 }
@@ -147,12 +148,13 @@ do_freq_setup
 	"4 FmRds" "Broadcast modulation with RDS" \
 	"5 NFM" "Narrow band FM" \
 	"6 SSB" "Upper Side Band modulation" \
-	"7 AM" "Amplitude Modulation (Poor quality)" \
-	"8 FreeDV" "Digital voice mode 800XA" \
-	"9 SSTV" "Pattern picture" \
-	"10 Pocsag" "Pager message" \
-    "11 Opera" "Like morse but need Opera decoder" \
-    "12 RTTY" "Radioteletype" \
+	"7 LSB" "Lower Side Band modulation" \
+	"8 AM" "Amplitude Modulation (Poor quality)" \
+	"9 FreeDV" "Digital voice mode 800XA" \
+	"10 SSTV" "Pattern picture" \
+	"11 Pocsag" "Pager message" \
+    "12 Opera" "Like morse but need Opera decoder" \
+    "13 RTTY" "Radioteletype" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -206,40 +208,47 @@ do_freq_setup
 			
 			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
+				testlsb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
+				do_status
+			fi
+			;;
+			
+			8\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
+			if [ $abort_action -eq 0 ]; then
 				testam.sh "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" ".rf"
+			9\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" ".rf"
 			if [ $abort_action -eq 0 ]; then
 				testfreedv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
+			10\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
 			if [ $abort_action -eq 0 ]; then
 				testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			10\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
+			11\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
 				testpocsag.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
-			11\ *) do_enter_callsign
+			12\ *) do_enter_callsign
 			if [ $abort_action -eq 0 ]; then
 				testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
-			12\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
+			13\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
 				testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status

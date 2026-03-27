@@ -23,6 +23,8 @@ static void handle_signal(int sig) {
 #define AGC_DECAY  0.001f
 #define SAMPLE_RATE 48000.0f
 
+enum ssb_mode { SSB_USB, SSB_LSB };
+
 /* ---- Biquad IIR filter ---- */
 struct biquad {
     float b0, b1, b2, a1, a2;
@@ -162,6 +164,7 @@ static int skip_wav_header(int16_t *carry, int *carry_count) {
 
 static void process_sample(float sample, float *env,
                            struct biquad *hpf, struct biquad *lpf,
+                           enum ssb_mode mode,
                            float *out_I, float *out_Q) {
     /* Bandpass 300-3000 Hz */
     float filtered = biquad_process(hpf, sample);
@@ -170,6 +173,9 @@ static void process_sample(float sample, float *env,
     /* Hilbert transform -> analytic signal (I + jQ = USB) */
     float I, Q;
     hilbert_process(filtered, &I, &Q);
+
+    /* LSB: negate Q to mirror spectrum */
+    if (mode == SSB_LSB) Q = -Q;
 
     /* Fast AGC */
     float mag = sqrtf(I * I + Q * Q);
@@ -183,7 +189,7 @@ static void process_sample(float sample, float *env,
     *out_Q = Q * gain;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
     int16_t inbuf[BLOCK_SIZE];
     float outbuf[BLOCK_SIZE * 2];
     int n, i;
@@ -191,8 +197,12 @@ int main(void) {
     int16_t carry[2];
     int carry_count = 0;
     int need_header = 1;
+    enum ssb_mode mode = SSB_USB;
 
     struct biquad hpf, lpf;
+
+    if (argc > 1 && strcmp(argv[1], "-l") == 0)
+        mode = SSB_LSB;
 
     signal(SIGTERM, handle_signal);
     signal(SIGINT, handle_signal);
@@ -209,7 +219,7 @@ int main(void) {
             if (carry_count > 0) {
                 for (i = 0; i < carry_count; i++) {
                     float sample = (float)carry[i] / 32768.0f;
-                    process_sample(sample, &env, &hpf, &lpf,
+                    process_sample(sample, &env, &hpf, &lpf, mode,
                                    &outbuf[i * 2], &outbuf[i * 2 + 1]);
                 }
                 if (write_all(STDOUT_FILENO, outbuf, carry_count * 2 * sizeof(float)) < 0)
@@ -221,7 +231,7 @@ int main(void) {
 
         for (i = 0; i < n; i++) {
             float sample = (float)inbuf[i] / 32768.0f;
-            process_sample(sample, &env, &hpf, &lpf,
+            process_sample(sample, &env, &hpf, &lpf, mode,
                            &outbuf[i * 2], &outbuf[i * 2 + 1]);
         }
 

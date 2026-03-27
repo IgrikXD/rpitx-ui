@@ -186,7 +186,7 @@ endforeach()
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh
     sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-    testfreedv.sh testfsq.sh testnfm.sh testopera.sh testpocsag.sh
+    testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh testpocsag.sh
     testrtty.sh testspectrum.sh testssb.sh testsstv.sh testvfo.sh
     transponder.sh
 )
