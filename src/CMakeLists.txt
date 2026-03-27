@@ -138,7 +138,7 @@ add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
 # --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
-add_executable(pissb ssbgen/ssb_stream.c)
+add_executable(pissb pissb/pissb.c)
 target_link_libraries(pissb PRIVATE m)
 
 # ----------------------------------------------------------
