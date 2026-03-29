@@ -1,6 +1,12 @@
 /**
  * @file ssb_processor.h
  * @brief Single-sideband (SSB) modulation processor.
+ *
+ * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
+ * @date 27.03.2026
+ * @copyright GPL-3.0
+ * @see https://github.com/IgrikXD/rpitx-ui
+ * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
 #pragma once
