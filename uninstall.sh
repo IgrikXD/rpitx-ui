@@ -42,7 +42,7 @@ for arg in "$@"; do
     --purge-deps) PURGE_DEPS=true ;;
     -h|--help)
       echo "Usage: $0 [--purge-deps]"
-      echo "  --purge-deps  Also remove third-party dependencies (librpitx, ft8_lib, csdr)"
+      echo "  --purge-deps  Remove installed third-party dependencies (librpitx, ft8_lib, csdr)"
       exit 0
       ;;
     *) echo "Unknown option: $arg"; exit 1 ;;
