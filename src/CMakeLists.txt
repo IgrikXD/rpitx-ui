@@ -20,7 +20,7 @@ set(RPITX_COMMON_LIBS ${RPITX_LIBRARY} m rt pthread)
 
 # Required libraries (installed by install.sh)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
-find_library(FT8_LIBRARY ft8 REQUIRED)
+find_library(FT8_LIBRARY ft8)
 
 # ----------------------------------------------------------
 # Shared DSP and I/O utility library
@@ -37,15 +37,6 @@ target_link_libraries(rpitx_utils PRIVATE m)
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
-# --- corel8 ---
-add_executable(corel8 corel8/corel8.cpp)
-target_compile_options(corel8 PRIVATE -Wno-write-strings)
-target_link_libraries(corel8 PRIVATE ${RPITX_COMMON_LIBS})
-
-# --- foxhunt ---
-add_executable(foxhunt foxhunt/foxhunt.cpp)
-target_link_libraries(foxhunt PRIVATE ${RPITX_COMMON_LIBS})
-
 # --- freedv ---
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
@@ -57,10 +48,6 @@ target_link_libraries(morse PRIVATE ${RPITX_COMMON_LIBS})
 # --- pichirp ---
 add_executable(pichirp chirp/chirp.cpp)
 target_link_libraries(pichirp PRIVATE ${RPITX_COMMON_LIBS})
-
-# --- pifsq ---
-add_executable(pifsq fsq/pifsq.cpp)
-target_link_libraries(pifsq PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- pifmrds ---
 add_library(pifmrds_c_objs OBJECT
@@ -75,12 +62,6 @@ add_executable(pifmrds
 )
 target_compile_options(pifmrds PRIVATE -Wno-write-strings)
 target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
-
-# --- pift8 ---
-add_executable(pift8 pift8/pift8.cpp)
-target_compile_options(pift8 PRIVATE -Wno-write-strings)
-target_include_directories(pift8 PRIVATE /usr/local/include)
-target_link_libraries(pift8 PRIVATE ${FT8_LIBRARY} ${RPITX_COMMON_LIBS})
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -105,13 +86,6 @@ target_link_libraries(pisstv PRIVATE ${RPITX_COMMON_LIBS})
 add_executable(pocsag pocsag/pocsag.cpp)
 target_link_libraries(pocsag PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- rds_wav ---
-add_executable(rds_wav
-    pifmrds/rds_wav.c
-    $<TARGET_OBJECTS:pifmrds_c_objs>
-)
-target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
-
 # --- rpitx (v1 compat) ---
 add_executable(rpitx rpitxv1/rpitx.cpp)
 target_compile_options(rpitx PRIVATE -Wno-write-strings)
@@ -120,11 +94,6 @@ target_link_libraries(rpitx PRIVATE ${RPITX_COMMON_LIBS})
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
 target_link_libraries(sendiq PRIVATE ${RPITX_COMMON_LIBS})
-
-# --- sendook ---
-add_executable(sendook ook/sendook.cpp ook/optparse.c)
-target_compile_options(sendook PRIVATE -Wno-write-strings)
-target_link_libraries(sendook PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- spectrumpaint ---
 add_executable(spectrumpaint spectrumpaint/spectrum.cpp)
@@ -135,8 +104,13 @@ add_executable(tune tune.cpp)
 target_link_libraries(tune PRIVATE ${RPITX_COMMON_LIBS})
 
 # ----------------------------------------------------------
-# Optional targets (not used by shell scripts directly)
+# Optional targets (not used by easytest.sh directly)
 # ----------------------------------------------------------
+# --- corel8 ---
+add_executable(corel8 corel8/corel8.cpp)
+target_compile_options(corel8 PRIVATE -Wno-write-strings)
+target_link_libraries(corel8 PRIVATE ${RPITX_COMMON_LIBS})
+
 # --- dvbrf (ARM32 assembly - only works on 32-bit ARM) ---
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     add_executable(dvbrf
@@ -150,6 +124,10 @@ else()
     message(STATUS "Non-ARM platform - skipping dvbrf target (requires ARM assembly)")
 endif()
 
+# --- foxhunt ---
+add_executable(foxhunt foxhunt/foxhunt.cpp)
+target_link_libraries(foxhunt PRIVATE ${RPITX_COMMON_LIBS})
+
 # --- pidcf77 ---
 add_executable(pidcf77 dcf77/pidcf77.c)
 target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
@@ -162,18 +140,43 @@ target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pifm fm/pifm.c)
 target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
+# --- pifsq ---
+add_executable(pifsq fsq/pifsq.cpp)
+target_link_libraries(pifsq PRIVATE ${RPITX_COMMON_LIBS})
+
+# --- pift8 ---
+if(FT8_LIBRARY)
+    add_executable(pift8 pift8/pift8.cpp)
+    target_compile_options(pift8 PRIVATE -Wno-write-strings)
+    target_include_directories(pift8 PRIVATE /usr/local/include)
+    target_link_libraries(pift8 PRIVATE ${FT8_LIBRARY} ${RPITX_COMMON_LIBS})
+else()
+    message(STATUS "libft8 not found - skipping pift8 target")
+endif()
+
+# --- rds_wav ---
+add_executable(rds_wav
+    pifmrds/rds_wav.c
+    $<TARGET_OBJECTS:pifmrds_c_objs>
+)
+target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
+
+# --- sendook ---
+add_executable(sendook ook/sendook.cpp ook/optparse.c)
+target_compile_options(sendook PRIVATE -Wno-write-strings)
+target_link_libraries(sendook PRIVATE ${RPITX_COMMON_LIBS})
+
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS 
-    corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8 
-    piopera pirtty pissb pisstv pocsag rpitx sendiq sendook 
-    spectrumpaint tune
+    freedv morse pichirp pifmrds piopera pirtty pissb 
+    pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf piam pidcf77 pifm rds_wav)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt piam pidcf77 pifm pifsq pift8 rds_wav sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
