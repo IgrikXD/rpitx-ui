@@ -20,7 +20,6 @@ set(RPITX_COMMON_LIBS ${RPITX_LIBRARY} m rt pthread)
 
 # Required libraries (installed by install.sh)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
-find_library(FT8_LIBRARY ft8)
 
 # ----------------------------------------------------------
 # Shared DSP and I/O utility library
@@ -106,65 +105,66 @@ target_link_libraries(tune PRIVATE ${RPITX_COMMON_LIBS})
 # ----------------------------------------------------------
 # Optional targets (not used by easytest.sh directly)
 # ----------------------------------------------------------
-# --- corel8 ---
-add_executable(corel8 corel8/corel8.cpp)
-target_compile_options(corel8 PRIVATE -Wno-write-strings)
-target_link_libraries(corel8 PRIVATE ${RPITX_COMMON_LIBS})
+if(BUILD_OPTIONAL_TARGETS)
+    # --- corel8 ---
+    add_executable(corel8 corel8/corel8.cpp)
+    target_compile_options(corel8 PRIVATE -Wno-write-strings)
+    target_link_libraries(corel8 PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- dvbrf (ARM32 assembly - only works on 32-bit ARM) ---
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    add_executable(dvbrf
-        dvb/dvbrf.cpp
-        dvb/dvbs2arm_1v30.s
-        dvb/dvbsenco8.s
-        dvb/fec100.c
-    )
-    target_link_libraries(dvbrf PRIVATE ${RPITX_COMMON_LIBS})
-else()
-    message(STATUS "Non-ARM platform - skipping dvbrf target (requires ARM assembly)")
-endif()
+    # --- dvbrf (ARM32 assembly - only works on 32-bit ARM) ---
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+        add_executable(dvbrf
+            dvb/dvbrf.cpp
+            dvb/dvbs2arm_1v30.s
+            dvb/dvbsenco8.s
+            dvb/fec100.c
+        )
+        target_link_libraries(dvbrf PRIVATE ${RPITX_COMMON_LIBS})
+    else()
+        message(STATUS "Non-ARM platform - skipping dvbrf target (requires ARM assembly)")
+    endif()
 
-# --- foxhunt ---
-add_executable(foxhunt foxhunt/foxhunt.cpp)
-target_link_libraries(foxhunt PRIVATE ${RPITX_COMMON_LIBS})
+    # --- foxhunt ---
+    add_executable(foxhunt foxhunt/foxhunt.cpp)
+    target_link_libraries(foxhunt PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- pidcf77 ---
-add_executable(pidcf77 dcf77/pidcf77.c)
-target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
+    # --- pidcf77 ---
+    add_executable(pidcf77 dcf77/pidcf77.c)
+    target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- piam ---
-add_executable(piam am/piam.c)
-target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+    # --- piam ---
+    add_executable(piam am/piam.c)
+    target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-# --- pifm ---
-add_executable(pifm fm/pifm.c)
-target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+    # --- pifm ---
+    add_executable(pifm fm/pifm.c)
+    target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 
-# --- pifsq ---
-add_executable(pifsq fsq/pifsq.cpp)
-target_link_libraries(pifsq PRIVATE ${RPITX_COMMON_LIBS})
+    # --- pifsq ---
+    add_executable(pifsq fsq/pifsq.cpp)
+    target_link_libraries(pifsq PRIVATE ${RPITX_COMMON_LIBS})
 
-# --- pift8 ---
-if(FT8_LIBRARY)
+    # --- pift8 ---
+    find_library(FT8_LIBRARY ft8 REQUIRED)
     add_executable(pift8 pift8/pift8.cpp)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
     target_include_directories(pift8 PRIVATE /usr/local/include)
     target_link_libraries(pift8 PRIVATE ${FT8_LIBRARY} ${RPITX_COMMON_LIBS})
+
+    # --- rds_wav ---
+    add_executable(rds_wav
+        pifmrds/rds_wav.c
+        $<TARGET_OBJECTS:pifmrds_c_objs>
+    )
+    target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
+
+    # --- sendook ---
+    add_executable(sendook ook/sendook.cpp ook/optparse.c)
+    target_compile_options(sendook PRIVATE -Wno-write-strings)
+    target_link_libraries(sendook PRIVATE ${RPITX_COMMON_LIBS})
 else()
-    message(STATUS "libft8 not found - skipping pift8 target")
+    message(STATUS "Optional targets build disabled - skipping targets not used by easytest.sh")
 endif()
-
-# --- rds_wav ---
-add_executable(rds_wav
-    pifmrds/rds_wav.c
-    $<TARGET_OBJECTS:pifmrds_c_objs>
-)
-target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
-
-# --- sendook ---
-add_executable(sendook ook/sendook.cpp ook/optparse.c)
-target_compile_options(sendook PRIVATE -Wno-write-strings)
-target_link_libraries(sendook PRIVATE ${RPITX_COMMON_LIBS})
 
 # ----------------------------------------------------------
 # Install compiled binaries to /usr/bin
@@ -196,24 +196,38 @@ install(PROGRAMS ${CMAKE_SOURCE_DIR}/easytest.sh
 )
 
 # UI-related scripts in the source root
-set(ROOT_SCRIPTS ft8menu.sh rtlmenu.sh)
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/rtlmenu.sh DESTINATION bin)
 
-foreach(SCRIPT ${ROOT_SCRIPTS})
-    install(PROGRAMS ${CMAKE_SOURCE_DIR}/${SCRIPT} DESTINATION bin)
-endforeach()
+if(BUILD_OPTIONAL_TARGETS)
+    install(PROGRAMS ${CMAKE_SOURCE_DIR}/ft8menu.sh DESTINATION bin)
+else()
+    message(STATUS "Skipping ft8menu.sh installation (requires pift8 from optional targets)")
+endif()
 
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh
-    sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-    testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
-    testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
-    transponder.sh
+    sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh
+    testfreedv.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
+    testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh
+    testvfo.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/${SCRIPT} DESTINATION bin)
 endforeach()
+
+# Helper scripts that depend on optional binaries (foxhunt, pifsq)
+if(BUILD_OPTIONAL_TARGETS)
+    install(PROGRAMS
+        ${CMAKE_SOURCE_DIR}/scripts/testfoxhunt.sh
+        ${CMAKE_SOURCE_DIR}/scripts/testfsq.sh
+        DESTINATION bin
+    )
+else()
+    message(STATUS "Skipping testfoxhunt.sh installation (requires foxhunt from optional targets)")
+    message(STATUS "Skipping testfsq.sh installation (requires pifsq from optional targets)")
+endif()
 
 # ----------------------------------------------------------
 # Install resource files to /usr/share/rpitx-ui

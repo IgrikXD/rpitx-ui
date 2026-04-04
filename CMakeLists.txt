@@ -41,10 +41,16 @@ else()
     )
 endif()
 
+# ----------------------------------------------------------
+# Build parameters
+# ----------------------------------------------------------
 # Common compile options (optimization and -g handled by CMAKE_BUILD_TYPE)
 add_compile_options(
     -Wall
     -Wno-unused-variable
 )
+
+# Option responsible for building optional targets (not used by easytest.sh directly)
+option(BUILD_OPTIONAL_TARGETS "Build optional targets not used by easytest.sh" ON)
 
 add_subdirectory(src)

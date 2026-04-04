@@ -30,6 +30,24 @@ print_banner() {
 }
 
 # ----------------------------------------------------------
+# Command-line options
+# ----------------------------------------------------------
+# Default: build all project targets and their dependencies
+BUILD_OPTIONAL_TARGETS=true
+
+for arg in "$@"; do
+  case "$arg" in
+    --skip-optional) BUILD_OPTIONAL_TARGETS=false ;;
+    -h|--help)
+      echo "Usage: $0 [--skip-optional]"
+      echo "  --skip-optional  Build only targets used directly by easytest.sh and available through the UI"
+      exit 0
+      ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
+
+# ----------------------------------------------------------
 # Installation script entry point
 # ----------------------------------------------------------
 # Exit immediately if a command exits with a non-zero status
@@ -84,24 +102,33 @@ print_banner "$COLOR_YELLOW" "librpitx installation, based on commit ${LIBRPITX_
 )
 print_banner "$COLOR_YELLOW" 'librpitx installed successfully!'
 
-print_banner "$COLOR_YELLOW" "ft8_lib installation, based on commit ${FT8_LIB_COMMIT}..."
-(
-  cd "${BUILD_TMPDIR}"
-  git clone https://github.com/F5OEO/ft8_lib
-  cd ft8_lib
-  git checkout "${FT8_LIB_COMMIT}"
-  # Note: ft8_lib Makefile hardcodes install path to /usr/lib (PREFIX not supported)
-  make && sudo make install
-  sudo mkdir -p /usr/local/include/ft8_lib/ft8
-  sudo mkdir -p /usr/local/include/ft8_lib/common
-  sudo cp ft8/*.h /usr/local/include/ft8_lib/ft8/
-  sudo cp common/*.h /usr/local/include/ft8_lib/common/
-)
-print_banner "$COLOR_YELLOW" 'ft8_lib installed successfully!'
+if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
+  print_banner "$COLOR_YELLOW" "ft8_lib installation, based on commit ${FT8_LIB_COMMIT}..."
+  (
+    cd "${BUILD_TMPDIR}"
+    git clone https://github.com/F5OEO/ft8_lib
+    cd ft8_lib
+    git checkout "${FT8_LIB_COMMIT}"
+    # Note: ft8_lib Makefile hardcodes install path to /usr/lib (PREFIX not supported)
+    make && sudo make install
+    sudo mkdir -p /usr/local/include/ft8_lib/ft8
+    sudo mkdir -p /usr/local/include/ft8_lib/common
+    sudo cp ft8/*.h /usr/local/include/ft8_lib/ft8/
+    sudo cp common/*.h /usr/local/include/ft8_lib/common/
+  )
+  print_banner "$COLOR_YELLOW" 'ft8_lib installed successfully!'
+else
+  echo "${INFO} Skipping ft8_lib installation (optional targets build disabled)"
+fi
 
 # rpitx-ui build and installation with CMake
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."
-cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
+  CMAKE_OPTIONAL=ON
+else
+  CMAKE_OPTIONAL=OFF
+fi
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_OPTIONAL_TARGETS="${CMAKE_OPTIONAL}"
 cmake --build build -j$(nproc)
 sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
