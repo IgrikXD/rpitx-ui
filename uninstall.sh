@@ -163,7 +163,6 @@ if [ -f "$FILE" ]; then
     echo "${INFO} No rpitx-ui block found in ${FILE}, nothing to revert."
   fi
 fi
-echo "${INFO} Boot configuration reverted!"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} has been uninstalled successfully!"
 
