@@ -6,6 +6,8 @@ RESOURCES_LOCATION="${RPITX_RESOURCES_LOCATION:-/usr/share/rpitx-ui}"
 DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
+DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
+DEFAULT_CW_WPM=5
 LAST_ITEM="0 Tune"
 
 do_check_file_existance() 
@@ -71,6 +73,24 @@ fi
 
 }
 
+do_enter_wpm()
+{
+
+if CW_WPM=$(whiptail --inputbox "Enter CW speed (WPM):" 8 78 $DEFAULT_CW_WPM --title "CW speed" 3>&1 1>&2 2>&3); then
+	abort_action=0
+	if [ -z "$CW_WPM" ]; then
+		whiptail --title "Error!" --msgbox "Empty WPM value!" 8 78
+		abort_action=1
+	elif ! [[ "$CW_WPM" =~ ^[0-9]+$ ]]; then
+		whiptail --title "Error!" --msgbox "WPM must be a positive integer!" 8 78
+		abort_action=1
+	fi
+else
+	abort_action=1
+fi
+
+}
+
 do_enter_callsign()
 {
 
@@ -89,19 +109,20 @@ fi
 
 do_stop_transmit()
 {
-	sudo killall tune 2>/dev/null
-	sudo killall pichirp 2>/dev/null
-	sudo killall spectrumpaint 2>/dev/null
-	sudo killall pifmrds 2>/dev/null
-	sudo killall sendiq 2>/dev/null
-	sudo killall pocsag 2>/dev/null
-	sudo killall piopera 2>/dev/null
-	sudo killall rpitx 2>/dev/null
-	sudo killall freedv 2>/dev/null
-	sudo killall pisstv 2>/dev/null
 	sudo killall csdr 2>/dev/null
-	sudo killall pissb 2>/dev/null
+	sudo killall freedv 2>/dev/null
+	sudo killall pichirp 2>/dev/null
+	sudo killall pifmrds 2>/dev/null
+	sudo killall pimorse 2>/dev/null
+	sudo killall piopera 2>/dev/null
 	sudo killall pirtty 2>/dev/null
+	sudo killall pissb 2>/dev/null
+	sudo killall pisstv 2>/dev/null
+	sudo killall pocsag 2>/dev/null
+	sudo killall rpitx 2>/dev/null
+	sudo killall sendiq 2>/dev/null
+	sudo killall spectrumpaint 2>/dev/null
+	sudo killall tune 2>/dev/null
 
 	case "$menuchoice" in
 			
@@ -119,6 +140,7 @@ do_stop_transmit()
 			11\ *) sudo killall testpocsag.sh >/dev/null 2>/dev/null ;;
 			12\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
 			13\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
+			14\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
 			
 	esac		
 }
@@ -155,6 +177,7 @@ do_freq_setup
 	"11 Pocsag" "Pager message" \
     "12 Opera" "Like morse but need Opera decoder" \
     "13 RTTY" "Radioteletype" \
+    "14 CW" "Morse code" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -252,6 +275,16 @@ do_freq_setup
 			if [ $abort_action -eq 0 ]; then
 				testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
+			fi
+			;;
+
+			14\ *) do_enter_message "CW" "$DEFAULT_CW_MESSAGE"
+			if [ $abort_action -eq 0 ]; then
+				do_enter_wpm
+				if [ $abort_action -eq 0 ]; then
+					testmorse.sh "$OUTPUT_FREQ""e6" "$CW_WPM" "$MESSAGE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			

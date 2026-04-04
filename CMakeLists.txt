@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 project(rpitx-ui
-    VERSION 1.4
+    VERSION 1.5
     DESCRIPTION "RF transmitter for Raspberry Pi with improved UI functionality, built with CMake."
     LANGUAGES C CXX ASM
 )
@@ -41,10 +41,16 @@ else()
     )
 endif()
 
+# ----------------------------------------------------------
+# Build parameters
+# ----------------------------------------------------------
 # Common compile options (optimization and -g handled by CMAKE_BUILD_TYPE)
 add_compile_options(
     -Wall
     -Wno-unused-variable
 )
+
+# Option responsible for building optional targets (not used by easytest.sh directly)
+option(BUILD_OPTIONAL_TARGETS "Build optional targets not used by easytest.sh" ON)
 
 add_subdirectory(src)

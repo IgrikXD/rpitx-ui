@@ -78,10 +78,9 @@ jobs:
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
-              corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-              piopera pirtty pissb pisstv pocsag rpitx sendiq sendook
-              spectrumpaint tune
-              piam pidcf77 pifm rds_wav
+              corel8 foxhunt freedv piam pichirp pidcf77 pifm pifmrds
+              pifsq pift8 pimorse piopera pirtty pissb pisstv pocsag rds_wav 
+              rpitx sendiq sendook spectrumpaint tune
             )
             OPTIONAL_BINARIES=(dvbrf)
 
@@ -108,9 +107,9 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh
-              testpocsag.sh testrtty.sh testspectrum.sh testusb.sh
-              testsstv.sh testvfo.sh transponder.sh
+              testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh 
+              testopera.sh testpocsag.sh testrtty.sh testspectrum.sh 
+              testusb.sh testsstv.sh testvfo.sh transponder.sh
             )
 
             for s in "${INSTALLED_SCRIPTS[@]}"; do
@@ -169,10 +168,9 @@ jobs:
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
-              corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-              piopera pirtty pissb pisstv pocsag rpitx sendiq sendook
-              spectrumpaint tune
-              dvbrf piam pidcf77 pifm rds_wav
+              corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds
+              pifsq pift8 pimorse piopera pirtty pissb pisstv pocsag rds_wav
+              rpitx sendiq sendook spectrumpaint tune
             )
 
             for bin in "${ALL_BINARIES[@]}"; do
@@ -192,9 +190,9 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh
-              testpocsag.sh testrtty.sh testspectrum.sh testusb.sh
-              testsstv.sh testvfo.sh transponder.sh
+              testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh 
+              testopera.sh testpocsag.sh testrtty.sh testspectrum.sh 
+              testusb.sh testsstv.sh testvfo.sh transponder.sh
             )
 
             for s in "${ALL_SCRIPTS[@]}"; do

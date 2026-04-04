@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.4'
+PACKAGE_VERSION='1.5'
 
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
@@ -42,10 +42,10 @@ for arg in "$@"; do
     --purge-deps) PURGE_DEPS=true ;;
     -h|--help)
       echo "Usage: $0 [--purge-deps]"
-      echo "  --purge-deps  Also remove third-party dependencies (librpitx, ft8_lib, csdr)"
+      echo "  --purge-deps  Remove installed third-party dependencies (librpitx, ft8_lib, csdr)"
       exit 0
       ;;
-    *) echo "Unknown option: $arg"; exit 1 ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
   esac
 done
 
@@ -54,18 +54,18 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
 BINARIES=(
-  corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-  piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
-  dvbrf piam pidcf77 pifm pissb rds_wav
+  corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds pifsq pift8
+  pimorse piopera pirtty pissb pisstv pocsag rds_wav rpitx sendiq sendook
+  spectrumpaint tune
 )
 
 for BIN in "${BINARIES[@]}"; do
   if [ -f "/usr/bin/${BIN}" ]; then
     sudo rm -f "/usr/bin/${BIN}"
-    echo "${INFO}: Removed /usr/bin/${BIN}"
+    echo "${INFO} Removed /usr/bin/${BIN}"
   fi
 done
-echo "${INFO}: Binaries removed!"
+echo "${INFO} Binaries removed!"
 
 # Remove rpitx-ui shell scripts from /usr/bin
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui shell scripts...'
@@ -73,76 +73,76 @@ SCRIPTS=(
   rpitx-ui
   fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
   sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-  testfreedv.sh testfsq.sh testlsb.sh testnfm.sh testopera.sh testpocsag.sh
-  testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
+  testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
+  testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
   transponder.sh
 )
 
 for SCRIPT in "${SCRIPTS[@]}"; do
   if [ -f "/usr/bin/${SCRIPT}" ]; then
     sudo rm -f "/usr/bin/${SCRIPT}"
-    echo "${INFO}: Removed /usr/bin/${SCRIPT}"
+    echo "${INFO} Removed /usr/bin/${SCRIPT}"
   fi
 done
-echo "${INFO}: Shell scripts removed!"
+echo "${INFO} Shell scripts removed!"
 
 # Remove rpitx-ui resource files from /usr/share/rpitx-ui
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui resources...'
 if [ -d /usr/share/rpitx-ui ]; then
   sudo rm -rf /usr/share/rpitx-ui
-  echo "${INFO}: Removed /usr/share/rpitx-ui"
+  echo "${INFO} Removed /usr/share/rpitx-ui"
 fi
-echo "${INFO}: Resources removed!"
+echo "${INFO} Resources removed!"
 
 # Remove third-party dependencies only when --purge-deps is specified
 if [ "$PURGE_DEPS" = true ]; then
   print_banner "$COLOR_YELLOW" 'Removing third-party dependencies (--purge-deps)...'
 
   # Remove librpitx
-  echo "${INFO}: Removing librpitx..."
+  echo "${INFO} Removing librpitx..."
   if [ -d /usr/local/include/librpitx ]; then
     sudo rm -rf /usr/local/include/librpitx
-    echo "${INFO}: Removed /usr/local/include/librpitx/"
+    echo "${INFO} Removed /usr/local/include/librpitx/"
   fi
 
   if [ -f /usr/local/lib/librpitx.a ]; then
     sudo rm -f /usr/local/lib/librpitx.a
-    echo "${INFO}: Removed /usr/local/lib/librpitx.a"
+    echo "${INFO} Removed /usr/local/lib/librpitx.a"
   fi
 
   # Remove ft8_lib
-  echo "${INFO}: Removing ft8_lib..."
+  echo "${INFO} Removing ft8_lib..."
   if [ -f /usr/lib/libft8.a ]; then
     sudo rm -f /usr/lib/libft8.a
-    echo "${INFO}: Removed /usr/lib/libft8.a"
+    echo "${INFO} Removed /usr/lib/libft8.a"
   fi
 
   if [ -d /usr/local/include/ft8_lib ]; then
     sudo rm -rf /usr/local/include/ft8_lib
-    echo "${INFO}: Removed /usr/local/include/ft8_lib/"
+    echo "${INFO} Removed /usr/local/include/ft8_lib/"
   fi
 
   # Remove csdr
-  echo "${INFO}: Removing csdr..."
+  echo "${INFO} Removing csdr..."
   for BIN in csdr csdr-fm nmux; do
     if [ -f "/usr/bin/${BIN}" ]; then
       sudo rm -f "/usr/bin/${BIN}"
-      echo "${INFO}: Removed /usr/bin/${BIN}"
+      echo "${INFO} Removed /usr/bin/${BIN}"
     fi
   done
 
   for LIB in /usr/lib/libcsdr.so*; do
     if [ -f "${LIB}" ]; then
       sudo rm -f "${LIB}"
-      echo "${INFO}: Removed ${LIB}"
+      echo "${INFO} Removed ${LIB}"
     fi
   done
 
   sudo ldconfig
-  echo "${INFO}: Third-party dependencies removed!"
+  echo "${INFO} Third-party dependencies removed!"
 else
-  echo "${INFO}: Skipping third-party dependencies (librpitx, ft8_lib, csdr)."
-  echo "${INFO}: Use --purge-deps to remove them."
+  echo "${INFO} Skipping third-party dependencies (librpitx, ft8_lib, csdr)."
+  echo "${INFO} Use --purge-deps to remove them."
 fi
 
 # Revert boot configuration changes
@@ -158,22 +158,21 @@ if [ -f "$FILE" ]; then
   END_MARKER='# END rpitx-ui related configuration'
   if grep -qF "$BEGIN_MARKER" "$FILE"; then
     sudo sed -i "/^${BEGIN_MARKER}$/,/^${END_MARKER}$/d" "$FILE"
-    echo "${INFO}: Removed rpitx-ui block from ${FILE}"
+    echo "${INFO} Removed rpitx-ui block from ${FILE}"
   else
-    echo "${INFO}: No rpitx-ui block found in ${FILE}, nothing to revert."
+    echo "${INFO} No rpitx-ui block found in ${FILE}, nothing to revert."
   fi
 fi
-echo "${INFO}: Boot configuration reverted!"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} has been uninstalled successfully!"
 
 # Prompt the user to reboot the system to apply boot configuration changes
-echo "${ACTION}: A reboot is recommended to apply boot configuration changes."
+echo "${ACTION} A reboot is recommended to apply boot configuration changes."
 read -p "Reboot now? (y/n): " choice
 # Check the user's choice
 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO}: Rebooting now..."
+  echo "${INFO} Rebooting now..."
   sudo reboot
 else
-  echo "${INFO}: Reboot canceled. Please remember to reboot as soon as possible."
+  echo "${INFO} Reboot canceled. Please remember to reboot as soon as possible."
 fi

@@ -13,7 +13,7 @@
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.4-blue.svg?longCache=true&style=for-the-badge) 
+[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.5-blue.svg?longCache=true&style=for-the-badge) 
 
 ## Installation process
 Clone the **rpitx-ui** repository:
@@ -26,6 +26,11 @@ Optionally, you can add any resource files you need to the [`src/resources`](./s
 Install the **rpitx-ui** package:
 ```sh
 ./install.sh
+```
+
+To build only the core targets used directly by the `rpitx-ui` interface (_skipping optional binaries and the ft8_lib dependency_), use the `--skip-optional` flag:
+```sh
+./install.sh --skip-optional
 ```
 
 To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
@@ -59,16 +64,21 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 [`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transmitting. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**USB**_", "_**LSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files with the extension required for a specific operating mode: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select a file with the `.jpg` extension.  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
-Added the ability to send a custom message when working in the "_**Pocsag**_" and "_**RTTY**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
+Added the ability to send a custom message when working in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-messages](./doc/rpitx-ui-custom-messages.gif)
 
 Added the ability to specify your call sign when working in "_**Opera**_" mode. If you enter an empty call sign, an error message will be displayed and the transmission will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
 
+Added "_**CW**_" mode for Morse code transmission. You can enter a custom message and specify the transmission speed in words per minute (_WPM_). If you enter an empty message or WPM value, an error message will be displayed and the transmission will not start.  
+![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
+
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
 ### Changes to core functionality
 SSB modulation has been completely rewritten from scratch. In the original **[rpitx]**, the SSB option in `easytest.sh` suffered from a significant delay between initiating transmission and the actual start of the RF output, making it impractical for real use. This has been replaced with a standalone [`pissb`](./src/pissb/) binary that handles the entire DSP chain internally without any external dependencies: a 300-3000 Hz bandpass filter (_biquad HPF + LPF_), a 255-tap Blackman-windowed Hilbert transform for analytic signal generation, and an asymmetric attack/decay AGC. The former single "_**SSB**_" menu entry has been split into separate "_**USB**_" (_Upper Side Band_) and "_**LSB**_" (_Lower Side Band_) options in [`easytest.sh`](./easytest.sh), which allows you direct sideband selection for transmission.
+
+The Morse code transmitter has been rewritten from scratch and renamed from `morse` to [`pimorse`](./src/pimorse/) to align with the project's naming convention (_pifm, pissb, pirtty, etc._). The original implementation used C headers, `printf` for output, `atof` for argument parsing (_which silently returns 0 on invalid input_), and a fixed-size `char cw[23]` buffer for CW conversion that could overflow on longer patterns. The new version uses modern C++ features: `std::stof` with exception handling for robust argument parsing, `std::optional` for safe Morse table lookup instead of raw `NULL` pointers, `std::string` for dynamically sized CW buffers, and named `constexpr` constants instead of magic numbers. The Morse encoding logic (_ITU lookup table and CW OOK binary conversion_) has been extracted into reusable [`morse_encoder`](./src/utils/morse_encoder.h) utilities in the shared `rpitx_utils` library.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
