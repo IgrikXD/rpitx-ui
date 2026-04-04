@@ -64,7 +64,7 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 [`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transmitting. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**USB**_", "_**LSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files with the extension required for a specific operating mode: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select a file with the `.jpg` extension.  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
-Added the ability to send a custom message when working in the "_**Pocsag**_", "_**RTTY**_" and _**CW**_ modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
+Added the ability to send a custom message when working in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-messages](./doc/rpitx-ui-custom-messages.gif)
 
 Added the ability to specify your call sign when working in "_**Opera**_" mode. If you enter an empty call sign, an error message will be displayed and the transmission will not start, and you will be returned to the main menu.  
