@@ -28,6 +28,11 @@ Install the **rpitx-ui** package:
 ./install.sh
 ```
 
+To build only the core targets used directly by the `rpitx-ui` interface (_skipping optional binaries and the ft8_lib dependency_), use the `--skip-optional` flag:
+```sh
+./install.sh --skip-optional
+```
+
 To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
 
 ## Uninstallation process
@@ -64,6 +69,9 @@ Added the ability to send a custom message when working in the "_**Pocsag**_" an
 
 Added the ability to specify your call sign when working in "_**Opera**_" mode. If you enter an empty call sign, an error message will be displayed and the transmission will not start, and you will be returned to the main menu.  
 ![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
+
+Added "_**CW**_" mode for Morse code transmission. You can enter a custom message and specify the transmission speed in words per minute (_WPM_). If you enter an empty message or WPM value, an error message will be displayed and the transmission will not start.  
+![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
 
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
