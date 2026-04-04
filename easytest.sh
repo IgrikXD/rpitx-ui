@@ -106,20 +106,20 @@ fi
 
 do_stop_transmit()
 {
-	sudo killall tune 2>/dev/null
-	sudo killall pichirp 2>/dev/null
-	sudo killall spectrumpaint 2>/dev/null
-	sudo killall pifmrds 2>/dev/null
-	sudo killall sendiq 2>/dev/null
-	sudo killall pocsag 2>/dev/null
-	sudo killall piopera 2>/dev/null
-	sudo killall rpitx 2>/dev/null
-	sudo killall freedv 2>/dev/null
-	sudo killall pisstv 2>/dev/null
 	sudo killall csdr 2>/dev/null
-	sudo killall pissb 2>/dev/null
+	sudo killall freedv 2>/dev/null
+	sudo killall pichirp 2>/dev/null
+	sudo killall pifmrds 2>/dev/null
+	sudo killall pimorse 2>/dev/null
+	sudo killall piopera 2>/dev/null
 	sudo killall pirtty 2>/dev/null
-	sudo killall morse 2>/dev/null
+	sudo killall pissb 2>/dev/null
+	sudo killall pisstv 2>/dev/null
+	sudo killall pocsag 2>/dev/null
+	sudo killall rpitx 2>/dev/null
+	sudo killall sendiq 2>/dev/null
+	sudo killall spectrumpaint 2>/dev/null
+	sudo killall tune 2>/dev/null
 
 	case "$menuchoice" in
 			

@@ -54,9 +54,9 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
 BINARIES=(
-  corel8 foxhunt freedv morse pichirp pifsq pifmrds pift8
-  piopera pirtty pisstv pocsag rpitx sendiq sendook spectrumpaint tune
-  dvbrf piam pidcf77 pifm pissb rds_wav
+  corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds pifsq pift8
+  pimorse piopera pirtty pissb pisstv pocsag rds_wav rpitx sendiq sendook
+  spectrumpaint tune
 )
 
 for BIN in "${BINARIES[@]}"; do

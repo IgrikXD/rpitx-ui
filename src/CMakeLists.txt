@@ -28,6 +28,7 @@ add_library(rpitx_utils STATIC
     utils/agc.cpp
     utils/biquad.cpp
     utils/hilbert.cpp
+    utils/morse_encoder.cpp
     utils/wav_utils.cpp
 )
 target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
@@ -39,10 +40,6 @@ target_link_libraries(rpitx_utils PRIVATE m)
 # --- freedv ---
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
-
-# --- morse ---
-add_executable(morse morse/morse.cpp)
-target_link_libraries(morse PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- pichirp ---
 add_executable(pichirp chirp/chirp.cpp)
@@ -61,6 +58,10 @@ add_executable(pifmrds
 )
 target_compile_options(pifmrds PRIVATE -Wno-write-strings)
 target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+
+# --- pimorse ---
+add_executable(pimorse pimorse/main.cpp)
+target_link_libraries(pimorse PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -171,7 +172,7 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS 
-    freedv morse pichirp pifmrds piopera pirtty pissb 
+    freedv pichirp pifmrds pimorse piopera pirtty pissb 
     pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
