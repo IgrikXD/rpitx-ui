@@ -45,7 +45,7 @@ for arg in "$@"; do
       echo "  --purge-deps  Remove installed third-party dependencies (librpitx, ft8_lib, csdr)"
       exit 0
       ;;
-    *) echo "Unknown option: $arg"; exit 1 ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
   esac
 done
 
