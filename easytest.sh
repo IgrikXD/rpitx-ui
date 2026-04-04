@@ -81,6 +81,9 @@ if CW_WPM=$(whiptail --inputbox "Enter CW speed (WPM):" 8 78 $DEFAULT_CW_WPM --t
 	if [ -z "$CW_WPM" ]; then
 		whiptail --title "Error!" --msgbox "Empty WPM value!" 8 78
 		abort_action=1
+	elif ! [[ "$CW_WPM" =~ ^[0-9]+$ ]]; then
+		whiptail --title "Error!" --msgbox "WPM must be a positive integer!" 8 78
+		abort_action=1
 	fi
 else
 	abort_action=1
