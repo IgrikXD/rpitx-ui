@@ -78,6 +78,9 @@ inline constexpr std::array<MorseEntry, 37> MORSE_TABLE{{
 }};
 // clang-format on
 
+static_assert(std::ranges::is_sorted(MORSE_TABLE, {}, &MorseEntry::ch),
+              "MORSE_TABLE must be sorted by 'ch' in ascending ASCII order for lower_bound lookup");
+
 /**
  * @brief Look up the Morse pattern for a given ASCII character.
  * @param ch Input character (case-insensitive for letters).
