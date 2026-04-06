@@ -83,7 +83,7 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   git clone https://github.com/F5OEO/csdr
   cd csdr
   git checkout "${CSDR_COMMIT}"
-  make && sudo make install PREFIX=/usr
+  make -j"$(nproc)" && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
 
@@ -94,7 +94,7 @@ print_banner "$COLOR_YELLOW" "librpitx installation, based on commit ${LIBRPITX_
   cd librpitx
   git checkout "${LIBRPITX_COMMIT}"
   cd src
-  make librpitx.a
+  make -j"$(nproc)" librpitx.a
   sudo mkdir -p /usr/local/include/librpitx
   sudo cp *.h /usr/local/include/librpitx/
   sudo install -m 0644 librpitx.a /usr/local/lib/librpitx.a
@@ -110,7 +110,7 @@ if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
     cd ft8_lib
     git checkout "${FT8_LIB_COMMIT}"
     # Note: ft8_lib Makefile hardcodes install path to /usr/lib (PREFIX not supported)
-    make && sudo make install
+    make -j"$(nproc)" && sudo make install
     sudo mkdir -p /usr/local/include/ft8_lib/ft8
     sudo mkdir -p /usr/local/include/ft8_lib/common
     sudo cp ft8/*.h /usr/local/include/ft8_lib/ft8/
