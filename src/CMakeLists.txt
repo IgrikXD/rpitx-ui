@@ -63,6 +63,13 @@ target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pimorse pimorse/main.cpp)
 target_link_libraries(pimorse PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
+# --- pijammer ---
+add_executable(pijammer
+    pijammer/main.cpp
+    pijammer/jammer_processor.cpp
+)
+target_link_libraries(pijammer PRIVATE ${RPITX_COMMON_LIBS})
+
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE ${RPITX_COMMON_LIBS})
@@ -171,9 +178,9 @@ endif()
 # Install compiled binaries to /usr/bin
 # ----------------------------------------------------------
 # Install required targets
-set(INSTALL_TARGETS 
-    freedv pichirp pifmrds pimorse piopera pirtty pissb 
-    pisstv pocsag rpitx sendiq spectrumpaint tune
+set(INSTALL_TARGETS
+    freedv pichirp pifmrds pijammer pimorse piopera pirtty
+    pissb pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
@@ -207,11 +214,10 @@ endif()
 
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
-    fm2ssb.sh snap2spectrum.sh snapsstv.sh
-    sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh
-    testfreedv.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
-    testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh
-    testvfo.sh transponder.sh
+    fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
+    testchirp.sh testfmrds.sh testfreedv.sh testjammer.sh testlsb.sh
+    testmorse.sh testnfm.sh testopera.sh testpocsag.sh testrtty.sh
+    testspectrum.sh testusb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
