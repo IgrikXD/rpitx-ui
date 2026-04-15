@@ -29,6 +29,7 @@ add_library(rpitx_utils STATIC
     utils/biquad.cpp
     utils/hilbert.cpp
     utils/morse_encoder.cpp
+    utils/sawtooth.cpp
     utils/wav_utils.cpp
 )
 target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
