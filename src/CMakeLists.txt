@@ -68,8 +68,11 @@ target_link_libraries(pimorse PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 add_executable(pijammer
     pijammer/main.cpp
     pijammer/jammer_processor.cpp
+    pijammer/generators/multitone_generator.cpp
+    pijammer/generators/noise_generator.cpp
+    pijammer/generators/sweep_generator.cpp
 )
-target_link_libraries(pijammer PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(pijammer PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
