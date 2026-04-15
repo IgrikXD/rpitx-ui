@@ -25,7 +25,7 @@ do_check_file_existance()
 do_freq_setup()
 {
 
-if FREQ=$(whiptail --inputbox "Enter output Frequency (in MHz). Current is $OUTPUT_FREQ MHz" 8 78 $OUTPUT_FREQ --title "Rpitx transmit Frequency" 3>&1 1>&2 2>&3); then
+if FREQ=$(whiptail --inputbox "Enter output frequency (in MHz). Current is $OUTPUT_FREQ MHz" 8 78 $OUTPUT_FREQ --title "rpitx-ui transmit frequency" 3>&1 1>&2 2>&3); then
 	OUTPUT_FREQ=$FREQ
 fi
 
@@ -161,7 +161,7 @@ do_freq_setup
  while [ true ]
     do
 
-	menuchoice=$(whiptail --default-item "$LAST_ITEM" --title "Rpitx on ""$OUTPUT_FREQ"" MHz" --menu "Range frequency : 50kHz-1GHz. Choose your test:" 20 82 12 \
+	menuchoice=$(whiptail --default-item "$LAST_ITEM" --title "rpitx-ui on ""$OUTPUT_FREQ"" MHz" --menu "Range frequency: 50kHz-1GHz. Choose your test:" 20 82 12 \
  	"F Set frequency" "Modify frequency (actual $OUTPUT_FREQ MHz)" \
 	"0 Tune" "Carrier" \
     "1 Chirp" "Moving carrier" \
