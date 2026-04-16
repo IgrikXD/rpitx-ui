@@ -12,12 +12,14 @@
 #include "multitone_generator.h"
 
 #include <algorithm>
+#include <cassert>
 
 MultitoneGenerator::MultitoneGenerator(float bandwidth, uint32_t sampleRate, int toneCount)
     : dist_{0, toneCount - 1},
       tones_{makeTones(bandwidth, toneCount)},
       samplesPerHop_{computeSamplesPerHop(sampleRate)},
       idx_{dist_(engine_)} {
+    assert(toneCount >= 2 && "MultitoneGenerator requires toneCount >= 2");
 }
 
 float MultitoneGenerator::nextSample() {
