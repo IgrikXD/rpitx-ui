@@ -55,8 +55,8 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
 BINARIES=(
   corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds pifsq pift8
-  pimorse piopera pirtty pissb pisstv pocsag rds_wav rpitx sendiq sendook
-  spectrumpaint tune
+  pijammer pimorse piopera pirtty pissb pisstv pocsag rds_wav rpitx sendiq
+  sendook spectrumpaint tune
 )
 
 for BIN in "${BINARIES[@]}"; do
@@ -73,9 +73,9 @@ SCRIPTS=(
   rpitx-ui
   fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
   sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-  testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
-  testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh testvfo.sh
-  transponder.sh
+  testfreedv.sh testfsq.sh testjammer.sh testlsb.sh testmorse.sh 
+  testnfm.sh testopera.sh testpocsag.sh testrtty.sh testspectrum.sh 
+  testusb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 for SCRIPT in "${SCRIPTS[@]}"; do
