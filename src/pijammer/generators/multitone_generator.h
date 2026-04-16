@@ -30,7 +30,8 @@ public:
      * @brief Construct a multitone generator for the given bandwidth, sample rate, and tone count.
      * @param bandwidth Target RF bandwidth in Hz.
      * @param sampleRate DMA sample rate in Hz.
-     * @param toneCount Number of equidistant tones (must be >= 1).
+     * @param toneCount Number of equidistant tones (must be >= 2; a single tone would
+     *                  degenerate to a plain carrier and is rejected upstream in the CLI).
      */
     MultitoneGenerator(float bandwidth, uint32_t sampleRate, int toneCount);
 
@@ -45,7 +46,7 @@ private:
     /**
      * @brief Build a vector of equidistant tone offsets inside [-BW/2, +BW/2].
      * @param bandwidth Total occupied bandwidth in Hz.
-     * @param toneCount Number of tones (must be >= 1).
+     * @param toneCount Number of tones (must be >= 2, enforced by the ctor precondition).
      * @return Vector of tone frequency offsets in Hz.
      */
     [[nodiscard]] static std::vector<float> makeTones(float bandwidth, int toneCount);
