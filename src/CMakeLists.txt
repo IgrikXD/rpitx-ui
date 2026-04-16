@@ -122,7 +122,7 @@ if(BUILD_OPTIONAL_TARGETS)
         )
         target_link_libraries(dvbrf PRIVATE ${RPITX_COMMON_LIBS})
     else()
-        message(STATUS "Skipping dvbrf target (requires 32-bit ARM assembly, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
+        message(STATUS "Skipping dvbrf target (requires aarch32 platform, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
     endif()
 
     # --- foxhunt ---
