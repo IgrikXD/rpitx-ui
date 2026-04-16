@@ -27,6 +27,7 @@ find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 add_library(rpitx_utils STATIC
     utils/agc.cpp
     utils/biquad.cpp
+    utils/cli_utils.cpp
     utils/hilbert.cpp
     utils/morse_encoder.cpp
     utils/wav_utils.cpp
@@ -122,7 +123,7 @@ if(BUILD_OPTIONAL_TARGETS)
         )
         target_link_libraries(dvbrf PRIVATE ${RPITX_COMMON_LIBS})
     else()
-        message(STATUS "Skipping dvbrf target (requires 32-bit ARM assembly, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
+        message(STATUS "Skipping dvbrf target (requires aarch32 platform, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
     endif()
 
     # --- foxhunt ---

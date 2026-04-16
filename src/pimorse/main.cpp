@@ -20,10 +20,12 @@
 #include <cctype>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "cli_utils.h"
 #include "morse_encoder.h"
 
 /**
@@ -76,15 +78,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    float freq{0};
-    float wpm{0};
-    try {
-        freq = std::stof(argv[1]);
-        wpm  = std::stof(argv[2]);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Invalid numeric argument: " << e.what() << std::endl;
+    const auto freqOpt{parseNumericArg<float>(argv[1])};
+    const auto wpmOpt{parseNumericArg<float>(argv[2])};
+    if (freqOpt == std::nullopt || wpmOpt == std::nullopt) {
+        std::cerr << "[ERROR] Invalid numeric argument!" << std::endl;
         return 1;
     }
+    const float freq{freqOpt.value()};
+    const float wpm{wpmOpt.value()};
     if (freq <= 0.0f || wpm <= 0.0f) {
         std::cerr << "[ERROR] Frequency and WPM must be positive values!" << std::endl;
         return 1;
