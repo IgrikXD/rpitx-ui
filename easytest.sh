@@ -126,8 +126,8 @@ fi
 MULTITONE_TONES=""
 if [ "$JAMMER_MODE" = "Multitone" ]; then
 	if MULTITONE_TONES=$(whiptail --inputbox "Enter tone count:" 8 78 "$DEFAULT_MULTITONE_TONES" --title "Multitone tone count" 3>&1 1>&2 2>&3); then
-		if [ -z "$MULTITONE_TONES" ] || ! [[ "$MULTITONE_TONES" =~ ^[0-9]+$ ]] || [ "$MULTITONE_TONES" -lt 2 ]; then
-			whiptail --title "Error!" --msgbox "Tone count must be an integer >= 2!" 8 78
+		if [ -z "$MULTITONE_TONES" ] || ! [[ "$MULTITONE_TONES" =~ ^[0-9]+$ ]] || [ "$MULTITONE_TONES" -lt 2 ] || [ "$MULTITONE_TONES" -gt 1024 ]; then
+			whiptail --title "Error!" --msgbox "Tone count must be an integer in [2, 1024]!" 8 78
 			abort_action=1
 			return
 		fi
