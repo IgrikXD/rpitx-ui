@@ -179,7 +179,15 @@ namespace {
         for (std::size_t i{0}; i < args.size(); ++i) {
             const std::string_view arg{args[i]};
 
-            // All flags here take a value argument - advance and bounds-check.
+            // Reject unknown flags before consuming a value, so that a trailing unknown flag
+            // (e.g. `pijammer 434e6 200000 -x`) surfaces as "Unknown option" instead of the
+            // misleading "Option -x requires an argument".
+            if (arg != "-m" && arg != "-t" && arg != "-s") {
+                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
+                return ParseResult::Error;
+            }
+
+            // All known flags here take a value argument - advance and bounds-check.
             if (++i >= args.size()) {
                 std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
                 return ParseResult::Error;
@@ -204,9 +212,6 @@ namespace {
                     result != ParseResult::Ok) {
                     return result;
                 }
-            } else {
-                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
-                return ParseResult::Error;
             }
         }
         return ParseResult::Ok;
