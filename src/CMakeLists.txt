@@ -27,6 +27,7 @@ find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 add_library(rpitx_utils STATIC
     utils/agc.cpp
     utils/biquad.cpp
+    utils/cli_utils.cpp
     utils/hilbert.cpp
     utils/morse_encoder.cpp
     utils/wav_utils.cpp
