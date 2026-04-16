@@ -31,7 +31,7 @@ struct CarryBuffer {
 /**
  * @brief Attempt to detect and skip a WAV (RIFF) header.
  *
- * Reads from @p input. If a RIFF header is found, navigates to the "data"
+ * Reads from input. If a RIFF header is found, navigates to the "data"
  * chunk and positions the stream right after it. If the stream does not
  * start with "RIFF", the 4 bytes read are stored in the returned CarryBuffer.
  *

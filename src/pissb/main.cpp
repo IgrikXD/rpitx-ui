@@ -1,6 +1,6 @@
 /**
  * @file main.cpp
- * @brief Entry point for pissb — streaming SSB modulator.
+ * @brief Entry point for pissb - streaming SSB modulator.
  *
  * Reads 16-bit PCM audio from stdin, applies SSB modulation (USB or LSB),
  * and writes float IQ pairs to stdout for consumption by sendiq.
@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 
+#include <atomic>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -39,15 +40,19 @@ static constexpr float PCM16_MAX{static_cast<float>(std::numeric_limits<int16_t>
 
 /**
  * @brief Atomic flag for graceful shutdown on signal reception.
+ *
+ * Must be lock-free to be safe to touch from a signal handler; statically
+ * asserted below to fail fast on any exotic platform where it is not.
  */
-static volatile sig_atomic_t running{1};
+static std::atomic<bool> running{true};
+static_assert(std::atomic<bool>::is_always_lock_free, "std::atomic<bool> must be lock-free for signal-handler access");
 
 /**
  * @brief Signal handler for SIGTERM, SIGINT, and SIGPIPE.
- * @param sig Signal number (unused).
+ * @param sig Signal number.
  */
-static void handleSignal(int /*sig*/) {
-    running = 0;
+static void handleSignal([[maybe_unused]] int sig) {
+    running.store(false, std::memory_order_relaxed);
 }
 
 int main(int argc, char* argv[]) {
@@ -67,7 +72,7 @@ int main(int argc, char* argv[]) {
     float outbuf[BLOCK_SIZE * 2];
     bool needHeader{true};
 
-    while (running) {
+    while (running.load(std::memory_order_relaxed)) {
         // Detect and skip WAV header at stream boundaries
         if (needHeader) {
             auto result{skipWavHeader()};
@@ -108,7 +113,7 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        // Partial read indicates end of WAV data — expect new header
+        // Partial read indicates end of WAV data - expect new header
         if (n < BLOCK_SIZE) {
             needHeader = true;
         }

@@ -23,7 +23,7 @@ std::optional<CarryBuffer> skipWavHeader(std::FILE* input) {
         return std::nullopt;
     }
 
-    // Not a WAV file — treat bytes as raw PCM samples
+    // Not a WAV file - treat bytes as raw PCM samples
     if (std::memcmp(hdr, "RIFF", 4) != 0) {
         CarryBuffer carry{};
         std::memcpy(carry.samples.data(), hdr, 4);

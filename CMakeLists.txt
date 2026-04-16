@@ -16,6 +16,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ----------------------------------------------------------
+# Compiler version check
+# ----------------------------------------------------------
+# Floating-point std::from_chars (used in src/utils/cli_utils.h) requires
+# libstdc++ >= 11, which ships with GCC 11+.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
+        message(FATAL_ERROR
+            "rpitx-ui requires GCC >= 11 (detected ${CMAKE_CXX_COMPILER_VERSION}). "
+            "Floating-point std::from_chars is unsupported on older libstdc++. "
+            "Upgrade the toolchain to GCC 11 or newer to build rpitx-ui!"
+        )
+    endif()
+else()
+    message(WARNING
+        "rpitx-ui requires GCC >= 11. Detected compiler: "
+        "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}. "
+        "Build may fail on floating-point std::from_chars."
+    )
+endif()
+
+# ----------------------------------------------------------
 # Raspberry Pi platform check
 # ----------------------------------------------------------
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
