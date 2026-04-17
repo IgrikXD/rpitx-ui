@@ -43,7 +43,7 @@ add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- pichirp ---
-add_executable(pichirp chirp/main.cpp)
+add_executable(pichirp pichirp/main.cpp)
 target_link_libraries(pichirp PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- pifmrds ---
