@@ -1,5 +1,5 @@
 /**
- * @file chirp.cpp
+ * @file main.cpp
  * @brief Sinusoidal FM chirp transmitter.
  *
  * Emits a sinusoidal frequency sweep centered on the requested carrier,
