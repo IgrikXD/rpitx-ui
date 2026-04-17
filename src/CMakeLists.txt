@@ -44,7 +44,7 @@ target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
 
 # --- pichirp ---
 add_executable(pichirp chirp/chirp.cpp)
-target_link_libraries(pichirp PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(pichirp PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- pifmrds ---
 add_library(pifmrds_c_objs OBJECT
