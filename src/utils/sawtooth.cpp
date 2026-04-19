@@ -16,7 +16,8 @@
 Sawtooth::Sawtooth(float amplitude, int samplesPerCycle)
     : amplitude_{amplitude},
       step_{2.0f * amplitude / static_cast<float>(std::max(1, samplesPerCycle))},
-      pos_{-amplitude} {}
+      pos_{-amplitude} {
+}
 
 float Sawtooth::nextSample() {
     const float out{pos_};
