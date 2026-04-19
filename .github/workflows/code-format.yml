@@ -1,0 +1,47 @@
+name: Code format
+
+on:
+  pull_request:
+    branches: [ "**" ]
+    paths:
+      - 'src/**/*.hpp'
+      - 'src/**/*.cpp'
+      - 'src/**/*.c'
+      - 'src/**/*.h'
+      - '.clang-format'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # Needed for thread-comments
+  pull-requests: write # Needed for format-review
+
+jobs:
+  code-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Run clang-format via cpp-linter
+        id: linter
+        uses: cpp-linter/cpp-linter-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file' # Use .clang-format config file in the repo
+          tidy-checks: '-*' # Disable clang-tidy checks
+          version: '21'
+          files-changed-only: true
+          # Always delete an outdated thread comment and post a new comment
+          thread-comments: ${{ github.event_name == 'pull_request' && 'true' }}
+          # Enable PR reviews from clang-format
+          format-review: ${{ github.event_name == 'pull_request' && 'true' }}
+
+      - name: Check clang-format results
+        if: steps.linter.outputs.clang-format-checks-failed > 0
+        run: exit 1
