@@ -41,12 +41,10 @@ static constexpr int OOK_DMA_BITS{14};
 /**
  * @brief Divisor to convert words-per-minute to OOK symbol rate.
  *
- * Based on the PARIS standard: the word "PARIS" contains 50 dit-units,
- * so 1 WPM ~ 50 units / 60 s ~ 0.833 units/s, giving a dit rate of
- * ~1.2 dits/s. The value 1.25 is a practical approximation inherited
- * from the original implementation (symbolRate = WPM / 1.25).
+ * PARIS standard: the word "PARIS" contains 50 dit-units, so 1 dit = 1200/WPM ms
+ * and symbolRate = WPM / 1.2.
  */
-static constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.25f};
+static constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2f};
 
 /**
  * @brief Transmit a CW OOK binary string at the given frequency and symbol rate.
