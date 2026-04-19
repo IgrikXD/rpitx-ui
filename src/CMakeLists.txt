@@ -65,19 +65,19 @@ target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
 add_executable(pimorse pimorse/main.cpp)
 target_link_libraries(pimorse PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
-# --- pijammer ---
-add_executable(pijammer
-    pijammer/main.cpp
-    pijammer/jammer_processor.cpp
-    pijammer/generators/multitone_generator.cpp
-    pijammer/generators/noise_generator.cpp
-    pijammer/generators/sweep_generator.cpp
-)
-target_link_libraries(pijammer PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
-
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE ${RPITX_COMMON_LIBS})
+
+# --- pirfgen ---
+add_executable(pirfgen
+    pirfgen/main.cpp
+    pirfgen/rfgen_processor.cpp
+    pirfgen/generators/multitone_generator.cpp
+    pirfgen/generators/noise_generator.cpp
+    pirfgen/generators/sweep_generator.cpp
+)
+target_link_libraries(pirfgen PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
@@ -184,7 +184,7 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv pichirp pifmrds pijammer pimorse piopera pirtty
+    freedv pichirp pifmrds pimorse piopera pirfgen pirtty
     pissb pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
@@ -220,8 +220,8 @@ endif()
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
-    testchirp.sh testfmrds.sh testfreedv.sh testjammer.sh testlsb.sh
-    testmorse.sh testnfm.sh testopera.sh testpocsag.sh testrtty.sh
+    testchirp.sh testfmrds.sh testfreedv.sh testlsb.sh testmorse.sh
+    testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
     testspectrum.sh testusb.sh testsstv.sh testvfo.sh transponder.sh
 )
 

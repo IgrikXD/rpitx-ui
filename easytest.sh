@@ -8,7 +8,7 @@ DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
 DEFAULT_CW_WPM=5
-DEFAULT_JAMMER_BANDWIDTH=200000
+DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
 LAST_ITEM="0 Tune"
 
@@ -93,13 +93,13 @@ fi
 
 }
 
-do_enter_jammer_params()
+do_enter_rfgen_params()
 {
 
 LAST_ITEM="$menuchoice"
 
 # Mode selection
-if JAMMER_MODE=$(whiptail --title "Jammer mode" --menu "Select jamming mode:" 15 78 3 \
+if RFGEN_MODE=$(whiptail --title "RF generator mode" --menu "Select RF generator mode:" 15 78 3 \
 	"Noise" "Uniform pseudo-random noise across the bandwidth" \
 	"Sweep" "Fast sawtooth sweep across the bandwidth" \
 	"Multitone" "Random fast-hopping across equidistant tones" \
@@ -111,8 +111,8 @@ else
 fi
 
 # Bandwidth
-if JAMMER_BW=$(whiptail --inputbox "Enter jamming bandwidth (Hz):" 8 78 "$DEFAULT_JAMMER_BANDWIDTH" --title "Jammer bandwidth" 3>&1 1>&2 2>&3); then
-	if [ -z "$JAMMER_BW" ] || ! [[ "$JAMMER_BW" =~ ^[0-9]+$ ]] || [ "$JAMMER_BW" = "0" ]; then
+if RFGEN_BW=$(whiptail --inputbox "Enter RF generator bandwidth (Hz):" 8 78 "$DEFAULT_RFGEN_BANDWIDTH" --title "RF generator bandwidth" 3>&1 1>&2 2>&3); then
+	if [ -z "$RFGEN_BW" ] || ! [[ "$RFGEN_BW" =~ ^[0-9]+$ ]] || [ "$RFGEN_BW" = "0" ]; then
 		whiptail --title "Error!" --msgbox "Bandwidth must be a positive integer (Hz)!" 8 78
 		abort_action=1
 		return
@@ -124,7 +124,7 @@ fi
 
 # Tone count is asked only for multitone mode; left empty for other modes.
 MULTITONE_TONES=""
-if [ "$JAMMER_MODE" = "Multitone" ]; then
+if [ "$RFGEN_MODE" = "Multitone" ]; then
 	if MULTITONE_TONES=$(whiptail --inputbox "Enter tone count:" 8 78 "$DEFAULT_MULTITONE_TONES" --title "Multitone tone count" 3>&1 1>&2 2>&3); then
 		if [ -z "$MULTITONE_TONES" ] || ! [[ "$MULTITONE_TONES" =~ ^[0-9]+$ ]] || [ "$MULTITONE_TONES" -lt 2 ] || [ "$MULTITONE_TONES" -gt 1024 ]; then
 			whiptail --title "Error!" --msgbox "Tone count must be an integer in [2, 1024]!" 8 78
@@ -163,9 +163,9 @@ do_stop_transmit()
 	sudo killall freedv 2>/dev/null
 	sudo killall pichirp 2>/dev/null
 	sudo killall pifmrds 2>/dev/null
-	sudo killall pijammer 2>/dev/null
 	sudo killall pimorse 2>/dev/null
 	sudo killall piopera 2>/dev/null
+	sudo killall pirfgen 2>/dev/null
 	sudo killall pirtty 2>/dev/null
 	sudo killall pissb 2>/dev/null
 	sudo killall pisstv 2>/dev/null
@@ -192,7 +192,7 @@ do_stop_transmit()
 			12\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
 			13\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
 			14\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
-			15\ *) sudo killall testjammer.sh >/dev/null 2>/dev/null ;;
+			15\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
 
 	esac
 }
@@ -230,7 +230,7 @@ do_freq_setup
     "12 Opera" "Like morse but need Opera decoder" \
     "13 RTTY" "Radioteletype" \
     "14 CW" "Morse code" \
-    "15 Jammer" "Wideband RF jammer" \
+    "15 RFgen" "Wideband RF generator" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -341,9 +341,9 @@ do_freq_setup
 			fi
 			;;
 
-			15\ *) do_enter_jammer_params
+			15\ *) do_enter_rfgen_params
 			if [ $abort_action -eq 0 ]; then
-				testjammer.sh "$OUTPUT_FREQ""e6" "$JAMMER_BW" "${JAMMER_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
+				testrfgen.sh "$OUTPUT_FREQ""e6" "$RFGEN_BW" "${RFGEN_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;

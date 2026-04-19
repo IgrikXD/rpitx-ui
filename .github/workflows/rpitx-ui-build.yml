@@ -79,7 +79,7 @@ jobs:
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
               corel8 foxhunt freedv piam pichirp pidcf77 pifm pifmrds
-              pifsq pift8 pijammer pimorse piopera pirtty pissb pisstv
+              pifsq pift8 pimorse piopera pirfgen pirtty pissb pisstv
               pocsag rds_wav rpitx sendiq sendook spectrumpaint tune
             )
             OPTIONAL_BINARIES=(dvbrf)
@@ -107,8 +107,8 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testjammer.sh testlsb.sh testmorse.sh
-              testnfm.sh testopera.sh testpocsag.sh testrtty.sh testspectrum.sh
+              testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh
+              testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
               testusb.sh testsstv.sh testvfo.sh transponder.sh
             )
 
@@ -169,7 +169,7 @@ jobs:
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
               corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds
-              pifsq pift8 pijammer pimorse piopera pirtty pissb pisstv pocsag
+              pifsq pift8 pimorse piopera pirfgen pirtty pissb pisstv pocsag
               rds_wav rpitx sendiq sendook spectrumpaint tune
             )
 
@@ -190,8 +190,8 @@ jobs:
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testjammer.sh testlsb.sh testmorse.sh
-              testnfm.sh testopera.sh testpocsag.sh testrtty.sh testspectrum.sh
+              testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh
+              testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
               testusb.sh testsstv.sh testvfo.sh transponder.sh
             )
 

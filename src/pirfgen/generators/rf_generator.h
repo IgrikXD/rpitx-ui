@@ -1,5 +1,5 @@
 /**
- * @file jammer_generator.h
+ * @file rf_generator.h
  * @brief Abstract base class for per-sample frequency-offset generators.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -12,16 +12,16 @@
 #pragma once
 
 /**
- * @brief Abstract base class for all jammer waveform generators.
+ * @brief Abstract base class for all RF generator waveform sources.
  *
- * Defines the single-method contract consumed by JammerProcessor:
+ * Defines the single-method contract consumed by RfGenProcessor:
  * produce the next frequency offset in Hz on every call. Concrete
- * subclasses implement their own nextSample() with mode-specific 
+ * subclasses implement their own nextSample() with mode-specific
  * state and logic.
  */
-class JammerGenerator {
+class RfGenerator {
 public:
-    virtual ~JammerGenerator() = default;
+    virtual ~RfGenerator() = default;
 
     /**
      * @brief Advance state and produce the next frequency offset sample.

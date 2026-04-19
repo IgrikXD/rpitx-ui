@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <random>
 
-#include "jammer_generator.h"
+#include "rf_generator.h"
 
 /**
  * @brief Uniform pseudo-random noise with sample-and-hold band-limiting.
@@ -25,7 +25,7 @@
  * B_RF ~= bandwidth * (1 + 2 * MOD_BW_FRACTION). Updating every DMA sample
  * would instead spread the spectrum across the full sample rate.
  */
-class NoiseGenerator : public JammerGenerator {
+class NoiseGenerator : public RfGenerator {
 public:
     /**
      * @brief Construct a noise generator for the given RF bandwidth and DMA sample rate.

@@ -1,6 +1,6 @@
 /**
- * @file jammer_processor.cpp
- * @brief JammerProcessor implementation - owns and delegates to a JammerGenerator.
+ * @file rfgen_processor.cpp
+ * @brief RfGenProcessor implementation - owns and delegates to an RfGenerator.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 15.04.2026
@@ -9,7 +9,7 @@
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
-#include "jammer_processor.h"
+#include "rfgen_processor.h"
 
 #include <cassert>
 
@@ -20,23 +20,23 @@
 namespace {
 
     /**
-     * @brief Pick the concrete JammerGenerator subclass for a given config.
+     * @brief Pick the concrete RfGenerator subclass for a given config.
      *
-     * All JammerMode values are handled above; the trailing nullptr covers the
-     * pathological case of a JammerMode value outside the enum (e.g. invented by
+     * All RfGenMode values are handled above; the trailing nullptr covers the
+     * pathological case of an RfGenMode value outside the enum (e.g. invented by
      * an uninitialised or corrupted config) and is caught by the debug-build
-     * assert in JammerProcessor's constructor.
+     * assert in RfGenProcessor's constructor.
      *
-     * @param config Jammer configuration parameters.
+     * @param config RF generator configuration parameters.
      * @return Unique pointer to the constructed generator, or nullptr on an unhandled mode.
      */
-    [[nodiscard]] std::unique_ptr<JammerGenerator> makeGenerator(const JammerConfig& config) {
+    [[nodiscard]] std::unique_ptr<RfGenerator> makeGenerator(const RfGenConfig& config) {
         switch (config.mode) {
-            case JammerMode::Noise:
+            case RfGenMode::Noise:
                 return std::make_unique<NoiseGenerator>(config.bandwidth, config.sampleRate);
-            case JammerMode::Sweep:
+            case RfGenMode::Sweep:
                 return std::make_unique<SweepGenerator>(config.bandwidth, config.sampleRate);
-            case JammerMode::Multitone:
+            case RfGenMode::Multitone:
                 return std::make_unique<MultitoneGenerator>(config.bandwidth, config.sampleRate, config.toneCount);
         }
         return nullptr;
@@ -44,12 +44,12 @@ namespace {
 
 }  // namespace
 
-JammerProcessor::JammerProcessor(JammerConfig config) : generator_{makeGenerator(config)} {
-    assert(generator_ != nullptr && "makeGenerator() returned nullptr - unhandled JammerMode?");
+RfGenProcessor::RfGenProcessor(RfGenConfig config) : generator_{makeGenerator(config)} {
+    assert(generator_ != nullptr && "makeGenerator() returned nullptr - unhandled RfGenMode?");
 }
 
-JammerProcessor::~JammerProcessor() = default;
+RfGenProcessor::~RfGenProcessor() = default;
 
-float JammerProcessor::nextSample() {
+float RfGenProcessor::nextSample() {
     return generator_->nextSample();
 }

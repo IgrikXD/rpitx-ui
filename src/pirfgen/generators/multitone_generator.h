@@ -15,7 +15,7 @@
 #include <random>
 #include <vector>
 
-#include "jammer_generator.h"
+#include "rf_generator.h"
 
 /**
  * @brief Random fast-hopping across equidistant tones (FHSS-style).
@@ -24,7 +24,7 @@
  * hops between them at a fixed rate. Each hop picks a random tone, yielding
  * a discrete "comb" RF spectrum.
  */
-class MultitoneGenerator : public JammerGenerator {
+class MultitoneGenerator : public RfGenerator {
 public:
     /**
      * @brief Construct a multitone generator for the given bandwidth, sample rate, and tone count.

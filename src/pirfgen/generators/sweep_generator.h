@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include "jammer_generator.h"
+#include "rf_generator.h"
 #include "sawtooth.h"
 
 /**
@@ -22,7 +22,7 @@
  * Produces a linear ramp spanning [-bandwidth/2, +bandwidth/2] and wrapping at
  * the positive peak. Fully deterministic - no RNG, no hold state needed.
  */
-class SweepGenerator : public JammerGenerator {
+class SweepGenerator : public RfGenerator {
 public:
     /**
      * @brief Construct a sweep generator for the given RF bandwidth and DMA sample rate.

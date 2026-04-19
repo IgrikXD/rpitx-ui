@@ -1,15 +1,15 @@
 /**
  * @file main.cpp
- * @brief RF jammer transmitter for a user-defined bandwidth.
+ * @brief Wideband RF generator transmitter for a user-defined bandwidth.
  *
- * Emits an RF disturbance centered on the requested carrier frequency,
+ * Emits an RF waveform centered on the requested carrier frequency,
  * spread across the specified bandwidth. The waveform can be uniform
  * pseudo-random noise, a fast sawtooth sweep, or random multi-tone hopping.
  * Transmission runs until SIGTERM / SIGINT (the rpitx-ui launcher stops
  * the process centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pijammer <freq_Hz> <bandwidth_Hz> [-m <mode>] [-t <tones>] [-s <rate>] [-h]
- *   - -m  Jamming mode: noise (default) | sweep | multitone
+ * @note Usage: pirfgen <freq_Hz> <bandwidth_Hz> [-m <mode>] [-t <tones>] [-s <rate>] [-h]
+ *   - -m  RF generator mode: noise (default) | sweep | multitone
  *   - -t  Tone count for multitone mode (required for multitone)
  *   - -s  DMA sample rate in Hz (default 500000)
  *   - -h  Print the help message and exit
@@ -34,7 +34,7 @@
 #include <string_view>
 
 #include "cli_utils.h"
-#include "jammer_processor.h"
+#include "rfgen_processor.h"
 
 namespace {
     /**
@@ -91,8 +91,8 @@ namespace {
      * @brief Print the command-line usage to stderr.
      */
     void printUsage() {
-        std::cerr << "Usage: pijammer <freq_Hz> <bandwidth_Hz> [options]" << std::endl
-                  << "  -m <mode>     Jamming mode: noise (default) | sweep | multitone" << std::endl
+        std::cerr << "Usage: pirfgen <freq_Hz> <bandwidth_Hz> [options]" << std::endl
+                  << "  -m <mode>     RF generator mode: noise (default) | sweep | multitone" << std::endl
                   << "  -t <count>    Tone count (required for multitone mode, [2, " << MAX_TONE_COUNT << "])"
                   << std::endl
                   << "  -s <rate_Hz>  DMA sample rate in Hz (default " << DEFAULT_SAMPLE_RATE << ")" << std::endl
@@ -100,19 +100,19 @@ namespace {
     }
 
     /**
-     * @brief JammerMode textual names for CLI parsing and display.
+     * @brief RfGenMode textual names for CLI parsing and display.
      */
     constexpr std::array MODE_TABLE{
-        NamedEnum<JammerMode>{"noise", JammerMode::Noise},
-        NamedEnum<JammerMode>{"sweep", JammerMode::Sweep},
-        NamedEnum<JammerMode>{"multitone", JammerMode::Multitone},
+        NamedEnum<RfGenMode>{"noise", RfGenMode::Noise},
+        NamedEnum<RfGenMode>{"sweep", RfGenMode::Sweep},
+        NamedEnum<RfGenMode>{"multitone", RfGenMode::Multitone},
     };
 
     /**
-     * @brief Jammer parameters extracted from argv.
+     * @brief RF generator parameters extracted from argv.
      */
-    struct JammerParameters {
-        JammerMode mode{JammerMode::Noise};
+    struct RfGenParameters {
+        RfGenMode mode{RfGenMode::Noise};
         uint64_t freq{0};
         float bandwidth{0.0F};
         uint32_t sampleRate{DEFAULT_SAMPLE_RATE};
@@ -129,7 +129,7 @@ namespace {
      *         printed to stderr).
      */
     [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, std::string_view bwArg,
-                                                  JammerParameters& params) {
+                                                  RfGenParameters& params) {
         // Frequency is parsed as double to accept scientific notation (e.g. "434e6")
         const auto freqOpt{parseNumericArg<double>(freqArg)};
         if (freqOpt == std::nullopt) {
@@ -175,12 +175,12 @@ namespace {
      * @return ParseResult::Ok on success, ::Error on a bad flag (diagnostic
      *         already printed).
      */
-    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, JammerParameters& params) {
+    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, RfGenParameters& params) {
         for (std::size_t i{0}; i < args.size(); ++i) {
             const std::string_view arg{args[i]};
 
             // Reject unknown flags before consuming a value, so that a trailing unknown flag
-            // (e.g. `pijammer 434e6 200000 -x`) surfaces as "Unknown option" instead of the
+            // (e.g. `pirfgen 434e6 200000 -x`) surfaces as "Unknown option" instead of the
             // misleading "Option -x requires an argument".
             if (arg != "-m" && arg != "-t" && arg != "-s") {
                 std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
@@ -222,11 +222,11 @@ namespace {
      * @param params Populated options struct.
      * @return ParseResult::Ok on success, ::Error if any invariant is violated.
      */
-    [[nodiscard]] ParseResult validateOptions(const JammerParameters& params) {
+    [[nodiscard]] ParseResult validateOptions(const RfGenParameters& params) {
         // Warn (but don't fail) when -t is passed without -m multitone: the value
         // has no effect in noise/sweep modes and would otherwise be silently dropped,
         // which is confusing when the user has explicitly supplied it.
-        if (params.mode != JammerMode::Multitone && params.toneCount != std::nullopt) {
+        if (params.mode != RfGenMode::Multitone && params.toneCount != std::nullopt) {
             std::cerr << "[WARN] -t is only meaningful with -m multitone, ignoring." << std::endl;
         }
 
@@ -251,8 +251,8 @@ namespace {
         // no sensible default (any fixed number would be arbitrary), and a single
         // tone degenerates to a plain carrier. Short-circuit evaluation guarantees
         // .value() is only reached when the optional is engaged.
-        if (params.mode == JammerMode::Multitone && (params.toneCount == std::nullopt || params.toneCount.value() < 2 ||
-                                                     params.toneCount.value() > MAX_TONE_COUNT)) {
+        if (params.mode == RfGenMode::Multitone && (params.toneCount == std::nullopt || params.toneCount.value() < 2 ||
+                                                    params.toneCount.value() > MAX_TONE_COUNT)) {
             std::cerr << "[ERROR] Multitone mode requires -t <count> in [2, " << MAX_TONE_COUNT << "]!" << std::endl;
             return ParseResult::Error;
         }
@@ -267,9 +267,9 @@ namespace {
      * @param params Output - populated on success.
      * @return ParseResult indicating success, error, or a help request.
      */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], JammerParameters& params) {
+    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
         // -h at any position short-circuits - regardless of positional-count state -
-        // so that `pijammer -h`, `pijammer 100 -h`, etc. all print help and exit cleanly.
+        // so that `pirfgen -h`, `pirfgen 100 -h`, etc. all print help and exit cleanly.
         if (containsFlag({argv + 1, argv + argc}, "-h")) {
             printUsage();
             return ParseResult::Help;
@@ -295,7 +295,7 @@ namespace {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    JammerParameters params;
+    RfGenParameters params;
     // No default branch: ParseResult is closed-set, so -Wswitch flags any future
     // enumerator that forgets to update this dispatch.
     switch (parseArgs(argc, argv, params)) {
@@ -310,18 +310,18 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, handleSignal);
     std::signal(SIGINT, handleSignal);
 
-    std::cout << "pijammer: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
+    std::cout << "pirfgen: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
               << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE) << ", rate=" << params.sampleRate << " Hz";
-    if (params.mode == JammerMode::Multitone) {
+    if (params.mode == RfGenMode::Multitone) {
         std::cout << ", tones=" << params.toneCount.value();
     }
     std::cout << std::endl;
 
-    JammerProcessor jammer{{
+    RfGenProcessor rfgen{{
         .mode       = params.mode,
         .bandwidth  = params.bandwidth,
         .sampleRate = params.sampleRate,
-        // JammerConfig::toneCount is ignored outside Multitone (see jammer_processor.h),
+        // RfGenConfig::toneCount is ignored outside Multitone (see rfgen_processor.h),
         // so the 0 fallback is inert there; Multitone guarantees the optional is engaged.
         .toneCount = params.toneCount.value_or(0),
     }};
@@ -338,12 +338,12 @@ int main(int argc, char* argv[]) {
         if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
             const int index{dma.GetUserMemIndex()};
             for (int j{0}; j < available; ++j) {
-                dma.SetFrequencySample(index + j, jammer.nextSample());
+                dma.SetFrequencySample(index + j, rfgen.nextSample());
             }
         }
     }
 
     dma.stop();
-    std::cout << "pijammer: transmission stopped." << std::endl;
+    std::cout << "pirfgen: transmission stopped." << std::endl;
     return 0;
 }
