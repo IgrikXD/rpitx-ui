@@ -2,9 +2,9 @@
  * @file morse_encoder.h
  * @brief Morse code lookup and CW OOK binary conversion.
  *
- * Provides a constexpr ITU Morse code table (A-Z, 0-9, space) and functions
- * to convert text characters into on-off keying (OOK) binary strings suitable
- * for RF transmission.
+ * Provides a constexpr ITU Morse code table (A-Z, 0-9, space, and standard
+ * punctuation) and functions to convert text characters into on-off keying
+ * (OOK) binary strings suitable for RF transmission.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 04.04.2026
@@ -31,50 +31,66 @@ struct MorseEntry {
 };
 
 /**
- * @brief ITU Morse code table (A-Z, 0-9, space).
+ * @brief ITU Morse code table (A-Z, 0-9, space, and standard punctuation).
  *
  * Each entry's dits field uses trailing spaces as inter-character gap (2 units).
  * Space character uses 4 dits of silence for inter-word gap.
+ * Entries are sorted by ASCII code to allow binary-search lookup.
  */
 // clang-format off
-inline constexpr std::array<MorseEntry, 37> MORSE_TABLE{{
-    {' ', "    "},
-    {'0', "-----  "},
-    {'1', ".----  "},
-    {'2', "..---  "},
-    {'3', "...--  "},
-    {'4', "....-  "},
-    {'5', ".....  "},
-    {'6', "-....  "},
-    {'7', "--...  "},
-    {'8', "---..  "},
-    {'9', "----.  "},
-    {'A', ".-  "},
-    {'B', "-...  "},
-    {'C', "-.-.  "},
-    {'D', "-..  "},
-    {'E', ".  "},
-    {'F', "..-.  "},
-    {'G', "--.  "},
-    {'H', "....  "},
-    {'I', "..  "},
-    {'J', ".---  "},
-    {'K', "-.-  "},
-    {'L', ".-..  "},
-    {'M', "--  "},
-    {'N', "-.  "},
-    {'O', "---  "},
-    {'P', ".--.  "},
-    {'Q', "--.-  "},
-    {'R', ".-.  "},
-    {'S', "...  "},
-    {'T', "-  "},
-    {'U', "..-  "},
-    {'V', "...-  "},
-    {'W', ".--  "},
-    {'X', "-..-  "},
-    {'Y', "-.--  "},
-    {'Z', "--..  "},
+inline constexpr std::array<MorseEntry, 52> MORSE_TABLE{{
+    {' ',  "    "},
+    {'!',  "-.-.--  "},
+    {'"',  ".-..-.  "},
+    {'\'', ".----.  "},
+    {'(',  "-.--.  "},
+    {')',  "-.--.-  "},
+    {'+',  ".-.-.  "},
+    {',',  "--..--  "},
+    {'-',  "-....-  "},
+    {'.',  ".-.-.-  "},
+    {'/',  "-..-.  "},
+    {'0',  "-----  "},
+    {'1',  ".----  "},
+    {'2',  "..---  "},
+    {'3',  "...--  "},
+    {'4',  "....-  "},
+    {'5',  ".....  "},
+    {'6',  "-....  "},
+    {'7',  "--...  "},
+    {'8',  "---..  "},
+    {'9',  "----.  "},
+    {':',  "---...  "},
+    {';',  "-.-.-.  "},
+    {'=',  "-...-  "},
+    {'?',  "..--..  "},
+    {'@',  ".--.-.  "},
+    {'A',  ".-  "},
+    {'B',  "-...  "},
+    {'C',  "-.-.  "},
+    {'D',  "-..  "},
+    {'E',  ".  "},
+    {'F',  "..-.  "},
+    {'G',  "--.  "},
+    {'H',  "....  "},
+    {'I',  "..  "},
+    {'J',  ".---  "},
+    {'K',  "-.-  "},
+    {'L',  ".-..  "},
+    {'M',  "--  "},
+    {'N',  "-.  "},
+    {'O',  "---  "},
+    {'P',  ".--.  "},
+    {'Q',  "--.-  "},
+    {'R',  ".-.  "},
+    {'S',  "...  "},
+    {'T',  "-  "},
+    {'U',  "..-  "},
+    {'V',  "...-  "},
+    {'W',  ".--  "},
+    {'X',  "-..-  "},
+    {'Y',  "-.--  "},
+    {'Z',  "--..  "},
 }};
 // clang-format on
 
