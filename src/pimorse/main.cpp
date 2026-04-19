@@ -47,6 +47,35 @@ static constexpr int OOK_DMA_BITS{14};
 static constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2f};
 
 /**
+ * @brief Convert a text message into a contiguous CW OOK binary stream.
+ * @param message Input ASCII message.
+ * @return Concatenated CW bits for every ITU-recognised character in message.
+ *
+ * Characters absent from MORSE_TABLE are skipped with a log line. The function
+ * also prints a per-character trace (index, uppercased char, Morse pattern,
+ * CW bits) for operator visibility.
+ */
+static std::string encodeMessage(std::string_view message) {
+    std::string encodedMessage;
+    for (size_t i{0}; i < message.size(); ++i) {
+        const auto morse{charToMorse(message[i])};
+        if (morse == std::nullopt) {
+            std::cout << "Message[" << std::setw(2) << std::setfill('0') << i << "]: " << message[i]
+                      << "\tskipped (unsupported character)" << std::endl;
+            continue;
+        }
+
+        const auto cw{morseToCw(*morse)};
+        std::cout << "Message[" << std::setw(2) << std::setfill('0') << i
+                  << "]: " << static_cast<char>(std::toupper(static_cast<unsigned char>(message[i]))) << "\tmorse["
+                  << *morse << "]\tcw[" << cw << "]" << std::endl;
+        encodedMessage += cw;
+    }
+
+    return encodedMessage;
+}
+
+/**
  * @brief Transmit a CW OOK binary string at the given frequency and symbol rate.
  * @param freq RF center frequency in Hz.
  * @param symbolRate Symbol rate in Hz.
@@ -89,25 +118,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const std::string_view msg{argv[3]};
+    const std::string_view message{argv[3]};
+
+    std::cout << "Message: " << message << std::endl;
+
+    const auto encodedMessage{encodeMessage(message)};
     const auto symbolRate{wpm / WPM_TO_SYMBOL_RATE_DIVISOR};
 
-    std::cout << "Message: " << msg << std::endl;
-
-    for (size_t i{0}; i < msg.size(); ++i) {
-        const auto morse{charToMorse(msg[i])};
-        if (morse == std::nullopt) {
-            std::cout << "Message[" << std::setw(2) << std::setfill('0') << i << "]: " << msg[i]
-                      << "\tskipped (unsupported character)" << std::endl;
-            continue;
-        }
-
-        const auto cw{morseToCw(*morse)};
-        std::cout << "Message[" << std::setw(2) << std::setfill('0') << i
-                  << "]: " << static_cast<char>(std::toupper(static_cast<unsigned char>(msg[i]))) << "\tmorse["
-                  << *morse << "]\tcw[" << cw << "]" << std::endl;
-        sendCwOok(freq, symbolRate, cw);
-    }
+    sendCwOok(freq, symbolRate, encodedMessage);
 
     return 0;
 }
