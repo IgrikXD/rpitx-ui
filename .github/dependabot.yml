@@ -9,4 +9,4 @@ updates:
     labels:
       - "CI/CD"
     commit-message:
-      prefix: "[CI/CD]"
+      prefix: "Dependabot"
