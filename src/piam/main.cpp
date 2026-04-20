@@ -208,7 +208,8 @@ int main(int argc, char* argv[]) {
                 break;
             }
             needHeader = false;
-            processBlock(am, dma, outbuf, result->samples.data(), result->count);
+            const auto& header{result.value()};
+            processBlock(am, dma, outbuf, header.samples.data(), header.count);
         }
 
         const auto n{static_cast<int>(std::fread(inbuf.data(), sizeof(int16_t), BLOCK_SIZE, stdin))};
