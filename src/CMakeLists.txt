@@ -42,6 +42,13 @@ target_link_libraries(rpitx_utils PRIVATE m)
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
 
+# --- piam (stdin int16 -> librpitx amdmasync, self-contained) ---
+add_executable(piam
+    piam/main.cpp
+    piam/am_processor.cpp
+)
+target_link_libraries(piam PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
+
 # --- pichirp ---
 add_executable(pichirp pichirp/main.cpp)
 target_link_libraries(pichirp PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
@@ -134,10 +141,6 @@ if(BUILD_OPTIONAL_TARGETS)
     add_executable(pidcf77 dcf77/pidcf77.c)
     target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
 
-    # --- piam ---
-    add_executable(piam am/piam.c)
-    target_link_libraries(piam PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
-
     # --- pifm ---
     add_executable(pifm fm/pifm.c)
     target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
@@ -172,13 +175,13 @@ endif()
 # Install compiled binaries to /usr/bin
 # ----------------------------------------------------------
 # Install required targets
-set(INSTALL_TARGETS 
-    freedv pichirp pifmrds pimorse piopera pirtty pissb 
+set(INSTALL_TARGETS
+    freedv piam pichirp pifmrds pimorse piopera pirtty pissb
     pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt piam pidcf77 pifm pifsq pift8 rds_wav sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rds_wav sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
