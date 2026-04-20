@@ -24,7 +24,7 @@
  * amdmasync pad-drive quantizer receives only non-negative amplitudes.
  *
  * DSP chain: HPF 30 Hz (DC block) -> LPF 4500 Hz (voice-AM bandwidth
- * guard) -> scalar AGC -> (1 + m * a) / 2 envelope formation.
+ * guard) -> scalar AGC -> 0.5 * (1 + m * a) envelope formation.
  *
  * @code
  * AmProcessor am{48'000.0f};
