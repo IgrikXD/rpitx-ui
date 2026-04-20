@@ -15,7 +15,7 @@
 #include "biquad.h"
 
 /**
- * @brief Streaming DSB-FC AM modulator producing a normalized envelope stream.
+ * @brief Streaming DSB-FC AM envelope processor producing a normalized envelope stream.
  *
  * Processes normalized float audio into an amplitude envelope suitable for
  * direct consumption by librpitx::amdmasync::SetAmSamples(). The output is the
@@ -97,6 +97,6 @@ private:
     };
 
     Biquad hpf_;              ///< DC block.
-    Biquad lpf_;              ///< Anti-alias / bandwidth limit.
+    Biquad lpf_;              ///< Voice-AM bandwidth guard.
     Agc agc_{AM_AGC_CONFIG};  ///< Scalar automatic gain control.
 };
