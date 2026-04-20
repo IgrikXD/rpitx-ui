@@ -147,7 +147,7 @@ namespace {
      *
      * @param am Active AM processor.
      * @param dma Active amdmasync instance.
-     * @param scratch Scratch buffer for the intermediate envelope (size >= count).
+     * @param scratch Scratch buffer (size BLOCK_SIZE) for the intermediate envelope; count must not exceed BLOCK_SIZE.
      * @param pcm PCM samples to process.
      * @param count Number of valid samples in pcm.
      */
@@ -182,9 +182,10 @@ int main(int argc, char* argv[]) {
 
     std::signal(SIGTERM, handleSignal);
     std::signal(SIGINT, handleSignal);
-    // The typical invocation is `cat file | piam ...` through easytest.sh,
-    // so SIGPIPE (upstream cat exiting) must terminate us cleanly instead of
-    // aborting the process.
+    // piam writes startup/shutdown status to stdout. If stdout is attached
+    // to a pipe whose reader exits (e.g. `piam ... | tee log` where tee is
+    // killed), those writes would raise SIGPIPE and abort us. Handle it as
+    // a graceful shutdown instead.
     std::signal(SIGPIPE, handleSignal);
 
     std::cout << "piam: center=" << params.freq << " Hz, rate=" << SAMPLE_RATE << " Hz" << std::endl;
