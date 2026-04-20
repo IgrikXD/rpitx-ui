@@ -23,11 +23,11 @@
  * at MODULATION_DEPTH; the DC-shifted form keeps the signal in [0, 1] so the
  * amdmasync pad-drive quantizer receives only non-negative amplitudes.
  *
- * DSP chain: HPF 30 Hz (DC block) -> LPF 4500 Hz (alias guard at 48 kSPS) ->
- * scalar AGC -> (1 + m * a) / 2 envelope formation.
+ * DSP chain: HPF 30 Hz (DC block) -> LPF 4500 Hz (voice-AM bandwidth
+ * guard) -> scalar AGC -> (1 + m * a) / 2 envelope formation.
  *
  * @code
- * AmProcessor am;
+ * AmProcessor am{48'000.0f};
  * const float envelope{am.process(audioSample)};
  * @endcode
  */
