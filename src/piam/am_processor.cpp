@@ -22,8 +22,9 @@ float AmProcessor::process(float sample) {
     const float agcd{agc_.process(filtered)};
 
     // DSB-FC AM envelope: s = 0.5 * (1 + m * a). Clamp guards against
-    // transient AGC undershoot pushing the peak past unity, which would
-    // drive the amdmasync pad quantizer into saturation.
+    // transient AGC gain overshoot (env_ briefly lagging a sudden level
+    // jump) pushing the peak past unity, which would drive the amdmasync
+    // pad quantizer into saturation.
     const float envelope{0.5f * (1.0f + MODULATION_DEPTH * agcd)};
     return std::clamp(envelope, 0.0f, 1.0f);
 }
