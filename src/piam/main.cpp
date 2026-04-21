@@ -195,34 +195,22 @@ int main(int argc, char* argv[]) {
 
     std::array<int16_t, BLOCK_SIZE> inbuf{};
     std::array<float, BLOCK_SIZE> outbuf{};
-    bool needHeader{true};
 
-    while (running.load(std::memory_order_relaxed)) {
-        // Detect and skip WAV header at stream boundaries. The easytest.sh
-        // loop wrapper (`while true; do cat $file; done`) produces a single
-        // continuous byte stream, so header re-detection only matters when
-        // the input really is a fresh file start (initial invocation).
-        if (needHeader) {
-            const auto result{skipWavHeader()};
-            if (result == std::nullopt) {
+    // Skip the WAV header exactly once at stream start. The easytest.sh
+    // pipeline (`while true; do cat $file; done`) holds the write end of
+    // the pipe open across cat iterations, so fread never returns a
+    // partial read at a file boundary - any follow-up RIFF headers land
+    // mid-block and cannot be recovered from partial-read detection.
+    const auto header{skipWavHeader()};
+    if (header != std::nullopt) {
+        processBlock(am, dma, outbuf, header.value().samples.data(), header.value().count);
+
+        while (running.load(std::memory_order_relaxed)) {
+            const auto n{static_cast<int>(std::fread(inbuf.data(), sizeof(int16_t), BLOCK_SIZE, stdin))};
+            if (n <= 0) {
                 break;
             }
-            needHeader = false;
-            const auto& header{result.value()};
-            processBlock(am, dma, outbuf, header.samples.data(), header.count);
-        }
-
-        const auto n{static_cast<int>(std::fread(inbuf.data(), sizeof(int16_t), BLOCK_SIZE, stdin))};
-        if (n <= 0) {
-            break;
-        }
-        processBlock(am, dma, outbuf, inbuf.data(), n);
-
-        // Partial read indicates end of WAV data - expect new header on the
-        // next iteration so a follow-up file with its own RIFF chunk is
-        // parsed correctly rather than played as PCM garbage.
-        if (n < BLOCK_SIZE) {
-            needHeader = true;
+            processBlock(am, dma, outbuf, inbuf.data(), n);
         }
     }
 
