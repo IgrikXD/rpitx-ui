@@ -87,13 +87,19 @@ private:
      * @brief AGC configuration tuned for AM voice transmission.
      *
      * Target 0.8 mirrors the SSB configuration (headroom + audible loudness
-     * trade-off), attack/decay match the SSB voice tracker.
+     * trade-off), attack/decay match the SSB voice tracker. Unlike SSB,
+     * initialEnvelope is seeded at target so the first sample sees gain = 1.0
+     * and the envelope stays within the unity clamp - a small seed (as used
+     * by SSB) would produce an initial gain of target / seed on the first
+     * real sample and saturate the AM envelope into a startup pop. The
+     * remaining convergence to the true signal level is a gentle ramp-in
+     * governed by the decay time constant (~21 ms at 48 kHz).
      */
     static constexpr AgcConfig AM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.1f,
         .decay           = 0.001f,
-        .initialEnvelope = 1e-4f,
+        .initialEnvelope = 0.8f,
     };
 
     Biquad hpf_;              ///< DC block.
