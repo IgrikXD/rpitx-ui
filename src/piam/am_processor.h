@@ -86,19 +86,28 @@ private:
     /**
      * @brief AGC configuration tuned for AM voice transmission.
      *
-     * Target 0.8 mirrors the SSB configuration (headroom + audible loudness
-     * trade-off), attack/decay match the SSB voice tracker. Unlike SSB,
+     * Target 0.8 mirrors the SSB tracker (headroom + audible loudness
+     * trade-off). Attack / decay intentionally diverge from SSB: AM needs
+     * broadcast-style leveller timing so the AGC control envelope stays
+     * well below the lowest voice fundamental (~85 Hz for male speech).
+     * An AGC that tracks into the audio band modulates its own gain within
+     * each glottal period, producing IM distortion that widens the DSB-FC
+     * spectrum well beyond the LPF guard - on AM that spill goes straight
+     * out on air as adjacent-channel splatter. At 48 kHz the 1-pole
+     * coefficients translate to:
+     *   attack = 0.003   -> tau ~= 6.9 ms  (control cutoff ~23 Hz, below
+     *                                       the 30 Hz HPF and voice band)
+     *   decay  = 0.0001  -> tau ~= 208 ms  (classic broadcast release,
+     *                                       avoids inter-syllable pumping)
      * initialEnvelope is seeded at target so the first sample sees gain = 1.0
-     * and the envelope stays within the unity clamp - a small seed (as used
-     * by SSB) would produce an initial gain of target / seed on the first
-     * real sample and saturate the AM envelope into a startup pop. The
-     * remaining convergence to the true signal level is a gentle ramp-in
-     * governed by the decay time constant (~21 ms at 48 kHz).
+     * and stays within the envelope clamp - a small seed (as SSB uses) would
+     * saturate into a startup pop. Convergence to steady-state voice level
+     * is a ~500 ms gentle fade-in governed by the decay time constant.
      */
     static constexpr AgcConfig AM_AGC_CONFIG{
         .target          = 0.8f,
-        .attack          = 0.1f,
-        .decay           = 0.001f,
+        .attack          = 0.003f,
+        .decay           = 0.0001f,
         .initialEnvelope = 0.8f,
     };
 
