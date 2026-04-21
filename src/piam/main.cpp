@@ -203,7 +203,8 @@ int main(int argc, char* argv[]) {
     // mid-block and cannot be recovered from partial-read detection.
     const auto header{skipWavHeader()};
     if (header != std::nullopt) {
-        processBlock(am, dma, outbuf, header.value().samples.data(), header.value().count);
+        const auto& carry{header.value()};
+        processBlock(am, dma, outbuf, carry.samples.data(), carry.count);
 
         while (running.load(std::memory_order_relaxed)) {
             const auto n{static_cast<int>(std::fread(inbuf.data(), sizeof(int16_t), BLOCK_SIZE, stdin))};
