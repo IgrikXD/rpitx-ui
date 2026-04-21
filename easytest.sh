@@ -161,6 +161,7 @@ do_stop_transmit()
 {
 	sudo killall csdr 2>/dev/null
 	sudo killall freedv 2>/dev/null
+	sudo killall piam 2>/dev/null
 	sudo killall pichirp 2>/dev/null
 	sudo killall pifmrds 2>/dev/null
 	sudo killall pimorse 2>/dev/null
@@ -223,7 +224,7 @@ do_freq_setup
 	"5 NFM" "Narrow band FM" \
 	"6 USB" "Upper Side Band modulation" \
 	"7 LSB" "Lower Side Band modulation" \
-	"8 AM" "Amplitude Modulation (Poor quality)" \
+	"8 AM" "Amplitude Modulation" \
 	"9 FreeDV" "Digital voice mode 800XA" \
 	"10 SSTV" "Pattern picture" \
 	"11 Pocsag" "Pager message" \
@@ -291,7 +292,7 @@ do_freq_setup
 			
 			8\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testam.sh "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
+				testam.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
