@@ -1,6 +1,6 @@
 /**
  * @file agc.h
- * @brief Fast automatic gain control (AGC) for IQ signals.
+ * @brief Fast automatic gain control (AGC) for IQ and real-valued audio signals.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 27.03.2026
@@ -30,10 +30,12 @@ struct AgcConfig {
 };
 
 /**
- * @brief Fast envelope-tracking AGC for IQ sample pairs.
+ * @brief Fast envelope-tracking AGC for IQ sample pairs or scalar audio samples.
  *
  * Tracks the signal envelope with asymmetric attack/decay smoothing
- * and applies gain to maintain a constant output amplitude.
+ * and applies gain to maintain a constant output amplitude. The internal
+ * envelope state is shared between the IQ and scalar overloads, so a
+ * single instance is intended to be used for one signal domain at a time.
  *
  * @code
  * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f, .initialEnvelope = 1e-4f}};
@@ -55,7 +57,21 @@ public:
      */
     [[nodiscard]] IqSample process(IqSample sample);
 
+    /**
+     * @brief Apply AGC to a real-valued audio sample.
+     * @param sample Input scalar sample.
+     * @return Gain-adjusted scalar sample.
+     */
+    [[nodiscard]] float process(float sample);
+
 private:
+    /**
+     * @brief Update the envelope estimate with the given magnitude and return the gain to apply.
+     * @param mag Current sample magnitude (|i+jq| for IQ, |x| for scalar).
+     * @return Gain factor target / env, clamped to 1.0 when env is near zero.
+     */
+    [[nodiscard]] float updateGain(float mag);
+
     float target_;  ///< Target output amplitude.
     float attack_;  ///< Envelope attack coefficient.
     float decay_;   ///< Envelope decay coefficient.
