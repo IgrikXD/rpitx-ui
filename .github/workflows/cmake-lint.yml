@@ -1,0 +1,43 @@
+name: CMake lint
+
+on:
+  pull_request:
+    branches: [ "**" ]
+    paths:
+      - '**/CMakeLists.txt'
+      - '**/*.cmake'
+      - '.cmakelintrc'
+      - '.github/workflows/cmake-lint.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cmake-lint:
+    name: CMake lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install cmakelang
+        run: python -m pip install --disable-pip-version-check cmakelang==0.6.13
+
+      - name: Run cmake-lint
+        run: |
+          mapfile -d '' cmake_files < <(
+            git ls-files -z -- 'CMakeLists.txt' '**/CMakeLists.txt' '**/*.cmake'
+          )
+          if [ ${#cmake_files[@]} -eq 0 ]; then
+            echo "No CMake files to lint"
+            exit 0
+          fi
+          cmake-lint "${cmake_files[@]}" -c .cmakelintrc

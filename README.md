@@ -2,7 +2,7 @@
 ## About rpitx-ui
 **[rpitx]** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. 
 
-**rpitx-ui** builds upon this project by providing a [convenient console user interface](#user-interface-changes) to simplify interaction with the **[rpitx]** package. Furthermore, unlike the original **[rpitx]**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its modern build system. The [`install.sh`](./install.sh) script automates the entire process: installs system dependencies via `apt`, builds third-party libraries (_csdr, librpitx, ft8_lib_) from source, then configures and builds **rpitx-ui**. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`, making it possible to run **rpitx-ui** from any directory without being tied to the cloned repository.
+**rpitx-ui** builds upon this project by providing a [convenient console user interface](#user-interface-changes) to simplify interaction with the **[rpitx]** package. Furthermore, unlike the original **[rpitx]**, which relies on legacy **Makefiles**, **rpitx-ui** uses **CMake** as its modern build system. The [`install.sh`](./install.sh) script automates the entire process: installs system dependencies via `apt`, installs the runtime `csdr` tools from source, then configures and builds **rpitx-ui**. CMake fetches and builds `librpitx` and, when optional targets are enabled, `ft8_lib` under the local build tree and links them into the relevant binaries. All compiled binaries are installed to `/usr/bin`, and resource files are installed to `/usr/share/rpitx-ui`, making it possible to run **rpitx-ui** from any directory without being tied to the cloned repository.
 
 > [!WARNING]
 > The current version of the **[rpitx]** package in the original repository has a `dvb/dvbsenco8.s` build error. The current version of **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), has no build errors, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**.
@@ -13,7 +13,7 @@
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.7-blue.svg?longCache=true&style=for-the-badge) 
+[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.8-blue.svg?longCache=true&style=for-the-badge)
 
 ## Installation process
 Clone the **rpitx-ui** repository:
@@ -40,9 +40,9 @@ To remove **rpitx-ui** from the system, run the uninstallation script from the p
 ```sh
 ./uninstall.sh
 ```
-This will remove all **rpitx-ui** binaries, shell scripts, and resource files. Third-party dependencies (_csdr, librpitx, ft8_lib_) are **not** removed by default, because they may be shared with other SDR projects on the system.
+This will remove all **rpitx-ui** binaries, shell scripts, and resource files. The `csdr` runtime dependency is **not** removed by default, because it may be shared with other SDR projects on the system.
 
-To also remove third-party dependencies, use the `--purge-deps` flag:
+To also remove the `csdr` runtime dependency, use the `--purge-deps` flag:
 ```sh
 ./uninstall.sh --purge-deps
 ```
