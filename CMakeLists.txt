@@ -4,9 +4,9 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.26)
 project(rpitx-ui
-    VERSION 1.7
+    VERSION 1.8
     DESCRIPTION "RF transmitter for Raspberry Pi with improved UI functionality, built with CMake."
     LANGUAGES C CXX ASM
 )
@@ -73,5 +73,20 @@ add_compile_options(
 
 # Option responsible for building optional targets (not used by easytest.sh directly)
 option(BUILD_OPTIONAL_TARGETS "Build optional targets not used by easytest.sh" ON)
+
+# ----------------------------------------------------------
+# Local third-party dependencies build configuration
+# ----------------------------------------------------------
+set(THIRD_PARTY_DIR "${CMAKE_BINARY_DIR}/third-party")
+set(THIRD_PARTY_SOURCE_DIR "${THIRD_PARTY_DIR}/src")
+set(THIRD_PARTY_BUILD_DIR "${THIRD_PARTY_DIR}/build")
+set(THIRD_PARTY_INSTALL_DIR "${THIRD_PARTY_DIR}/install")
+
+include(cmake/librpitx-build.cmake)
+
+# ft8_lib is only needed for the optional pift8 target
+if(BUILD_OPTIONAL_TARGETS)
+    include(cmake/ft8_lib-build.cmake)
+endif()
 
 add_subdirectory(src)

@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.7'
+PACKAGE_VERSION='1.8'
 
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
@@ -42,7 +42,7 @@ for arg in "$@"; do
     --purge-deps) PURGE_DEPS=true ;;
     -h|--help)
       echo "Usage: $0 [--purge-deps]"
-      echo "  --purge-deps  Remove installed third-party dependencies (librpitx, ft8_lib, csdr)"
+      echo "  --purge-deps  Remove installed runtime third-party dependencies (csdr)"
       exit 0
       ;;
     *) echo "Unknown option: $arg" >&2; exit 1 ;;
@@ -94,33 +94,9 @@ if [ -d /usr/share/rpitx-ui ]; then
 fi
 echo "${INFO} Resources removed!"
 
-# Remove third-party dependencies only when --purge-deps is specified
+# Remove runtime dependencies only when --purge-deps is specified
 if [ "$PURGE_DEPS" = true ]; then
-  print_banner "$COLOR_YELLOW" 'Removing third-party dependencies (--purge-deps)...'
-
-  # Remove librpitx
-  echo "${INFO} Removing librpitx..."
-  if [ -d /usr/local/include/librpitx ]; then
-    sudo rm -rf /usr/local/include/librpitx
-    echo "${INFO} Removed /usr/local/include/librpitx/"
-  fi
-
-  if [ -f /usr/local/lib/librpitx.a ]; then
-    sudo rm -f /usr/local/lib/librpitx.a
-    echo "${INFO} Removed /usr/local/lib/librpitx.a"
-  fi
-
-  # Remove ft8_lib
-  echo "${INFO} Removing ft8_lib..."
-  if [ -f /usr/lib/libft8.a ]; then
-    sudo rm -f /usr/lib/libft8.a
-    echo "${INFO} Removed /usr/lib/libft8.a"
-  fi
-
-  if [ -d /usr/local/include/ft8_lib ]; then
-    sudo rm -rf /usr/local/include/ft8_lib
-    echo "${INFO} Removed /usr/local/include/ft8_lib/"
-  fi
+  print_banner "$COLOR_YELLOW" 'Removing runtime third-party dependencies (--purge-deps)...'
 
   # Remove csdr
   echo "${INFO} Removing csdr..."
@@ -139,9 +115,9 @@ if [ "$PURGE_DEPS" = true ]; then
   done
 
   sudo ldconfig
-  echo "${INFO} Third-party dependencies removed!"
+  echo "${INFO} Runtime third-party dependencies removed!"
 else
-  echo "${INFO} Skipping third-party dependencies (librpitx, ft8_lib, csdr)."
+  echo "${INFO} Skipping runtime third-party dependencies removal (csdr)."
   echo "${INFO} Use --purge-deps to remove them."
 fi
 
