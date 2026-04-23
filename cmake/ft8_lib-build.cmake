@@ -44,6 +44,8 @@ ExternalProject_Add(ft8_lib
     PREFIX "${THIRD_PARTY_DIR}/ft8_lib"
     GIT_REPOSITORY "https://github.com/F5OEO/ft8_lib"
     GIT_TAG "91f2e648c8755d717177586675262310862bc0a8"
+    # We pin a known-good commit because upstream is effectively unmaintained.
+    # UPDATE_DISCONNECTED avoids automatic update attempts against the remote.
     UPDATE_DISCONNECTED TRUE
     SOURCE_DIR "${THIRD_PARTY_SOURCE_DIR}/ft8_lib"
     BUILD_IN_SOURCE TRUE

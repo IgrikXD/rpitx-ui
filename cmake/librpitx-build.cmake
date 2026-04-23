@@ -23,6 +23,8 @@ ExternalProject_Add(librpitx
     PREFIX "${THIRD_PARTY_DIR}/librpitx"
     GIT_REPOSITORY "https://github.com/F5OEO/librpitx"
     GIT_TAG "f01bdb64bcdb6207f448379193bc0a8accb9aa22"
+    # We pin a known-good commit because upstream is effectively unmaintained.
+    # UPDATE_DISCONNECTED avoids automatic update attempts against the remote.
     UPDATE_DISCONNECTED TRUE
     SOURCE_DIR "${THIRD_PARTY_SOURCE_DIR}/librpitx"
     BUILD_IN_SOURCE TRUE
