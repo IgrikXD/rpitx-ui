@@ -37,4 +37,8 @@ jobs:
           mapfile -d '' cmake_files < <(
             git ls-files -z -- 'CMakeLists.txt' '**/CMakeLists.txt' '**/*.cmake'
           )
+          if [ ${#cmake_files[@]} -eq 0 ]; then
+            echo "No CMake files to lint"
+            exit 0
+          fi
           cmake-lint "${cmake_files[@]}" -c .cmakelintrc
