@@ -11,11 +11,35 @@ find_program(MAKE_EXECUTABLE NAMES make REQUIRED)
 set(FT8_LIB_INSTALL_DIR "${THIRD_PARTY_INSTALL_DIR}/ft8_lib")
 set(FT8_LIB_LIBRARY "${FT8_LIB_INSTALL_DIR}/lib/libft8.a")
 
+# Minimal object set required by pift8 (transitive closure of its includes).
+# text.o is pulled in because pack.o references symbols from it.
+set(FT8_LIB_OBJECTS
+    "<SOURCE_DIR>/common/wave.o"
+    "<SOURCE_DIR>/ft8/constants.o"
+    "<SOURCE_DIR>/ft8/encode.o"
+    "<SOURCE_DIR>/ft8/pack.o"
+    "<SOURCE_DIR>/ft8/text.o"
+)
+
+# Public headers consumed by pift8 directly.
+set(FT8_LIB_COMMON_HEADERS
+    "<SOURCE_DIR>/common/wave.h"
+)
+set(FT8_LIB_FT8_HEADERS
+    "<SOURCE_DIR>/ft8/constants.h"
+    "<SOURCE_DIR>/ft8/encode.h"
+    "<SOURCE_DIR>/ft8/pack.h"
+)
+
 file(MAKE_DIRECTORY
-    "${FT8_LIB_INSTALL_DIR}/include/ft8_lib"
+    "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/common"
+    "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/ft8"
     "${FT8_LIB_INSTALL_DIR}/lib"
 )
 
+# Build the gen_ft8 Makefile target rather than `all`: its prerequisites are
+# exactly the .o files we need, so the decoder, FFT and tests are skipped.
+# `make all` does not produce libft8.a, so the archive is assembled manually.
 ExternalProject_Add(ft8_lib
     PREFIX "${THIRD_PARTY_DIR}/ft8_lib"
     GIT_REPOSITORY "https://github.com/F5OEO/ft8_lib"
@@ -24,15 +48,17 @@ ExternalProject_Add(ft8_lib
     SOURCE_DIR "${THIRD_PARTY_SOURCE_DIR}/ft8_lib"
     BUILD_IN_SOURCE TRUE
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>" all
+    BUILD_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>" gen_ft8
+    BUILD_BYPRODUCTS ${FT8_LIB_OBJECTS}
     INSTALL_COMMAND
-        "${CMAKE_COMMAND}" -E copy_directory
-            "<SOURCE_DIR>/common" "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/common"
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
-            "<SOURCE_DIR>/ft8" "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/ft8"
+        "${CMAKE_COMMAND}" -E copy
+            ${FT8_LIB_COMMON_HEADERS}
+            "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/common/"
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            ${FT8_LIB_FT8_HEADERS}
+            "${FT8_LIB_INSTALL_DIR}/include/ft8_lib/ft8/"
         COMMAND "${CMAKE_COMMAND}" -E rm -f "${FT8_LIB_LIBRARY}"
-        COMMAND sh -c
-            "\"${CMAKE_AR}\" rc \"${FT8_LIB_LIBRARY}\" \"<SOURCE_DIR>\"/common/*.o \"<SOURCE_DIR>\"/fft/*.o \"<SOURCE_DIR>\"/ft8/*.o"
+        COMMAND "${CMAKE_AR}" rc "${FT8_LIB_LIBRARY}" ${FT8_LIB_OBJECTS}
         COMMAND "${CMAKE_RANLIB}" "${FT8_LIB_LIBRARY}"
     INSTALL_BYPRODUCTS "${FT8_LIB_LIBRARY}"
 )
