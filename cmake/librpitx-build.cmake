@@ -17,6 +17,8 @@ file(MAKE_DIRECTORY
     "${LIBRPITX_INSTALL_DIR}/lib"
 )
 
+# Build only librpitx.a (skip librpitx.so, which we don't link against) and
+# delegate header/archive layout to the upstream `install` target via PREFIX.
 ExternalProject_Add(librpitx
     PREFIX "${THIRD_PARTY_DIR}/librpitx"
     GIT_REPOSITORY "https://github.com/F5OEO/librpitx"
