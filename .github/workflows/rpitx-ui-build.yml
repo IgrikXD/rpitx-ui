@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/**'
+      - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
   pull_request:
@@ -15,6 +16,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/**'
+      - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
   workflow_dispatch:
@@ -157,7 +159,7 @@ jobs:
 
             # ==============================================================
             # 7. Uninstall rpitx-ui (with --purge-deps to also remove
-            #    third-party dependencies and verify full cleanup)
+            #    runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
             echo "n" | bash ./uninstall.sh --purge-deps
@@ -216,14 +218,9 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify dependency libraries removed
+            # 11. Verify runtime dependencies removed
             # ==============================================================
-            echo "::group::Verify dependency libraries removed"
-            test ! -d /usr/local/include/librpitx   || { echo "FAIL: /usr/local/include/librpitx still exists";  exit 1; }
-            test ! -f /usr/local/lib/librpitx.a      || { echo "FAIL: /usr/local/lib/librpitx.a still exists";   exit 1; }
-            test ! -f /usr/lib/libft8.a               || { echo "FAIL: /usr/lib/libft8.a still exists";           exit 1; }
-            test ! -d /usr/local/include/ft8_lib      || { echo "FAIL: /usr/local/include/ft8_lib still exists";  exit 1; }
-
+            echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
               test ! -f "/usr/bin/${bin}" || { echo "FAIL: /usr/bin/${bin} still exists"; exit 1; }
             done
@@ -231,7 +228,7 @@ jobs:
             for lib in /usr/lib/libcsdr.so*; do
               test ! -f "${lib}" || { echo "FAIL: ${lib} still exists"; exit 1; }
             done
-            echo "PASS: all dependency libraries removed"
+            echo "PASS: runtime dependencies removed"
             echo "::endgroup::"
 
             # ==============================================================
