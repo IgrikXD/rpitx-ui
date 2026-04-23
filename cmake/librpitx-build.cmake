@@ -29,7 +29,7 @@ ExternalProject_Add(librpitx
     CONFIGURE_COMMAND ""
     BUILD_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>/src" librpitx.a
     INSTALL_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>/src" install "PREFIX=${LIBRPITX_INSTALL_DIR}"
-    BUILD_BYPRODUCTS "${THIRD_PARTY_SOURCE_DIR}/librpitx/src/librpitx.a"
+    BUILD_BYPRODUCTS "<SOURCE_DIR>/src/librpitx.a"
     INSTALL_BYPRODUCTS "${LIBRPITX_LIBRARY}"
 )
 
