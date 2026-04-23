@@ -4,20 +4,6 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Locate librpitx (installed to /usr/local/lib by install.sh)
-find_library(RPITX_LIBRARY
-    NAMES rpitx
-    HINTS /usr/local/lib
-)
-
-if(NOT RPITX_LIBRARY)
-    message(FATAL_ERROR "librpitx not found in /usr/local/lib. "
-                        "Run install.sh first to build and install librpitx!")
-endif()
-
-# Common system libraries used with librpitx
-set(RPITX_COMMON_LIBS ${RPITX_LIBRARY} m rt pthread)
-
 # Required libraries (installed by install.sh)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 
@@ -41,18 +27,18 @@ target_link_libraries(rpitx_utils PRIVATE m)
 # ----------------------------------------------------------
 # --- freedv ---
 add_executable(freedv freedv/freedv.cpp)
-target_link_libraries(freedv PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(freedv PRIVATE librpitx::librpitx)
 
 # --- piam (stdin int16 -> librpitx amdmasync, self-contained) ---
 add_executable(piam
     piam/main.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
+target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pichirp ---
 add_executable(pichirp pichirp/main.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
+target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pifmrds ---
 add_library(pifmrds_c_objs OBJECT
@@ -66,15 +52,15 @@ add_executable(pifmrds
     $<TARGET_OBJECTS:pifmrds_c_objs>
 )
 target_compile_options(pifmrds PRIVATE -Wno-write-strings)
-target_link_libraries(pifmrds PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 
 # --- pimorse ---
 add_executable(pimorse pimorse/main.cpp)
-target_link_libraries(pimorse PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
+target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
-target_link_libraries(piopera PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(piopera PRIVATE librpitx::librpitx)
 
 # --- pirfgen ---
 add_executable(pirfgen
@@ -88,7 +74,7 @@ target_link_libraries(pirfgen PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
-target_link_libraries(pirtty PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
 # --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
 add_executable(pissb
@@ -99,28 +85,28 @@ target_link_libraries(pissb PRIVATE rpitx_utils)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
-target_link_libraries(pisstv PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(pisstv PRIVATE librpitx::librpitx)
 
 # --- pocsag ---
 add_executable(pocsag pocsag/pocsag.cpp)
-target_link_libraries(pocsag PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(pocsag PRIVATE librpitx::librpitx)
 
 # --- rpitx (v1 compat) ---
 add_executable(rpitx rpitxv1/rpitx.cpp)
 target_compile_options(rpitx PRIVATE -Wno-write-strings)
-target_link_libraries(rpitx PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(rpitx PRIVATE librpitx::librpitx)
 
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
-target_link_libraries(sendiq PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(sendiq PRIVATE librpitx::librpitx)
 
 # --- spectrumpaint ---
 add_executable(spectrumpaint spectrumpaint/spectrum.cpp)
-target_link_libraries(spectrumpaint PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(spectrumpaint PRIVATE librpitx::librpitx)
 
 # --- tune ---
 add_executable(tune tune.cpp)
-target_link_libraries(tune PRIVATE ${RPITX_COMMON_LIBS})
+target_link_libraries(tune PRIVATE librpitx::librpitx)
 
 # ----------------------------------------------------------
 # Optional targets (not used by easytest.sh directly)
@@ -129,7 +115,7 @@ if(BUILD_OPTIONAL_TARGETS)
     # --- corel8 ---
     add_executable(corel8 corel8/corel8.cpp)
     target_compile_options(corel8 PRIVATE -Wno-write-strings)
-    target_link_libraries(corel8 PRIVATE ${RPITX_COMMON_LIBS})
+    target_link_libraries(corel8 PRIVATE librpitx::librpitx)
 
     # --- dvbrf (ARM32 assembly - only works on 32-bit ARM) ---
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
@@ -139,33 +125,31 @@ if(BUILD_OPTIONAL_TARGETS)
             dvb/dvbsenco8.s
             dvb/fec100.c
         )
-        target_link_libraries(dvbrf PRIVATE ${RPITX_COMMON_LIBS})
+        target_link_libraries(dvbrf PRIVATE librpitx::librpitx)
     else()
         message(STATUS "Skipping dvbrf target (requires aarch32 platform, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
     endif()
 
     # --- foxhunt ---
     add_executable(foxhunt foxhunt/foxhunt.cpp)
-    target_link_libraries(foxhunt PRIVATE ${RPITX_COMMON_LIBS})
+    target_link_libraries(foxhunt PRIVATE librpitx::librpitx)
 
     # --- pidcf77 ---
     add_executable(pidcf77 dcf77/pidcf77.c)
-    target_link_libraries(pidcf77 PRIVATE ${RPITX_COMMON_LIBS})
+    target_link_libraries(pidcf77 PRIVATE librpitx::librpitx)
 
     # --- pifm ---
     add_executable(pifm fm/pifm.c)
-    target_link_libraries(pifm PRIVATE ${RPITX_COMMON_LIBS} ${SNDFILE_LIBRARY})
+    target_link_libraries(pifm PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 
     # --- pifsq ---
     add_executable(pifsq fsq/pifsq.cpp)
-    target_link_libraries(pifsq PRIVATE ${RPITX_COMMON_LIBS})
+    target_link_libraries(pifsq PRIVATE librpitx::librpitx)
 
     # --- pift8 ---
-    find_library(FT8_LIBRARY ft8 REQUIRED)
     add_executable(pift8 pift8/pift8.cpp)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
-    target_include_directories(pift8 PRIVATE /usr/local/include)
-    target_link_libraries(pift8 PRIVATE ${FT8_LIBRARY} ${RPITX_COMMON_LIBS})
+    target_link_libraries(pift8 PRIVATE ft8::ft8 librpitx::librpitx)
 
     # --- rds_wav ---
     add_executable(rds_wav
@@ -177,7 +161,7 @@ if(BUILD_OPTIONAL_TARGETS)
     # --- sendook ---
     add_executable(sendook ook/sendook.cpp ook/optparse.c)
     target_compile_options(sendook PRIVATE -Wno-write-strings)
-    target_link_libraries(sendook PRIVATE ${RPITX_COMMON_LIBS})
+    target_link_libraries(sendook PRIVATE librpitx::librpitx)
 else()
     message(STATUS "Optional targets build disabled - skipping targets not used by easytest.sh")
 endif()
