@@ -79,7 +79,6 @@ option(BUILD_OPTIONAL_TARGETS "Build optional targets not used by easytest.sh" O
 # ----------------------------------------------------------
 set(THIRD_PARTY_DIR "${CMAKE_BINARY_DIR}/third-party")
 set(THIRD_PARTY_SOURCE_DIR "${THIRD_PARTY_DIR}/src")
-set(THIRD_PARTY_BUILD_DIR "${THIRD_PARTY_DIR}/build")
 set(THIRD_PARTY_INSTALL_DIR "${THIRD_PARTY_DIR}/install")
 
 include(cmake/librpitx-build.cmake)
