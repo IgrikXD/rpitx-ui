@@ -1,8 +1,7 @@
 {
   "format": {
     "line_width": 120,
-    "tab_size": 4,
-    "line_ending": "unix"
+    "tab_size": 4
   },
   "lint": {
     "argument_var_pattern": "[A-Z][0-9A-Z_]+"
