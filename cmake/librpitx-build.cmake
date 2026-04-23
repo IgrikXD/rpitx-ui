@@ -31,10 +31,10 @@ ExternalProject_Add(librpitx
     INSTALL_BYPRODUCTS "${LIBRPITX_LIBRARY}"
 )
 
-add_library(rpitx::librpitx STATIC IMPORTED GLOBAL)
-set_target_properties(rpitx::librpitx PROPERTIES
+add_library(librpitx::librpitx STATIC IMPORTED GLOBAL)
+set_target_properties(librpitx::librpitx PROPERTIES
     IMPORTED_LOCATION "${LIBRPITX_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${LIBRPITX_INSTALL_DIR}/include"
     INTERFACE_LINK_LIBRARIES "m;rt;Threads::Threads"
 )
-add_dependencies(rpitx::librpitx librpitx)
+add_dependencies(librpitx::librpitx librpitx)
