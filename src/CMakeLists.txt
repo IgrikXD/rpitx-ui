@@ -70,7 +70,7 @@ add_executable(pirfgen
     pirfgen/generators/noise_generator.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_utils ${RPITX_COMMON_LIBS})
+target_link_libraries(pirfgen PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
