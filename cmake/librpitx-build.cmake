@@ -20,6 +20,7 @@ ExternalProject_Add(librpitx
     PREFIX "${THIRD_PARTY_DIR}/librpitx"
     GIT_REPOSITORY "https://github.com/F5OEO/librpitx"
     GIT_TAG "f01bdb64bcdb6207f448379193bc0a8accb9aa22"
+    UPDATE_DISCONNECTED TRUE
     SOURCE_DIR "${THIRD_PARTY_SOURCE_DIR}/librpitx"
     BINARY_DIR "${THIRD_PARTY_BUILD_DIR}/librpitx"
     CONFIGURE_COMMAND ""
