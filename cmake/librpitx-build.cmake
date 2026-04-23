@@ -7,6 +7,7 @@
 include(ExternalProject)
 
 find_program(MAKE_EXECUTABLE NAMES make REQUIRED)
+find_package(Threads REQUIRED)
 
 set(LIBRPITX_INSTALL_DIR "${THIRD_PARTY_INSTALL_DIR}/librpitx")
 set(LIBRPITX_LIBRARY "${LIBRPITX_INSTALL_DIR}/lib/librpitx.a")
@@ -22,7 +23,7 @@ ExternalProject_Add(librpitx
     GIT_TAG "f01bdb64bcdb6207f448379193bc0a8accb9aa22"
     UPDATE_DISCONNECTED TRUE
     SOURCE_DIR "${THIRD_PARTY_SOURCE_DIR}/librpitx"
-    BINARY_DIR "${THIRD_PARTY_BUILD_DIR}/librpitx"
+    BUILD_IN_SOURCE TRUE
     CONFIGURE_COMMAND ""
     BUILD_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>/src" librpitx.a
     INSTALL_COMMAND "${MAKE_EXECUTABLE}" -C "<SOURCE_DIR>/src" install "PREFIX=${LIBRPITX_INSTALL_DIR}"
@@ -34,6 +35,6 @@ add_library(rpitx::librpitx STATIC IMPORTED GLOBAL)
 set_target_properties(rpitx::librpitx PROPERTIES
     IMPORTED_LOCATION "${LIBRPITX_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${LIBRPITX_INSTALL_DIR}/include"
-    INTERFACE_LINK_LIBRARIES "m;rt;pthread"
+    INTERFACE_LINK_LIBRARIES "m;rt;Threads::Threads"
 )
 add_dependencies(rpitx::librpitx librpitx)
