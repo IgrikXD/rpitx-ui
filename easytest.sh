@@ -11,6 +11,7 @@ DEFAULT_CW_WPM=5
 DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
+DEFAULT_NFM_MODE="Wide"
 LAST_ITEM="0 Tune"
 
 do_check_file_existance() 
@@ -142,6 +143,21 @@ abort_action=0
 
 }
 
+do_enter_nfm_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if NFM_MODE=$(whiptail --default-item "$DEFAULT_NFM_MODE" --title "NFM deviation mode" --menu "Select NFM deviation mode:" 15 78 2 \
+	"Wide" "+-5 kHz deviation for 25 kHz channels (amateur VHF/UHF)" \
+	"Narrow" "+-2.5 kHz deviation for 12.5 kHz channels (PMR/DMR)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
 do_enter_callsign()
 {
 
@@ -166,6 +182,7 @@ do_stop_transmit()
 	sudo killall pichirp 2>/dev/null
 	sudo killall pifmrds 2>/dev/null
 	sudo killall pimorse 2>/dev/null
+	sudo killall pinfm 2>/dev/null
 	sudo killall piopera 2>/dev/null
 	sudo killall pirfgen 2>/dev/null
 	sudo killall pirtty 2>/dev/null
@@ -272,8 +289,11 @@ do_freq_setup
 			
 			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testnfm.sh "$OUTPUT_FREQ""e3" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_nfm_mode
+				if [ $abort_action -eq 0 ]; then
+					testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			
