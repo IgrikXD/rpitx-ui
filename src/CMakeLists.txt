@@ -178,7 +178,7 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen 
+    freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
     pirtty pissb pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
