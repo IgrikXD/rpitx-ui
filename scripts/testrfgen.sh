@@ -6,12 +6,12 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Usage: testrfgen.sh <freq_Hz> <bandwidth_Hz> <mode> [tones]
+# Usage: testrfgen.sh <freq_Hz> <bandwidth_Hz> <sample_rate_Hz> <mode> [tones]
 #   <mode>    noise | sweep | multitone
 #   [tones]   Tone count for multitone mode (default 8, ignored in other modes)
 TONES_FLAG=()
-if [ "$3" = "multitone" ]; then
-	TONES_FLAG=(-t "${4:-8}")
+if [ "$4" = "multitone" ]; then
+	TONES_FLAG=(-t "${5:-8}")
 fi
 
-sudo pirfgen "$1" "$2" -m "$3" "${TONES_FLAG[@]}"
+sudo pirfgen "$1" "$2" -s "$3" -m "$4" "${TONES_FLAG[@]}"

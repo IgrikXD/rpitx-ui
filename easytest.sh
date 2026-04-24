@@ -8,6 +8,7 @@ DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
 DEFAULT_CW_WPM=5
+DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
 LAST_ITEM="0 Tune"
@@ -111,9 +112,9 @@ else
 fi
 
 # Bandwidth
-if RFGEN_BW=$(whiptail --inputbox "Enter RF generator bandwidth (Hz):" 8 78 "$DEFAULT_RFGEN_BANDWIDTH" --title "RF generator bandwidth" 3>&1 1>&2 2>&3); then
-	if [ -z "$RFGEN_BW" ] || ! [[ "$RFGEN_BW" =~ ^[0-9]+$ ]] || [ "$RFGEN_BW" = "0" ]; then
-		whiptail --title "Error!" --msgbox "Bandwidth must be a positive integer (Hz)!" 8 78
+if RFGEN_BW=$(whiptail --inputbox "Enter RF generator bandwidth (Hz, must be below $DEFAULT_RFGEN_SAMPLE_RATE):" 8 78 "$DEFAULT_RFGEN_BANDWIDTH" --title "RF generator bandwidth" 3>&1 1>&2 2>&3); then
+	if [ -z "$RFGEN_BW" ] || ! [[ "$RFGEN_BW" =~ ^[0-9]+$ ]] || [ "$RFGEN_BW" = "0" ] || [ "$RFGEN_BW" -ge "$DEFAULT_RFGEN_SAMPLE_RATE" ]; then
+		whiptail --title "Error!" --msgbox "Bandwidth must be a positive integer below $DEFAULT_RFGEN_SAMPLE_RATE Hz!" 8 78
 		abort_action=1
 		return
 	fi
@@ -344,7 +345,7 @@ do_freq_setup
 
 			15\ *) do_enter_rfgen_params
 			if [ $abort_action -eq 0 ]; then
-				testrfgen.sh "$OUTPUT_FREQ""e6" "$RFGEN_BW" "${RFGEN_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
+				testrfgen.sh "$OUTPUT_FREQ""e6" "$RFGEN_BW" "$DEFAULT_RFGEN_SAMPLE_RATE" "${RFGEN_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
