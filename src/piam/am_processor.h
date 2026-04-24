@@ -43,6 +43,15 @@ public:
      */
     explicit AmProcessor(float sampleRate);
 
+    // Non-copyable, non-movable: the processor owns IIR state (Biquad delay
+    // lines and Agc envelope estimate) that is meaningful only in place -
+    // duplicating it mid-stream would fork the DSP history, and moving it
+    // after construction is not a pattern any current caller needs.
+    AmProcessor(const AmProcessor&)            = delete;
+    AmProcessor& operator=(const AmProcessor&) = delete;
+    AmProcessor(AmProcessor&&)                 = delete;
+    AmProcessor& operator=(AmProcessor&&)      = delete;
+
     /**
      * @brief Process a single normalized audio sample into an AM envelope.
      *

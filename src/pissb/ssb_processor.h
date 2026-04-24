@@ -47,6 +47,16 @@ public:
      */
     explicit SsbProcessor(SsbMode mode);
 
+    // Non-copyable, non-movable: the processor owns IIR state (Biquad delay
+    // lines, Hilbert transformer taps, and Agc envelope estimate) that is
+    // meaningful only in place - duplicating it mid-stream would fork the
+    // DSP history, and moving it after construction is not a pattern any
+    // current caller needs.
+    SsbProcessor(const SsbProcessor&)            = delete;
+    SsbProcessor& operator=(const SsbProcessor&) = delete;
+    SsbProcessor(SsbProcessor&&)                 = delete;
+    SsbProcessor& operator=(SsbProcessor&&)      = delete;
+
     /**
      * @brief Process a single normalized audio sample.
      * @param sample Input sample in [-1.0, 1.0] range.
