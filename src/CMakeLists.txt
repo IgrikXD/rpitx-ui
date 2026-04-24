@@ -98,11 +98,6 @@ target_link_libraries(pisstv PRIVATE librpitx::librpitx)
 add_executable(pocsag pocsag/pocsag.cpp)
 target_link_libraries(pocsag PRIVATE librpitx::librpitx)
 
-# --- rpitx (v1 compat) ---
-add_executable(rpitx rpitxv1/rpitx.cpp)
-target_compile_options(rpitx PRIVATE -Wno-write-strings)
-target_link_libraries(rpitx PRIVATE librpitx::librpitx)
-
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
 target_link_libraries(sendiq PRIVATE librpitx::librpitx)
@@ -158,6 +153,11 @@ if(BUILD_OPTIONAL_TARGETS)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
     target_link_libraries(pift8 PRIVATE ft8::ft8 librpitx::librpitx)
 
+    # --- rpitx (v1 compat) ---
+    add_executable(rpitx rpitxv1/rpitx.cpp)
+    target_compile_options(rpitx PRIVATE -Wno-write-strings)
+    target_link_libraries(rpitx PRIVATE librpitx::librpitx)
+
     # --- rds_wav ---
     add_executable(rds_wav
         pifmrds/rds_wav.c
@@ -179,11 +179,11 @@ endif()
 # Install required targets
 set(INSTALL_TARGETS
     freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
-    pirtty pissb pisstv pocsag rpitx sendiq spectrumpaint tune
+    pirtty pissb pisstv pocsag sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rds_wav sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rpitx rds_wav sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
