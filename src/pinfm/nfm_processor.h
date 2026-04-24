@@ -130,8 +130,8 @@ private:
         .initialEnvelope = 0.8f,
     };
 
-    Biquad hpf_;                             ///< DC block.
+    Biquad hpf_;                                  ///< DC block.
     std::array<Biquad, LPF_ORDER / 2> lpfChain_;  ///< Butterworth LPF realised as LPF_ORDER / 2 cascaded biquads.
-    Agc agc_{NFM_AGC_CONFIG};                ///< Scalar automatic gain control.
-    float peakDeviation_;                    ///< Output clamp bound and post-AGC scale factor, in Hz.
+    Agc agc_{NFM_AGC_CONFIG};                     ///< Scalar automatic gain control.
+    float peakDeviation_;                         ///< Output clamp bound and post-AGC scale factor, in Hz.
 };

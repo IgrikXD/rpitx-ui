@@ -141,8 +141,7 @@ namespace {
      */
     void printUsage() {
         std::cerr << "Usage: pinfm <freq_Hz> [options]" << std::endl
-                  << "  -m <mode>  NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)"
-                  << std::endl
+                  << "  -m <mode>  NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)" << std::endl
                   << "  -h         Print this help message" << std::endl
                   << "  Reads 16-bit PCM mono audio at " << SAMPLE_RATE << " Hz from stdin." << std::endl;
     }
@@ -302,8 +301,8 @@ int main(int argc, char* argv[]) {
 
     const float peakDeviation{peakDeviationFor(params.mode)};
     std::cout << "pinfm: center=" << params.freq << " Hz, rate=" << SAMPLE_RATE
-              << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE)
-              << " (+-" << peakDeviation << " Hz)" << std::endl;
+              << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE) << " (+-" << peakDeviation << " Hz)"
+              << std::endl;
 
     NfmProcessor nfm{static_cast<float>(SAMPLE_RATE), peakDeviation};
     ngfmdmasync dma{params.freq, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};

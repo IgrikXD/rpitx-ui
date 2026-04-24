@@ -65,7 +65,7 @@ NfmProcessor::NfmProcessor(float sampleRate, float peakDeviation)
 
 float NfmProcessor::process(float sample) {
     float filtered{hpf_.process(sample)};
-    for (auto& section : lpfChain_) {
+    for (auto& section: lpfChain_) {
         filtered = section.process(filtered);
     }
     const float agcd{agc_.process(filtered)};
