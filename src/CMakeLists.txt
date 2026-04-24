@@ -58,6 +58,13 @@ target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 add_executable(pimorse pimorse/main.cpp)
 target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 
+# --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+add_executable(pinfm
+    pinfm/main.cpp
+    pinfm/nfm_processor.cpp
+)
+target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
+
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE librpitx::librpitx)
@@ -171,8 +178,8 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv piam pichirp pifmrds pimorse piopera pirfgen pirtty
-    pissb pisstv pocsag rpitx sendiq spectrumpaint tune
+    freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen 
+    pirtty pissb pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
