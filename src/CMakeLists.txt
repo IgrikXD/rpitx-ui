@@ -153,17 +153,17 @@ if(BUILD_OPTIONAL_TARGETS)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
     target_link_libraries(pift8 PRIVATE ft8::ft8 librpitx::librpitx)
 
-    # --- rpitx (v1 compat) ---
-    add_executable(rpitx rpitxv1/rpitx.cpp)
-    target_compile_options(rpitx PRIVATE -Wno-write-strings)
-    target_link_libraries(rpitx PRIVATE librpitx::librpitx)
-
     # --- rds_wav ---
     add_executable(rds_wav
         pifmrds/rds_wav.c
         $<TARGET_OBJECTS:pifmrds_c_objs>
     )
     target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
+
+    # --- rpitx (v1 compat) ---
+    add_executable(rpitx rpitxv1/rpitx.cpp)
+    target_compile_options(rpitx PRIVATE -Wno-write-strings)
+    target_link_libraries(rpitx PRIVATE librpitx::librpitx)
 
     # --- sendook ---
     add_executable(sendook ook/sendook.cpp ook/optparse.c)
@@ -183,7 +183,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rpitx rds_wav sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rds_wav rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
