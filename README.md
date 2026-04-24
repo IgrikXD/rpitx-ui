@@ -13,7 +13,7 @@
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.8-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.9-blue.svg?longCache=true&style=for-the-badge) 
 
 ## Installation process
 Clone the **rpitx-ui** repository:
@@ -73,6 +73,9 @@ Added the ability to specify your call sign when working in "_**Opera**_" mode. 
 Added "_**CW**_" mode for Morse code transmission. You can enter a custom message and specify the transmission speed in words per minute (_WPM_). If you enter an empty message or WPM value, an error message will be displayed and the transmission will not start.  
 ![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
 
+Added "_**RFgen**_" mode for wideband RF signal generation. You can select one of three generator types: "_**Noise**_" (_uniform pseudo-random noise across the bandwidth_), "_**Sweep**_" (_fast sawtooth sweep across the bandwidth_), or "_**Multitone**_" (_random fast-hopping across equidistant tones_). After selecting the generator type, you will be asked to enter the bandwidth in Hz. If "_**Multitone**_" is selected, you will also be asked to specify the number of tones. If you enter an empty or invalid value for bandwidth or tone count, an error message will be displayed and the transmission will not start.  
+![rpitx-ui-rfgen-mode](./doc/rpitx-ui-rfgen-mode.gif)
+
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
 ### Changes to core functionality
@@ -83,6 +86,11 @@ The Morse code transmitter has been rewritten from scratch and renamed from `mor
 The [`pichirp`](./src/pichirp/) chirp transmitter has been rewritten to align with the modern C++20 conventions used by [`pissb`](./src/pissb/) and [`pimorse`](./src/pimorse/). The original implementation used `atof` for argument parsing (_which silently returns 0 on invalid input_), ran non-async-signal-safe `fprintf` from a handler installed for all 64 signals, mutated a plain `bool running` from that handler (_data race_), accepted bandwidths above the Nyquist limit without diagnosis, and contained dead code such as an unused `SimpleTestDMA()` function. The new version uses `std::atomic<bool>` for the stop flag with the handler restricted to `SIGTERM` and `SIGINT`, validates all three positional arguments with `std::isfinite` and strict-positivity checks, adds an explicit Nyquist check, and switches phase accumulation to `double` with `std::numbers::pi_v<double>` for full precision on long sweeps. Argument parsing, help-flag handling, and error reporting are delegated to the shared [`cli_utils`](./src/utils/cli_utils.h) helpers from the `rpitx_utils` library.
 
 The AM transmitter has been rewritten from scratch as a standalone [`piam`](./src/piam/) binary, and the "_**AM**_" menu entry is no longer labelled "_Poor quality_" in [`easytest.sh`](./easytest.sh). The original path piped audio through an external `csdr` pipeline (_`csdr dsb_fc` generating AM IQ samples_) into `rpitx` in `IQFLOAT` mode; while `csdr` itself produced a valid AM waveform, the Pi has no amplitude-capable DAC - the only on-chip amplitude control is a coarse 3-bit GPIO pad-drive quantiser (_eight discrete drive-strength levels_) - so the `IQFLOAT` pipeline could not reproduce the AM envelope cleanly, and the on-air spectrum lacked a clean constant carrier and exhibited smeared sideband energy more consistent with FM than with textbook AM. The new version drives `librpitx::amdmasync` directly - a purpose-built AM path that maps the audio envelope straight onto the pad-drive quantiser while keeping the carrier frequency fixed - reads 16-bit PCM mono audio at 48 kHz from stdin, and runs it through a dedicated [`AmProcessor`](./src/piam/am_processor.h) chain: 30 Hz HPF -> 4500 Hz LPF -> scalar AGC -> DSB-FC envelope formation `s = 0.5 * (1 + m * a)` with `m = 0.9`, clamped to `[0, 1]`. The shared `rpitx_utils` library gained a scalar-sample overload on `Agc` for this use case.
+
+The wideband RF generator [`pirfgen`](./src/pirfgen/) is an entirely new binary with no equivalent in the original **[rpitx]**. It implements three generator modes through a polymorphic generator architecture: an `RfGenerator` abstract base class, and three concrete implementations - `NoiseGenerator` (_uniform pseudo-random frequency offsets with sample-and-hold band-limiting_), `SweepGenerator` (_deterministic linear sawtooth ramp_), and `MultitoneGenerator` (_FHSS-style random hopping across a pre-computed equidistant tone comb_). The `RfGenProcessor` facade owns the active generator via `std::unique_ptr` and is constructed through a factory that switches on the `RfGenMode` scoped enum. CLI parsing uses `std::from_chars` for locale-independent, allocation-free numeric conversion and `std::span` for argv slicing. All user-supplied parameters are validated before transmission starts.
+
+> [!CAUTION]
+> The "_**RFgen**_" mode is intended **exclusively for laboratory use** (_shielded-room interference testing, receiver sensitivity/selectivity/blocking evaluation, RF front-end and filter characterization, radio protocol resilience evaluation_) and research purposes only. Using this mode to transmit over the air may violate radio spectrum regulations and result in serious legal consequences. The author assumes no responsibility for any misuse of this functionality.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com

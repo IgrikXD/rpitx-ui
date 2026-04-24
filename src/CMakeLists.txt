@@ -16,6 +16,7 @@ add_library(rpitx_utils STATIC
     utils/cli_utils.cpp
     utils/hilbert.cpp
     utils/morse_encoder.cpp
+    utils/sawtooth.cpp
     utils/wav_utils.cpp
 )
 target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
@@ -60,6 +61,16 @@ target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE librpitx::librpitx)
+
+# --- pirfgen ---
+add_executable(pirfgen
+    pirfgen/main.cpp
+    pirfgen/rfgen_processor.cpp
+    pirfgen/generators/multitone_generator.cpp
+    pirfgen/generators/noise_generator.cpp
+    pirfgen/generators/sweep_generator.cpp
+)
+target_link_libraries(pirfgen PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
@@ -160,8 +171,8 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv piam pichirp pifmrds pimorse piopera pirtty pissb
-    pisstv pocsag rpitx sendiq spectrumpaint tune
+    freedv piam pichirp pifmrds pimorse piopera pirfgen pirtty
+    pissb pisstv pocsag rpitx sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
@@ -195,11 +206,10 @@ endif()
 
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
-    fm2ssb.sh snap2spectrum.sh snapsstv.sh
-    sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh
-    testfreedv.sh testlsb.sh testmorse.sh testnfm.sh testopera.sh
-    testpocsag.sh testrtty.sh testspectrum.sh testusb.sh testsstv.sh
-    testvfo.sh transponder.sh
+    fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
+    testchirp.sh testfmrds.sh testfreedv.sh testlsb.sh testmorse.sh
+    testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
+    testspectrum.sh testusb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
