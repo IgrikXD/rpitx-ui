@@ -14,9 +14,9 @@
 #include <cmath>
 #include <numbers>
 
-Biquad Biquad::highPass(float cutoffHz, float sampleRate) {
+Biquad Biquad::highPass(float cutoffHz, float sampleRate, float q) {
     const float w0{2.0f * std::numbers::pi_v<float> * cutoffHz / sampleRate};
-    const float alpha{std::sin(w0) / (2.0f * BUTTERWORTH_Q)};
+    const float alpha{std::sin(w0) / (2.0f * q)};
     const float cosW0{std::cos(w0)};
     const float a0{1.0f + alpha};
 
@@ -30,9 +30,9 @@ Biquad Biquad::highPass(float cutoffHz, float sampleRate) {
     return bq;
 }
 
-Biquad Biquad::lowPass(float cutoffHz, float sampleRate) {
+Biquad Biquad::lowPass(float cutoffHz, float sampleRate, float q) {
     const float w0{2.0f * std::numbers::pi_v<float> * cutoffHz / sampleRate};
-    const float alpha{std::sin(w0) / (2.0f * BUTTERWORTH_Q)};
+    const float alpha{std::sin(w0) / (2.0f * q)};
     const float cosW0{std::cos(w0)};
     const float a0{1.0f + alpha};
 
