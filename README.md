@@ -76,6 +76,9 @@ Added "_**CW**_" mode for Morse code transmission. You can enter a custom messag
 Added "_**RFgen**_" mode for wideband RF signal generation. You can select one of three generator types: "_**Noise**_" (_uniform pseudo-random noise across the bandwidth_), "_**Sweep**_" (_fast sawtooth sweep across the bandwidth_), or "_**Multitone**_" (_random fast-hopping across equidistant tones_). After selecting the generator type, you will be asked to enter the bandwidth in Hz. If "_**Multitone**_" is selected, you will also be asked to specify the number of tones. If you enter an empty or invalid value for bandwidth or tone count, an error message will be displayed and the transmission will not start.  
 ![rpitx-ui-rfgen-mode](./doc/rpitx-ui-rfgen-mode.gif)
 
+Added NFM deviation-mode selection for the "_**NFM**_" transmitter. After choosing a `.wav` file, you can now select either "_**Wide**_" (_+-5 kHz deviation for 25 kHz amateur VHF/UHF channels_) or "_**Narrow**_" (_+-2.5 kHz deviation for 12.5 kHz PMR/DMR-style channels_) before transmission starts.
+![rpitx-ui-nfm-mode](./doc/rpitx-ui-nfm-mode.gif)
+
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
 ### Changes to core functionality
