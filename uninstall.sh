@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.9'
+PACKAGE_VERSION='1.10'
 
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
@@ -53,13 +53,15 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
-BINARIES=(
-  corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds pifsq pift8
-  pimorse piopera pirfgen pirtty pissb pisstv pocsag rds_wav rpitx sendiq
-  sendook spectrumpaint tune
+REQUIRED_BINARIES=(
+  freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen pirtty pissb
+  pisstv pocsag sendiq spectrumpaint tune
+)
+OPTIONAL_BINARIES=(
+  corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook
 )
 
-for BIN in "${BINARIES[@]}"; do
+for BIN in "${REQUIRED_BINARIES[@]}" "${OPTIONAL_BINARIES[@]}"; do
   if [ -f "/usr/bin/${BIN}" ]; then
     sudo rm -f "/usr/bin/${BIN}"
     echo "${INFO} Removed /usr/bin/${BIN}"

@@ -80,11 +80,11 @@ jobs:
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
-              corel8 foxhunt freedv piam pichirp pidcf77 pifm pifmrds
-              pifsq pift8 pimorse piopera pirfgen pirtty pissb pisstv
-              pocsag rds_wav rpitx sendiq sendook spectrumpaint tune
+              corel8 foxhunt freedv piam pichirp pidcf77 pifmrds
+              pifsq pift8 pimorse pinfm piopera pirfgen pirtty pissb
+              pisstv pocsag rds_wav sendiq sendook spectrumpaint tune
             )
-            OPTIONAL_BINARIES=(dvbrf)
+            OPTIONAL_BINARIES=(dvbrf rpitx)
 
             for bin in "${REQUIRED_BINARIES[@]}"; do
               test -x "/usr/bin/${bin}" || { echo "FAIL: required binary /usr/bin/${bin} missing"; exit 1; }
@@ -170,9 +170,9 @@ jobs:
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
-              corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifm pifmrds
-              pifsq pift8 pimorse piopera pirfgen pirtty pissb pisstv pocsag
-              rds_wav rpitx sendiq sendook spectrumpaint tune
+              corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifmrds
+              pifsq pift8 pimorse pinfm piopera pirfgen pirtty pissb pisstv
+              pocsag rds_wav rpitx sendiq sendook spectrumpaint tune
             )
 
             for bin in "${ALL_BINARIES[@]}"; do

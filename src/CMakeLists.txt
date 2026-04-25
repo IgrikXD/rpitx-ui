@@ -58,6 +58,13 @@ target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 add_executable(pimorse pimorse/main.cpp)
 target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 
+# --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+add_executable(pinfm
+    pinfm/main.cpp
+    pinfm/nfm_processor.cpp
+)
+target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
+
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE librpitx::librpitx)
@@ -90,11 +97,6 @@ target_link_libraries(pisstv PRIVATE librpitx::librpitx)
 # --- pocsag ---
 add_executable(pocsag pocsag/pocsag.cpp)
 target_link_libraries(pocsag PRIVATE librpitx::librpitx)
-
-# --- rpitx (v1 compat) ---
-add_executable(rpitx rpitxv1/rpitx.cpp)
-target_compile_options(rpitx PRIVATE -Wno-write-strings)
-target_link_libraries(rpitx PRIVATE librpitx::librpitx)
 
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
@@ -138,10 +140,6 @@ if(BUILD_OPTIONAL_TARGETS)
     add_executable(pidcf77 dcf77/pidcf77.c)
     target_link_libraries(pidcf77 PRIVATE librpitx::librpitx)
 
-    # --- pifm ---
-    add_executable(pifm fm/pifm.c)
-    target_link_libraries(pifm PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
-
     # --- pifsq ---
     add_executable(pifsq fsq/pifsq.cpp)
     target_link_libraries(pifsq PRIVATE librpitx::librpitx)
@@ -158,6 +156,11 @@ if(BUILD_OPTIONAL_TARGETS)
     )
     target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
 
+    # --- rpitx (v1 compat) ---
+    add_executable(rpitx rpitxv1/rpitx.cpp)
+    target_compile_options(rpitx PRIVATE -Wno-write-strings)
+    target_link_libraries(rpitx PRIVATE librpitx::librpitx)
+
     # --- sendook ---
     add_executable(sendook ook/sendook.cpp ook/optparse.c)
     target_compile_options(sendook PRIVATE -Wno-write-strings)
@@ -171,12 +174,12 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv piam pichirp pifmrds pimorse piopera pirfgen pirtty
-    pissb pisstv pocsag rpitx sendiq spectrumpaint tune
+    freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
+    pirtty pissb pisstv pocsag sendiq spectrumpaint tune
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rds_wav sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
