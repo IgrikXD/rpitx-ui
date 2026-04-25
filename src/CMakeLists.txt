@@ -140,10 +140,6 @@ if(BUILD_OPTIONAL_TARGETS)
     add_executable(pidcf77 dcf77/pidcf77.c)
     target_link_libraries(pidcf77 PRIVATE librpitx::librpitx)
 
-    # --- pifm ---
-    add_executable(pifm fm/pifm.c)
-    target_link_libraries(pifm PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
-
     # --- pifsq ---
     add_executable(pifsq fsq/pifsq.cpp)
     target_link_libraries(pifsq PRIVATE librpitx::librpitx)
@@ -183,7 +179,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifm pifsq pift8 rds_wav rpitx sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
