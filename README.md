@@ -79,6 +79,9 @@ Added "_**RFgen**_" mode for wideband RF signal generation. You can select one o
 Added NFM deviation-mode selection for the "_**NFM**_" transmitter. After choosing a `.wav` file, you can now select either "_**Wide**_" (_+-5 kHz deviation for 25 kHz amateur VHF/UHF channels_) or "_**Narrow**_" (_+-2.5 kHz deviation for 12.5 kHz PMR/DMR-style channels_) before transmission starts.
 ![rpitx-ui-nfm-mode](./doc/rpitx-ui-nfm-mode.gif)
 
+Added RDS parameter setup for the "_**FmRds**_" transmitter. After choosing a `.wav` file, you can now enter the RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and select either 50 us or 75 us FM pre-emphasis before transmission starts. Empty or invalid PI / PS / RT values are rejected and the transmission is not started.
+![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
+
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
 ### Changes to core functionality
