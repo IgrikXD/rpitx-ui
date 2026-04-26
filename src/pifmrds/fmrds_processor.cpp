@@ -222,12 +222,19 @@ void FmRdsProcessor::process(std::span<const float> audioIn, std::span<float> mp
     assert(mpxOut.size() == static_cast<std::size_t>(mpxSamples_));
 
     // Audio stage: HPF -> pre-emph -> LPF -> joint AGC -> per-channel scratch.
-    // For stereo we deinterleave on the fly; the loop body stays branch-free
-    // by storing R == L for mono so the resampler step can treat both buffers
-    // uniformly without a second special case.
+    // Mono reads one sample per frame and duplicates it into R; stereo
+    // deinterleaves L/R on the fly from the input frame.
     for (std::size_t i{0}; i < frames; ++i) {
-        const float l{channels_ == 1 ? audioIn[i] : audioIn[i * 2]};
-        const float r{channels_ == 1 ? l : audioIn[i * 2 + 1]};
+        float l{};
+        float r{};
+        if (channels_ == 1) {
+            l = audioIn[i];
+            r = l;
+        } else {
+            const std::size_t frameOffset{i * 2};
+            l = audioIn[frameOffset];
+            r = audioIn[frameOffset + 1];
+        }
         const auto frame{preprocessFrame(l, r)};
         audioScratch_[0][i] = frame.i;
         if (channels_ == 2) {
@@ -248,7 +255,10 @@ void FmRdsProcessor::process(std::span<const float> audioIn, std::span<float> mp
     // pre-computation would force the modulator to expose its phase state.
     for (std::size_t i{0}; i < mpxOut.size(); ++i) {
         const float l{mpxScratch_[0][i]};
-        const float r{channels_ == 2 ? mpxScratch_[1][i] : l};
+        float r{l};
+        if (channels_ == 2) {
+            r = mpxScratch_[1][i];
+        }
         mpxOut[i] = buildMpxSample(l, r);
     }
 }
