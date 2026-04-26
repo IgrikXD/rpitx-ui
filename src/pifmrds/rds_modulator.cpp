@@ -11,57 +11,61 @@
 
 #include "rds_modulator.h"
 
+#include <array>
 #include <cstddef>
+
+namespace {
+    /**
+     * @brief Size of the circular overlap-add buffer as a signed index bound.
+     */
+    constexpr int OVERLAP_BUFFER_SIZE{static_cast<int>(RDS_PULSE_SAMPLES)};
+
+    /**
+     * @brief 57 kHz sine subcarrier sampled at 228 kHz: [0, +1, 0, -1].
+     */
+    constexpr std::array<float, 4> SUBCARRIER_GAIN{0.0F, 1.0F, 0.0F, -1.0F};
+}  // namespace
 
 int RdsModulator::nextBit() {
     if (bitPos_ >= RDS_BITS_PER_GROUP) {
         encoder_.nextGroupBits(bitBuffer_);
         bitPos_ = 0;
     }
+
     return bitBuffer_[static_cast<std::size_t>(bitPos_++)];
 }
 
 void RdsModulator::stampPulse(bool invert) {
     const auto pulse{rdsPulse()};
     int idx{writeIndex_};
+
     for (std::size_t k{0}; k < pulse.size(); ++k) {
-        float v{pulse[k]};
+        const auto bufferIndex{static_cast<std::size_t>(idx)};
         if (invert) {
-            v = -v;
+            overlapBuffer_[bufferIndex] -= pulse[k];
+        } else {
+            overlapBuffer_[bufferIndex] += pulse[k];
         }
-        overlapBuffer_[static_cast<std::size_t>(idx)] += v;
-        if (++idx >= static_cast<int>(overlapBuffer_.size())) {
+        if (++idx >= OVERLAP_BUFFER_SIZE) {
             idx = 0;
         }
     }
+
     writeIndex_ += static_cast<int>(RDS_SAMPLES_PER_BIT);
-    if (writeIndex_ >= static_cast<int>(overlapBuffer_.size())) {
-        writeIndex_ -= static_cast<int>(overlapBuffer_.size());
+    if (writeIndex_ >= OVERLAP_BUFFER_SIZE) {
+        writeIndex_ -= OVERLAP_BUFFER_SIZE;
     }
 }
 
 float RdsModulator::nextSample() {
     if (samplesToNextBit_ >= static_cast<int>(RDS_SAMPLES_PER_BIT)) {
-        // Fetch the next raw bit, differentially encode it, and overlap-add
-        // a fresh biphase pulse into the rolling buffer with polarity set
-        // by the encoded bit. The pulse is laid down at writeIndex_ which
-        // is one bit-period ahead of the read head, so by the time the
-        // read head catches up the pulse will be fully shaped against any
-        // earlier overlapping pulses.
+        // At each RDS bit boundary, fetch and differentially encode one bit,
+        // then stamp its shaped pulse one bit period ahead of the read head.
         const int raw{nextBit()};
         const int enc{differentialEncode(raw)};
+
         stampPulse(enc == 1);
         samplesToNextBit_ = 0;
-    }
-
-    // Read out one sample from the overlap-add buffer and immediately clear
-    // the slot so the buffer can be reused circularly without an explicit
-    // "have we read this slot yet" book-keeping bit. Reads strictly trail
-    // writes by one bit period (set up by readIndex_'s primer in the ctor).
-    float sample{overlapBuffer_[static_cast<std::size_t>(readIndex_)]};
-    overlapBuffer_[static_cast<std::size_t>(readIndex_)] = 0.0f;
-    if (++readIndex_ >= static_cast<int>(overlapBuffer_.size())) {
-        readIndex_ = 0;
     }
 
     // Modulate onto the 57 kHz subcarrier as a 4-phase walk. With Fs = 228
@@ -71,19 +75,16 @@ float RdsModulator::nextSample() {
     // cosine) is the canonical EN 50067 phase: starts at zero with a rising
     // slope, so the subcarrier is phase-locked to the 19 kHz pilot's rising
     // zero crossing (which is itself sine-form here).
-    switch (subcarrierPhase_) {
-        case 0:
-        case 2:
-            sample = 0.0f;
-            break;
-        case 1:
-            // Pass-through: sample = sample.
-            break;
-        case 3:
-            sample = -sample;
-            break;
+    const auto bufferIndex{static_cast<std::size_t>(readIndex_)};
+    const float sample{overlapBuffer_[bufferIndex] * SUBCARRIER_GAIN[static_cast<std::size_t>(subcarrierPhase_)]};
+    overlapBuffer_[bufferIndex] = 0.0f;
+
+    // The read head stays one bit period behind the write head.
+    if (++readIndex_ >= OVERLAP_BUFFER_SIZE) {
+        readIndex_ = 0;
     }
-    subcarrierPhase_ = (subcarrierPhase_ + 1) % 4;
+
+    subcarrierPhase_ = (subcarrierPhase_ + 1) % static_cast<int>(SUBCARRIER_GAIN.size());
     ++samplesToNextBit_;
 
     return sample;
