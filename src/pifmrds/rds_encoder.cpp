@@ -16,6 +16,8 @@
 #include <cstddef>
 #include <ctime>
 
+#include "byte_utils.h"
+
 namespace {
     /**
      * @brief RDS group block indexes.
@@ -130,6 +132,17 @@ namespace {
     constexpr uint16_t CT_LOCAL_OFFSET_SIGN_BIT{0x20};
 
     /**
+     * @brief Current UTC minute decomposed for CT group encoding.
+     */
+    struct UtcMinuteTime {
+        std::chrono::system_clock::time_point now;
+        std::chrono::sys_time<std::chrono::minutes> minutePoint;
+        std::chrono::sys_days day;
+        int hourOfDay;
+        int minuteOfHour;
+    };
+
+    /**
      * @brief Compute the Modified Julian Date from a UTC day.
      *
      * MJD is the number of whole days since 1858-11-17 00:00 UTC.
@@ -146,10 +159,21 @@ namespace {
     }
 
     /**
-     * @brief Pack two bytes into one 16-bit RDS block, high byte first.
+     * @brief Read the system clock and decompose the current UTC minute.
      */
-    [[nodiscard]] constexpr uint16_t packBytes(uint8_t high, uint8_t low) {
-        return static_cast<uint16_t>((static_cast<uint16_t>(high) << 8U) | static_cast<uint16_t>(low));
+    [[nodiscard]] UtcMinuteTime currentUtcMinuteTime() {
+        const auto now{std::chrono::system_clock::now()};
+        const auto minutePoint{std::chrono::floor<std::chrono::minutes>(now)};
+        const auto day{std::chrono::floor<std::chrono::days>(minutePoint)};
+        const std::chrono::hh_mm_ss clockTime{minutePoint - day};
+
+        return {
+            .now          = now,
+            .minutePoint  = minutePoint,
+            .day          = day,
+            .hourOfDay    = static_cast<int>(clockTime.hours().count()),
+            .minuteOfHour = static_cast<int>(clockTime.minutes().count()),
+        };
     }
 
     /**
@@ -223,26 +247,21 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     // and 104 bits per group, negligible cost) rather than maintaining a
     // parallel timer. UTC fields are derived with std::chrono; local-offset
     // lookup still goes through the platform time-zone database below.
-    const auto now{std::chrono::system_clock::now()};
-    const auto utcMinutePoint{std::chrono::floor<std::chrono::minutes>(now)};
-    const auto utcDay{std::chrono::floor<std::chrono::days>(utcMinutePoint)};
-    const std::chrono::hh_mm_ss utcTime{utcMinutePoint - utcDay};
-    const int utcHour{static_cast<int>(utcTime.hours().count())};
-    const int utcMinute{static_cast<int>(utcTime.minutes().count())};
+    const auto utc{currentUtcMinuteTime()};
 
-    if (lastCtUtcMinute_.has_value() && lastCtUtcMinute_ == utcMinutePoint) {
+    if (lastCtUtcMinute_.has_value() && lastCtUtcMinute_ == utc.minutePoint) {
         return false;
     }
-    lastCtUtcMinute_ = utcMinutePoint;
+    lastCtUtcMinute_ = utc.minutePoint;
 
-    const int mjd{computeMjd(utcDay)};
+    const int mjd{computeMjd(utc.day)};
 
     blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_4A_TYPE_VERSION | TP_BIT | (mjd >> 15));
-    blocks[BLOCK_C] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
-    blocks[BLOCK_D] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
+    blocks[BLOCK_C] = static_cast<uint16_t>((mjd << 1) | (utc.hourOfDay >> 4));
+    blocks[BLOCK_D] = static_cast<uint16_t>(((utc.hourOfDay & 0xF) << 12) | (utc.minuteOfHour << 6));
 
     // Local-offset half-hours are encoded as magnitude plus a separate sign bit.
-    const int offset{localUtcOffsetHalfHours(now)};
+    const int offset{localUtcOffsetHalfHours(utc.now)};
     int offsetMagnitude{offset};
     if (offsetMagnitude < 0) {
         offsetMagnitude = -offsetMagnitude;
@@ -263,7 +282,7 @@ void RdsEncoder::fillPsGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks)
     // Two consecutive PS chars per segment, MSB byte first.
     const auto hi{static_cast<uint8_t>(ps_[static_cast<std::size_t>(psSegment_ * 2)])};
     const auto lo{static_cast<uint8_t>(ps_[static_cast<std::size_t>(psSegment_ * 2 + 1)])};
-    blocks[BLOCK_D] = packBytes(hi, lo);
+    blocks[BLOCK_D] = packUint16BigEndian(hi, lo);
 
     psSegment_ = (psSegment_ + 1) % PS_SEGMENTS;
 }
@@ -275,8 +294,8 @@ void RdsEncoder::fillRtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks)
     const auto c1{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 1)])};
     const auto c2{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 2)])};
     const auto c3{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 3)])};
-    blocks[BLOCK_C] = packBytes(c0, c1);
-    blocks[BLOCK_D] = packBytes(c2, c3);
+    blocks[BLOCK_C] = packUint16BigEndian(c0, c1);
+    blocks[BLOCK_D] = packUint16BigEndian(c2, c3);
 
     rtSegment_ = (rtSegment_ + 1) % RT_SEGMENTS;
 }
