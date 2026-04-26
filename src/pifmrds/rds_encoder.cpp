@@ -51,29 +51,39 @@ namespace {
     constexpr uint16_t AF_NO_LIST{0xCDCD};
 
     /**
+     * @brief TP (Traffic Programme) flag in block B.
+     *
+     * Kept enabled to preserve the previous stream semantics; unlike TA,
+     * TP is a station capability bit and is common to all group types here.
+     */
+    constexpr uint16_t TP_BIT{0x0400};
+
+    /**
      * @brief Group type / version code for 0A groups (PS).
      *
-     * Block 2 layout (high 5 bits = type/version): 0A = group type 0,
-     * version A (i.e. 0b00000xxxxxxxxxxx). Bits below carry TP/PTY/TA/MS/DI
-     * flags and PS segment index (bits 0..1).
+     * Block B layout (high 5 bits = type/version): 0A = group type 0,
+     * version A (i.e. 0b00000xxxxxxxxxxx). TP is applied separately via
+     * TP_BIT; bits below carry PTY/TA/MS/DI flags and PS segment index.
      */
-    constexpr uint16_t GROUP_0A_HEADER{0x0400};
+    constexpr uint16_t GROUP_0A_TYPE_VERSION{0x0000};
 
     /**
      * @brief Group type / version code for 2A groups (RT).
      *
-     * Block 2 layout: 2A = group type 2, version A (0b00100xxxxxxxxxxx).
-     * Low bits carry TP/PTY, A_B flag, and RT segment index (bits 0..3).
+     * Block B layout: 2A = group type 2, version A (0b00100xxxxxxxxxxx).
+     * TP is applied separately via TP_BIT; low bits carry PTY, A_B flag,
+     * and RT segment index (bits 0..3).
      */
-    constexpr uint16_t GROUP_2A_HEADER{0x2400};
+    constexpr uint16_t GROUP_2A_TYPE_VERSION{0x2000};
 
     /**
      * @brief Group type / version code for 4A groups (CT).
      *
-     * Block 2 layout: 4A = group type 4, version A (0b01000xxxxxxxxxxx).
-     * Block 1's low 5 bits carry the high 5 bits of the Modified Julian Date.
+     * Block B layout: 4A = group type 4, version A (0b01000xxxxxxxxxxx).
+     * TP is applied separately via TP_BIT; block B's low 2 bits carry the
+     * high 2 bits of the Modified Julian Date.
      */
-    constexpr uint16_t GROUP_4A_HEADER{0x4400};
+    constexpr uint16_t GROUP_4A_TYPE_VERSION{0x4000};
 
     /**
      * @brief Bit position of the TA (Traffic Announcement) flag in 0A block 2.
@@ -227,7 +237,7 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
 
     const int mjd{computeMjd(utcDay)};
 
-    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_4A_HEADER | (mjd >> 15));
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_4A_TYPE_VERSION | TP_BIT | (mjd >> 15));
     blocks[BLOCK_C] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
     blocks[BLOCK_D] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
 
@@ -245,7 +255,7 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
 }
 
 void RdsEncoder::fillPsGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks) {
-    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_0A_HEADER | psSegment_);
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_0A_TYPE_VERSION | TP_BIT | psSegment_);
     if (ta_) {
         blocks[BLOCK_B] = static_cast<uint16_t>(blocks[BLOCK_B] | TA_BIT);
     }
@@ -259,7 +269,7 @@ void RdsEncoder::fillPsGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks)
 }
 
 void RdsEncoder::fillRtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks) {
-    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_2A_HEADER | rtSegment_);
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_2A_TYPE_VERSION | TP_BIT | rtSegment_);
     // Four consecutive RT chars per segment.
     const auto c0{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 0)])};
     const auto c1{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 1)])};
