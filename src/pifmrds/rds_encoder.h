@@ -12,7 +12,9 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 
 /**
@@ -92,7 +94,10 @@ public:
      * expected to override them with setPi() / setPs() / setRt() before
      * the first nextGroupBits() call.
      */
-    RdsEncoder();
+    RdsEncoder() : pi_{0x0000}, ta_{false} {
+        ps_.fill(' ');
+        rt_.fill(' ');
+    }
 
     RdsEncoder(const RdsEncoder&)            = delete;
     RdsEncoder& operator=(const RdsEncoder&) = delete;
@@ -107,7 +112,9 @@ public:
      *
      * @param pi 16-bit PI code.
      */
-    void setPi(uint16_t pi);
+    void setPi(uint16_t pi) {
+        pi_ = pi;
+    }
 
     /**
      * @brief Set the Programme Service (PS) name.
@@ -135,7 +142,9 @@ public:
      * @brief Set the Traffic Announcement (TA) flag.
      * @param ta true to assert TA in 0A groups, false to clear it.
      */
-    void setTa(bool ta);
+    void setTa(bool ta) {
+        ta_ = ta;
+    }
 
     /**
      * @brief Generate the next RDS group as a flat bit sequence.
@@ -166,10 +175,10 @@ private:
     /**
      * @brief Try to populate the four blocks with a CT (clock-time, 4A) group.
      *
-     * Side-effect: updates lastCtMinute_ when a CT group is generated, so
-     * the same minute is not transmitted twice. CT is the only RDS group
-     * with a wall-clock dependency, so the time read is performed inline
-     * here rather than in the caller.
+     * Side-effect: updates lastCtUtcMinute_ when a CT group is generated,
+     * so the same absolute UTC minute is not transmitted twice. CT is the
+     * only RDS group with a wall-clock dependency, so the time read is
+     * performed inline here rather than in the caller.
      *
      * @param blocks Output - blocks[1..3] populated when a CT group is due.
      * @return true if a CT group was generated, false otherwise.
@@ -240,9 +249,9 @@ private:
     int rtSegment_{0};
 
     /**
-     * @brief UTC minute of the last CT group emitted, or -1 if never.
+     * @brief Absolute UTC minute of the last CT group emitted.
      *
      * Used to gate CT emission to once per minute.
      */
-    int lastCtMinute_{-1};
+    std::optional<std::chrono::sys_time<std::chrono::minutes>> lastCtUtcMinute_{std::nullopt};
 };

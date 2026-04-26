@@ -13,9 +13,20 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <ctime>
 
 namespace {
+    /**
+     * @brief RDS group block indexes.
+     */
+    enum RdsBlock : std::size_t {
+        BLOCK_A = 0,
+        BLOCK_B = 1,
+        BLOCK_C = 2,
+        BLOCK_D = 3,
+    };
+
     /**
      * @brief CRC generator polynomial (EN 50067 §3.2.1.4).
      *
@@ -109,19 +120,26 @@ namespace {
     constexpr uint16_t CT_LOCAL_OFFSET_SIGN_BIT{0x20};
 
     /**
-     * @brief Compute the Modified Julian Date from a UTC calendar date.
+     * @brief Compute the Modified Julian Date from a UTC day.
      *
      * MJD is the number of whole days since 1858-11-17 00:00 UTC.
      *
-     * @param utcDate UTC calendar date.
+     * @param utcDay UTC day.
      * @return Modified Julian Date. Current broadcast-era dates fit in the
      *         RDS CT field's 17-bit MJD range.
      */
-    [[nodiscard]] int computeMjd(const std::chrono::year_month_day& utcDate) {
+    [[nodiscard]] int computeMjd(std::chrono::sys_days utcDay) {
         constexpr std::chrono::sys_days mjdEpoch{std::chrono::year{1858} / std::chrono::month{11} /
                                                   std::chrono::day{17}};
 
-        return static_cast<int>((std::chrono::sys_days{utcDate} - mjdEpoch).count());
+        return static_cast<int>((utcDay - mjdEpoch).count());
+    }
+
+    /**
+     * @brief Pack two bytes into one 16-bit RDS block, high byte first.
+     */
+    [[nodiscard]] constexpr uint16_t packBytes(uint8_t high, uint8_t low) {
+        return static_cast<uint16_t>((static_cast<uint16_t>(high) << 8U) | static_cast<uint16_t>(low));
     }
 
     /**
@@ -150,24 +168,15 @@ namespace {
      * @param value Source value.
      * @param bitCount Number of bits to append, starting with the highest bit.
      * @param bits Output bit buffer.
-     * @param idx Current write index, advanced by bitCount.
+     * @param bitIndex Current write index, advanced by bitCount.
      */
-    void appendMsbBits(uint16_t value, int bitCount, std::array<int, RDS_BITS_PER_GROUP>& bits, int& idx) {
+    void appendMsbBits(uint16_t value, int bitCount, std::array<int, RDS_BITS_PER_GROUP>& bits, int& bitIndex) {
         for (int bit{bitCount - 1}; bit >= 0; --bit) {
             const uint16_t mask{static_cast<uint16_t>(uint16_t{1} << bit)};
-            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((value & mask) != 0);
+            bits[static_cast<std::size_t>(bitIndex++)] = static_cast<int>((value & mask) != 0);
         }
     }
 }  // namespace
-
-RdsEncoder::RdsEncoder() : pi_{0x0000}, ta_{false} {
-    ps_.fill(' ');
-    rt_.fill(' ');
-}
-
-void RdsEncoder::setPi(uint16_t pi) {
-    pi_ = pi;
-}
 
 void RdsEncoder::setPs(std::string_view ps) {
     ps_.fill(' ');
@@ -179,10 +188,6 @@ void RdsEncoder::setRt(std::string_view rt) {
     rt_.fill(' ');
     const auto n{std::min(rt.size(), static_cast<std::size_t>(RT_LENGTH))};
     std::copy_n(rt.begin(), n, rt_.begin());
-}
-
-void RdsEncoder::setTa(bool ta) {
-    ta_ = ta;
 }
 
 uint16_t RdsEncoder::crc(uint16_t block) {
@@ -209,23 +214,22 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     // parallel timer. UTC fields are derived with std::chrono; local-offset
     // lookup still goes through the platform time-zone database below.
     const auto now{std::chrono::system_clock::now()};
-    const auto utcSeconds{std::chrono::floor<std::chrono::seconds>(now)};
-    const auto utcDay{std::chrono::floor<std::chrono::days>(utcSeconds)};
-    const std::chrono::year_month_day utcDate{utcDay};
-    const std::chrono::hh_mm_ss utcTime{utcSeconds - utcDay};
+    const auto utcMinutePoint{std::chrono::floor<std::chrono::minutes>(now)};
+    const auto utcDay{std::chrono::floor<std::chrono::days>(utcMinutePoint)};
+    const std::chrono::hh_mm_ss utcTime{utcMinutePoint - utcDay};
     const int utcHour{static_cast<int>(utcTime.hours().count())};
     const int utcMinute{static_cast<int>(utcTime.minutes().count())};
 
-    if (utcMinute == lastCtMinute_) {
+    if (lastCtUtcMinute_.has_value() && lastCtUtcMinute_ == utcMinutePoint) {
         return false;
     }
-    lastCtMinute_ = utcMinute;
+    lastCtUtcMinute_ = utcMinutePoint;
 
-    const int mjd{computeMjd(utcDate)};
+    const int mjd{computeMjd(utcDay)};
 
-    blocks[1] = static_cast<uint16_t>(GROUP_4A_HEADER | (mjd >> 15));
-    blocks[2] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
-    blocks[3] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_4A_HEADER | (mjd >> 15));
+    blocks[BLOCK_C] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
+    blocks[BLOCK_D] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
 
     // Local-offset half-hours are encoded as magnitude plus a separate sign bit.
     const int offset{localUtcOffsetHalfHours(now)};
@@ -233,54 +237,55 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     if (offsetMagnitude < 0) {
         offsetMagnitude = -offsetMagnitude;
     }
-    blocks[3] = static_cast<uint16_t>(blocks[3] | offsetMagnitude);
+    blocks[BLOCK_D] = static_cast<uint16_t>(blocks[BLOCK_D] | offsetMagnitude);
     if (offset < 0) {
-        blocks[3] = static_cast<uint16_t>(blocks[3] | CT_LOCAL_OFFSET_SIGN_BIT);
+        blocks[BLOCK_D] = static_cast<uint16_t>(blocks[BLOCK_D] | CT_LOCAL_OFFSET_SIGN_BIT);
     }
     return true;
 }
 
 void RdsEncoder::fillPsGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks) {
-    blocks[1] = static_cast<uint16_t>(GROUP_0A_HEADER | psSegment_);
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_0A_HEADER | psSegment_);
     if (ta_) {
-        blocks[1] = static_cast<uint16_t>(blocks[1] | TA_BIT);
+        blocks[BLOCK_B] = static_cast<uint16_t>(blocks[BLOCK_B] | TA_BIT);
     }
-    blocks[2] = AF_NO_LIST;
+    blocks[BLOCK_C] = AF_NO_LIST;
     // Two consecutive PS chars per segment, MSB byte first.
     const auto hi{static_cast<uint8_t>(ps_[static_cast<std::size_t>(psSegment_ * 2)])};
     const auto lo{static_cast<uint8_t>(ps_[static_cast<std::size_t>(psSegment_ * 2 + 1)])};
-    blocks[3] = static_cast<uint16_t>((hi << 8) | lo);
+    blocks[BLOCK_D] = packBytes(hi, lo);
 
     psSegment_ = (psSegment_ + 1) % PS_SEGMENTS;
 }
 
 void RdsEncoder::fillRtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks) {
-    blocks[1] = static_cast<uint16_t>(GROUP_2A_HEADER | rtSegment_);
+    blocks[BLOCK_B] = static_cast<uint16_t>(GROUP_2A_HEADER | rtSegment_);
     // Four consecutive RT chars per segment.
     const auto c0{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 0)])};
     const auto c1{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 1)])};
     const auto c2{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 2)])};
     const auto c3{static_cast<uint8_t>(rt_[static_cast<std::size_t>(rtSegment_ * 4 + 3)])};
-    blocks[2] = static_cast<uint16_t>((c0 << 8) | c1);
-    blocks[3] = static_cast<uint16_t>((c2 << 8) | c3);
+    blocks[BLOCK_C] = packBytes(c0, c1);
+    blocks[BLOCK_D] = packBytes(c2, c3);
 
     rtSegment_ = (rtSegment_ + 1) % RT_SEGMENTS;
 }
 
 void RdsEncoder::serializeBlocks(const std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks,
                                  std::array<int, RDS_BITS_PER_GROUP>& bits) {
-    int idx{0};
+    int bitIndex{0};
     for (int i{0}; i < RDS_BLOCKS_PER_GROUP; ++i) {
         const uint16_t block{blocks[static_cast<std::size_t>(i)]};
         const uint16_t check{static_cast<uint16_t>(crc(block) ^ OFFSET_WORDS[static_cast<std::size_t>(i)])};
 
-        appendMsbBits(block, RDS_BLOCK_BITS, bits, idx);
-        appendMsbBits(check, RDS_CRC_BITS, bits, idx);
+        appendMsbBits(block, RDS_BLOCK_BITS, bits, bitIndex);
+        appendMsbBits(check, RDS_CRC_BITS, bits, bitIndex);
     }
 }
 
 void RdsEncoder::nextGroupBits(std::array<int, RDS_BITS_PER_GROUP>& bits) {
-    std::array<uint16_t, RDS_BLOCKS_PER_GROUP> blocks{pi_, 0, 0, 0};
+    std::array<uint16_t, RDS_BLOCKS_PER_GROUP> blocks{};
+    blocks[BLOCK_A] = pi_;
 
     if (tryFillCtGroup(blocks) == false) {
         if (groupState_ < GROUPS_BEFORE_RT) {
