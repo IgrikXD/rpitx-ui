@@ -12,6 +12,10 @@ DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
 DEFAULT_NFM_MODE="Wide"
+DEFAULT_RDS_PI="1234"
+DEFAULT_RDS_PS="rpitx-ui"
+DEFAULT_RDS_RT="rpitx-ui Broadcast WFM with RDS"
+DEFAULT_RDS_PE="50"
 LAST_ITEM="0 Tune"
 
 do_check_file_existance() 
@@ -158,6 +162,70 @@ fi
 
 }
 
+do_enter_rds_params()
+{
+
+LAST_ITEM="$menuchoice"
+
+# PI code (Programme Identification): 1-4 hex digits
+if RDS_PI=$(whiptail --inputbox "Enter RDS Programme Identification (1-4 hex digits):" 8 78 "$DEFAULT_RDS_PI" --title "RDS Programme Identification (PI)" 3>&1 1>&2 2>&3); then
+	abort_action=0
+	if [ -z "$RDS_PI" ] || ! [[ "$RDS_PI" =~ ^[0-9a-fA-F]{1,4}$ ]]; then
+		whiptail --title "Error!" --msgbox "PI must be 1-4 hex digits (0-9, a-f, A-F)!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# PS name (Programme Service): 1-8 chars
+if RDS_PS=$(whiptail --inputbox "Enter RDS Programme Service name (1-8 chars):" 8 78 "$DEFAULT_RDS_PS" --title "RDS Programme Service (PS)" 3>&1 1>&2 2>&3); then
+	abort_action=0
+	if [ -z "$RDS_PS" ]; then
+		whiptail --title "Error!" --msgbox "PS cannot be empty!" 8 78
+		abort_action=1
+		return
+	elif [ "${#RDS_PS}" -gt 8 ]; then
+		whiptail --title "Error!" --msgbox "PS must not exceed 8 characters!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# RT (RadioText): 1-64 chars
+if RDS_RT=$(whiptail --inputbox "Enter RDS RadioText (1-64 chars):" 8 78 "$DEFAULT_RDS_RT" --title "RDS RadioText (RT)" 3>&1 1>&2 2>&3); then
+	abort_action=0
+	if [ -z "$RDS_RT" ]; then
+		whiptail --title "Error!" --msgbox "RT cannot be empty!" 8 78
+		abort_action=1
+		return
+	elif [ "${#RDS_RT}" -gt 64 ]; then
+		whiptail --title "Error!" --msgbox "RT must not exceed 64 characters!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# Pre-emphasis time constant: 50 us (Eu) or 75 us (Us)
+if RDS_PE=$(whiptail --default-item "$DEFAULT_RDS_PE" --title "FM pre-emphasis" --menu "Select pre-emphasis time constant:" 15 78 2 \
+	"50" "50 us - Europe, Africa, Asia, Oceania (ITU regions 1/3)" \
+	"75" "75 us - Americas, Japan (ITU region 2)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
 do_enter_callsign()
 {
 
@@ -280,10 +348,13 @@ do_freq_setup
 			do_status
 			;;
 			
-			4\ *) do_file_choose ".wav" "$RESOURCES_LOCATION" ".wav"
+			4\ *) do_file_choose ".wav (16 bit per sample, mono or stereo)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-     			testfmrds.sh "$OUTPUT_FREQ" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_rds_params
+				if [ $abort_action -eq 0 ]; then
+					testfmrds.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$RDS_PI" "$RDS_PS" "$RDS_RT" "$RDS_PE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			
