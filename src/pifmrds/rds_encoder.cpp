@@ -28,7 +28,7 @@ namespace {
     };
 
     /**
-     * @brief CRC generator polynomial (EN 50067 §3.2.1.4).
+     * @brief CRC generator polynomial (EN 50067 3.2.1.4).
      *
      * The polynomial is x^10 + x^8 + x^7 + x^5 + x^4 + x^3 + x^0 = 0x5B9.
      * The 0x1B9 form drops the implicit x^10 leading bit so the value fits
@@ -44,7 +44,7 @@ namespace {
     /**
      * @brief AF (Alternative Frequencies) field signalling "no AF list".
      *
-     * EN 50067 §3.1.5.4: 0xCD in the high byte and low byte means "method A,
+     * EN 50067 3.1.5.4: 0xCD in the high byte and low byte means "method A,
      * 0 frequencies" - the canonical encoding for stations that do not
      * advertise an alternative-frequency list.
      */
@@ -119,7 +119,7 @@ namespace {
     /**
      * @brief Local-time offset unit in seconds for the RDS CT field.
      *
-     * EN 50067 §3.1.5.6 encodes the local-time offset in 30-minute steps
+     * EN 50067 3.1.5.6 encodes the local-time offset in 30-minute steps
      * (signed), which is 30 * 60 = 1800 seconds.
      */
     constexpr int CT_LOCAL_OFFSET_UNIT_SECONDS{30 * 60};

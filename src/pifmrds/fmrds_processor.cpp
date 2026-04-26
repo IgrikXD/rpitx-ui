@@ -138,7 +138,7 @@ FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     //
     // Sine (rather than cosine) form: both tables start at 0 with positive
     // slope, so at sample 0 the pilot and the subcarrier are simultaneously
-    // at the rising zero crossing. That's the EN 50067 §3.1.4.1 phase-lock
+    // at the rising zero crossing. That's the EN 50067 3.1.4.1 phase-lock
     // convention - a receiver recovering the pilot's rising zero crossing
     // demodulates the (L - R) subcarrier coherently. The convention also
     // matches PiFmRds upstream, so existing receivers known to lock against

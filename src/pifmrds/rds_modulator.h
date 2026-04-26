@@ -84,7 +84,7 @@ private:
     /**
      * @brief Apply differential encoding to a raw RDS bit.
      *
-     * EN 50067 §3.2.1.6: differential encoding XORs the current bit with
+     * EN 50067 3.2.1.6: differential encoding XORs the current bit with
      * the previous output, which keeps the receiver agnostic to absolute
      * carrier polarity (a 180-deg phase ambiguity is inherent to BPSK).
      *
