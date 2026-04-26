@@ -12,7 +12,6 @@
 #pragma once
 
 #include <array>
-#include <vector>
 
 #include "rds_encoder.h"
 #include "rds_pulse.h"
@@ -127,7 +126,7 @@ private:
      * position counters, which advance by 1 sample per nextSample() and
      * by RDS_SAMPLES_PER_BIT per stampPulse().
      */
-    std::vector<float> overlapBuffer_;
+    std::array<float, RDS_PULSE_SAMPLES> overlapBuffer_{};
 
     /**
      * @brief Write head into overlapBuffer_, advanced by RDS_SAMPLES_PER_BIT

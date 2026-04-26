@@ -14,7 +14,7 @@
 #include <cstddef>
 
 RdsModulator::RdsModulator()
-    : overlapBuffer_(RDS_PULSE_SAMPLES, 0.0f), readIndex_{static_cast<int>(RDS_PULSE_SAMPLES) - 1} {
+    : readIndex_{static_cast<int>(RDS_PULSE_SAMPLES) - 1} {
 }
 
 RdsEncoder& RdsModulator::encoder() {
@@ -38,7 +38,10 @@ void RdsModulator::stampPulse(bool invert) {
     const auto pulse{rdsPulse()};
     int idx{writeIndex_};
     for (std::size_t k{0}; k < pulse.size(); ++k) {
-        const float v{invert ? -pulse[k] : pulse[k]};
+        float v{pulse[k]};
+        if (invert) {
+            v = -v;
+        }
         overlapBuffer_[static_cast<std::size_t>(idx)] += v;
         if (++idx >= static_cast<int>(overlapBuffer_.size())) {
             idx = 0;
