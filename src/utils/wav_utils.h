@@ -18,14 +18,24 @@
 #include <optional>
 
 /**
- * @brief Buffer for non-WAV bytes read during header detection.
+ * @brief Buffer for non-WAV bytes read during header detection plus the
+ *        audio format extracted from the RIFF "fmt " chunk.
  *
  * When the input does not start with a RIFF header, the first 4 bytes
- * are reinterpreted as two int16_t PCM samples and stored here.
+ * are reinterpreted as two int16_t PCM samples and stored in samples / count
+ * with format fields left at their defaults (mono, unknown rate).
+ *
+ * When a RIFF header is parsed cleanly, samples / count are empty (count = 0)
+ * and the channels / sampleRate / bitsPerSample fields carry the values
+ * read from the WAV "fmt " chunk so the caller can validate the format and
+ * adapt its read loop (e.g. interleaved stereo -> mono downmix).
  */
 struct CarryBuffer {
     std::array<int16_t, 2> samples{};  ///< Carry-over PCM samples.
     int count{};                       ///< Number of valid samples (0 or 2).
+    int channels{1};                   ///< Channel count from "fmt " chunk; default 1 (mono).
+    int sampleRate{0};                 ///< Sample rate in Hz; 0 if unknown (no RIFF or no "fmt ").
+    int bitsPerSample{16};             ///< Bits per sample; default 16.
 };
 
 /**
