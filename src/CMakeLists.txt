@@ -4,9 +4,6 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Required libraries (installed by install.sh)
-find_library(SNDFILE_LIBRARY sndfile REQUIRED)
-
 # ----------------------------------------------------------
 # Shared DSP and I/O utility library
 # ----------------------------------------------------------
@@ -16,6 +13,7 @@ add_library(rpitx_utils STATIC
     utils/cli_utils.cpp
     utils/hilbert.cpp
     utils/morse_encoder.cpp
+    utils/polyphase_resampler.cpp
     utils/sawtooth.cpp
     utils/wav_utils.cpp
 )
@@ -40,19 +38,15 @@ target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
 add_executable(pichirp pichirp/main.cpp)
 target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
 
-# --- pifmrds ---
-add_library(pifmrds_c_objs OBJECT
-    pifmrds/control_pipe.c
-    pifmrds/fm_mpx.c
-    pifmrds/rds.c
-    pifmrds/waveforms.c
-)
+# --- pifmrds (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
-    pifmrds/pi_fm_rds.cpp
-    $<TARGET_OBJECTS:pifmrds_c_objs>
+    pifmrds/main.cpp
+    pifmrds/fmrds_processor.cpp
+    pifmrds/rds_encoder.cpp
+    pifmrds/rds_modulator.cpp
+    pifmrds/rds_pulse.cpp
 )
-target_compile_options(pifmrds PRIVATE -Wno-write-strings)
-target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
+target_link_libraries(pifmrds PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pimorse ---
 add_executable(pimorse pimorse/main.cpp)
@@ -149,13 +143,6 @@ if(BUILD_OPTIONAL_TARGETS)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
     target_link_libraries(pift8 PRIVATE ft8::ft8 librpitx::librpitx)
 
-    # --- rds_wav ---
-    add_executable(rds_wav
-        pifmrds/rds_wav.c
-        $<TARGET_OBJECTS:pifmrds_c_objs>
-    )
-    target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
-
     # --- rpitx (v1 compat) ---
     add_executable(rpitx rpitxv1/rpitx.cpp)
     target_compile_options(rpitx PRIVATE -Wno-write-strings)
@@ -179,7 +166,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
