@@ -123,6 +123,41 @@ namespace {
 
         return static_cast<int>((std::chrono::sys_days{utcDate} - mjdEpoch).count());
     }
+
+    /**
+     * @brief Get the local UTC offset in RDS CT half-hour units.
+     *
+     * tm_gmtoff is a glibc/BSD extension (POSIX after 2024). We keep this
+     * narrow C API bridge because std::chrono time-zone support is not
+     * consistently available in the libstdc++ versions used on Debian/RPi.
+     *
+     * @param now Current system-clock time point.
+     * @return Local UTC offset in 30-minute steps, or 0 if localtime fails.
+     */
+    [[nodiscard]] int localUtcOffsetHalfHours(std::chrono::system_clock::time_point now) {
+        const std::time_t localTime{std::chrono::system_clock::to_time_t(now)};
+        const std::tm* local{std::localtime(&localTime)};
+        if (local == nullptr) {
+            return 0;
+        }
+
+        return static_cast<int>(local->tm_gmtoff / CT_LOCAL_OFFSET_UNIT_SECONDS);
+    }
+
+    /**
+     * @brief Append the requested number of most-significant bits to a flat bit buffer.
+     *
+     * @param value Source value.
+     * @param bitCount Number of bits to append, starting with the highest bit.
+     * @param bits Output bit buffer.
+     * @param idx Current write index, advanced by bitCount.
+     */
+    void appendMsbBits(uint16_t value, int bitCount, std::array<int, RDS_BITS_PER_GROUP>& bits, int& idx) {
+        for (int bit{bitCount - 1}; bit >= 0; --bit) {
+            const uint16_t mask{static_cast<uint16_t>(uint16_t{1} << bit)};
+            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((value & mask) != 0);
+        }
+    }
 }  // namespace
 
 RdsEncoder::RdsEncoder() : pi_{0x0000}, ta_{false} {
@@ -192,13 +227,8 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     blocks[2] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
     blocks[3] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
 
-    // Local-offset half-hours, encoded with a sign bit at position 5.
-    // tm_gmtoff is a glibc/BSD extension (POSIX after 2024). We keep this
-    // narrow C API bridge because std::chrono time-zone support is not
-    // consistently available in the libstdc++ versions used on Debian/RPi.
-    const std::time_t localTime{std::chrono::system_clock::to_time_t(now)};
-    const std::tm local{*std::localtime(&localTime)};
-    const int offset{static_cast<int>(local.tm_gmtoff / CT_LOCAL_OFFSET_UNIT_SECONDS)};
+    // Local-offset half-hours are encoded as magnitude plus a separate sign bit.
+    const int offset{localUtcOffsetHalfHours(now)};
     int offsetMagnitude{offset};
     if (offsetMagnitude < 0) {
         offsetMagnitude = -offsetMagnitude;
@@ -241,19 +271,11 @@ void RdsEncoder::serializeBlocks(const std::array<uint16_t, RDS_BLOCKS_PER_GROUP
                                  std::array<int, RDS_BITS_PER_GROUP>& bits) {
     int idx{0};
     for (int i{0}; i < RDS_BLOCKS_PER_GROUP; ++i) {
-        uint16_t block{blocks[static_cast<std::size_t>(i)]};
-        uint16_t check{static_cast<uint16_t>(crc(block) ^ OFFSET_WORDS[static_cast<std::size_t>(i)])};
+        const uint16_t block{blocks[static_cast<std::size_t>(i)]};
+        const uint16_t check{static_cast<uint16_t>(crc(block) ^ OFFSET_WORDS[static_cast<std::size_t>(i)])};
 
-        // 16 information bits, MSB-first.
-        for (int j{0}; j < RDS_BLOCK_BITS; ++j) {
-            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((block & (1 << (RDS_BLOCK_BITS - 1))) != 0);
-            block                                 = static_cast<uint16_t>(block << 1);
-        }
-        // 10 CRC bits, MSB-first.
-        for (int j{0}; j < RDS_CRC_BITS; ++j) {
-            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((check & (1 << (RDS_CRC_BITS - 1))) != 0);
-            check                                 = static_cast<uint16_t>(check << 1);
-        }
+        appendMsbBits(block, RDS_BLOCK_BITS, bits, idx);
+        appendMsbBits(check, RDS_CRC_BITS, bits, idx);
     }
 }
 
