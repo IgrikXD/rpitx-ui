@@ -118,11 +118,11 @@ FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     audioFrames_ = roundUpToMultiple(TARGET_AUDIO_FRAMES, polyM);
     mpxSamples_  = audioFrames_ * polyL / polyM;
 
-    resamplers_[0] = std::make_unique<PolyphaseResampler>(
-        polyL, polyM, RESAMPLER_TAPS_PER_PHASE, LPF_CUTOFF, static_cast<float>(config.audioSampleRate));
+    resamplers_[0].emplace(polyL, polyM, RESAMPLER_TAPS_PER_PHASE, LPF_CUTOFF,
+                           static_cast<float>(config.audioSampleRate));
     if (channels_ == 2) {
-        resamplers_[1] = std::make_unique<PolyphaseResampler>(
-            polyL, polyM, RESAMPLER_TAPS_PER_PHASE, LPF_CUTOFF, static_cast<float>(config.audioSampleRate));
+        resamplers_[1].emplace(polyL, polyM, RESAMPLER_TAPS_PER_PHASE, LPF_CUTOFF,
+                               static_cast<float>(config.audioSampleRate));
     }
 
     audioScratch_[0].assign(static_cast<std::size_t>(audioFrames_), 0.0F);

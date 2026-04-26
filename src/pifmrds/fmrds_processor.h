@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include <memory>
+#include <optional>
 #include <span>
 
 #include "agc.h"
@@ -322,12 +322,12 @@ private:
     /**
      * @brief Per-channel polyphase resampler (audio rate -> 228 kHz).
      *
-     * Held in unique_ptr because PolyphaseResampler is non-movable (it
-     * owns large coefficient tables) but the constructor needs to compute
-     * L/M from the configured rates before instantiating. Two slots: in
-     * mono mode the second slot is left null.
+     * Held in optional slots because PolyphaseResampler is non-movable, and
+     * the constructor computes L/M from the configured rates before
+     * constructing it in place. Two slots: in mono mode the second slot
+     * remains disengaged.
      */
-    std::array<std::unique_ptr<PolyphaseResampler>, 2> resamplers_;
+    std::array<std::optional<PolyphaseResampler>, 2> resamplers_;
 
     RdsModulator rdsModulator_;
 
