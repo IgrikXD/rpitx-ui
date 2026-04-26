@@ -31,7 +31,7 @@ inline constexpr int RDS_BLOCKS_PER_GROUP{4};
 inline constexpr int RDS_BLOCK_BITS{16};
 
 /**
- * @brief CRC checkword length in bits (EN 50067 §3.2.1).
+ * @brief CRC checkword length in bits (EN 50067 3.2.1).
  */
 inline constexpr int RDS_CRC_BITS{10};
 
@@ -72,7 +72,7 @@ public:
     /**
      * @brief Maximum PS (Programme Service name) length, in characters.
      *
-     * EN 50067 §3.1.5.2: PS is exactly 8 7-bit characters, transmitted as
+     * EN 50067 3.1.5.2: PS is exactly 8 7-bit characters, transmitted as
      * 4 segments of 2 characters each across consecutive 0A groups.
      */
     static constexpr int PS_LENGTH{8};
@@ -80,7 +80,7 @@ public:
     /**
      * @brief Maximum RT (RadioText) length, in characters.
      *
-     * EN 50067 §3.1.5.3: RT is up to 64 characters in mode 2A, transmitted
+     * EN 50067 3.1.5.3: RT is up to 64 characters in mode 2A, transmitted
      * as 16 segments of 4 characters each. Strings shorter than 64 are
      * space-padded to fill the field.
      */
@@ -107,7 +107,7 @@ public:
     /**
      * @brief Set the Programme Identification (PI) code.
      *
-     * EN 50067 §3.2.1.1: PI is a 16-bit station identifier transmitted in
+     * EN 50067 3.2.1.1: PI is a 16-bit station identifier transmitted in
      * block 1 of every group.
      *
      * @param pi 16-bit PI code.
@@ -162,7 +162,7 @@ public:
 
 private:
     /**
-     * @brief Compute the EN 50067 §3.2.1 checkword for a 16-bit data block.
+     * @brief Compute the EN 50067 3.2.1 checkword for a 16-bit data block.
      *
      * The generator polynomial is x^10 + x^8 + x^7 + x^5 + x^4 + x^3 + 1,
      * encoded as 0x1B9 with implicit MSB.
@@ -189,7 +189,7 @@ private:
      * @brief Populate the four blocks with a PS-carrying 0A group.
      *
      * Block 2 carries the TA bit and PS segment index; block 3 is the AF
-     * code (we transmit 0xCDCD = "no AF list", per EN 50067 §3.1.5.4);
+     * code (we transmit 0xCDCD = "no AF list", per EN 50067 3.1.5.4);
      * block 4 is the two PS characters for this segment.
      *
      * @param blocks Output - blocks[1..3] populated.
@@ -221,7 +221,7 @@ private:
     /**
      * @brief CRC offset words for each block position.
      *
-     * EN 50067 §3.2.2 Table 5: every block position uses a different offset
+     * EN 50067 3.2.2 Table 5: every block position uses a different offset
      * word XORed into the checkword to enable block-position synchronisation
      * at the receiver. Offset C' (variant for type-B groups) is omitted -
      * we never emit type-B groups (0B / 2B / 4B etc.).
