@@ -12,7 +12,7 @@
 #include "rds_encoder.h"
 
 #include <algorithm>
-#include <cstdlib>
+#include <chrono>
 #include <ctime>
 
 namespace {
@@ -109,35 +109,19 @@ namespace {
     constexpr uint16_t CT_LOCAL_OFFSET_SIGN_BIT{0x20};
 
     /**
-     * @brief Compute the Modified Julian Date from a broken-down UTC time.
+     * @brief Compute the Modified Julian Date from a UTC calendar date.
      *
-     * Standard MJD formula from EN 50067 §3.1.5.6 informative annex
-     * (originally Fliegel & van Flandern, Communications of the ACM 11(10),
-     * 1968):
+     * MJD is the number of whole days since 1858-11-17 00:00 UTC.
      *
-     *   l   = (mon <= Feb) ? 1 : 0                   // fold Jan/Feb into the
-     *                                                // previous year so they
-     *                                                // become months 13/14
-     *   mjd = 14956 + day
-     *       + int((year - l) * 365.25)               // year contribution
-     *       + int((mon + 2 + l * 12) * 30.6001)      // month contribution
-     *
-     * The four constants (14956, 365.25, 30.6001, +2 month shift) are
-     * inseparable - they are co-calibrated so that the integer truncations
-     * produce correct MJDs for every Gregorian date from 1900-03-01 onward
-     * (well past the FM-broadcast era). std::tm uses 0-indexed months and
-     * year-since-1900, which is exactly what the formula expects, so no
-     * pre-conversion is needed.
-     *
-     * @param utc Broken-down UTC time from std::gmtime.
-     * @return Modified Julian Date as a 17-bit-wide unsigned value (the
-     *         upper bound is well above 2^17 only beyond year 4500, which
-     *         is comfortably out of scope for an FM-broadcast transmitter).
+     * @param utcDate UTC calendar date.
+     * @return Modified Julian Date. Current broadcast-era dates fit in the
+     *         RDS CT field's 17-bit MJD range.
      */
-    [[nodiscard]] int computeMjd(const std::tm& utc) {
-        const int l{utc.tm_mon <= 1 ? 1 : 0};
-        return 14956 + utc.tm_mday + static_cast<int>(static_cast<double>(utc.tm_year - l) * 365.25) +
-               static_cast<int>(static_cast<double>(utc.tm_mon + 2 + l * 12) * 30.6001);
+    [[nodiscard]] int computeMjd(const std::chrono::year_month_day& utcDate) {
+        constexpr std::chrono::sys_days mjdEpoch{std::chrono::year{1858} / std::chrono::month{11} /
+                                                  std::chrono::day{17}};
+
+        return static_cast<int>((std::chrono::sys_days{utcDate} - mjdEpoch).count());
     }
 }  // namespace
 
@@ -171,7 +155,7 @@ uint16_t RdsEncoder::crc(uint16_t block) {
     // 10-bit register and XOR the polynomial whenever the MSB feedback is 1.
     uint16_t reg{0};
     for (int j{0}; j < RDS_BLOCK_BITS; ++j) {
-        const int bit{(block & BLOCK_MSB) != 0 ? 1 : 0};
+        const int bit{static_cast<int>((block & BLOCK_MSB) != 0)};
         block <<= 1;
 
         const int msb{(reg >> (RDS_CRC_BITS - 1)) & 1};
@@ -185,32 +169,41 @@ uint16_t RdsEncoder::crc(uint16_t block) {
 
 bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& blocks) {
     // CT (clock time, group 4A) is emitted exactly once per UTC minute. We
-    // reach for std::time() every group call (~11 Hz at 1187.5 bit/s and
-    // 104 bits per group, negligible cost) rather than maintaining a
-    // parallel timer because the C library's wall-clock helpers are the
-    // most honest source of UTC once daylight-saving boundaries are in
-    // scope.
-    const std::time_t now{std::time(nullptr)};
-    const std::tm utc{*std::gmtime(&now)};
+    // reach for the system clock every group call (~11 Hz at 1187.5 bit/s
+    // and 104 bits per group, negligible cost) rather than maintaining a
+    // parallel timer. UTC fields are derived with std::chrono; local-offset
+    // lookup still goes through the platform time-zone database below.
+    const auto now{std::chrono::system_clock::now()};
+    const auto utcSeconds{std::chrono::floor<std::chrono::seconds>(now)};
+    const auto utcDay{std::chrono::floor<std::chrono::days>(utcSeconds)};
+    const std::chrono::year_month_day utcDate{utcDay};
+    const std::chrono::hh_mm_ss utcTime{utcSeconds - utcDay};
+    const int utcHour{static_cast<int>(utcTime.hours().count())};
+    const int utcMinute{static_cast<int>(utcTime.minutes().count())};
 
-    if (utc.tm_min == lastCtMinute_) {
+    if (utcMinute == lastCtMinute_) {
         return false;
     }
-    lastCtMinute_ = utc.tm_min;
+    lastCtMinute_ = utcMinute;
 
-    const int mjd{computeMjd(utc)};
+    const int mjd{computeMjd(utcDate)};
 
     blocks[1] = static_cast<uint16_t>(GROUP_4A_HEADER | (mjd >> 15));
-    blocks[2] = static_cast<uint16_t>((mjd << 1) | (utc.tm_hour >> 4));
-    blocks[3] = static_cast<uint16_t>(((utc.tm_hour & 0xF) << 12) | (utc.tm_min << 6));
+    blocks[2] = static_cast<uint16_t>((mjd << 1) | (utcHour >> 4));
+    blocks[3] = static_cast<uint16_t>(((utcHour & 0xF) << 12) | (utcMinute << 6));
 
     // Local-offset half-hours, encoded with a sign bit at position 5.
-    // tm_gmtoff is a glibc/BSD extension (POSIX after 2024) - portable
-    // enough for the Raspbian/Debian targets the wider rpitx-ui project
-    // already requires.
-    const std::tm local{*std::localtime(&now)};
+    // tm_gmtoff is a glibc/BSD extension (POSIX after 2024). We keep this
+    // narrow C API bridge because std::chrono time-zone support is not
+    // consistently available in the libstdc++ versions used on Debian/RPi.
+    const std::time_t localTime{std::chrono::system_clock::to_time_t(now)};
+    const std::tm local{*std::localtime(&localTime)};
     const int offset{static_cast<int>(local.tm_gmtoff / CT_LOCAL_OFFSET_UNIT_SECONDS)};
-    blocks[3] = static_cast<uint16_t>(blocks[3] | std::abs(offset));
+    int offsetMagnitude{offset};
+    if (offsetMagnitude < 0) {
+        offsetMagnitude = -offsetMagnitude;
+    }
+    blocks[3] = static_cast<uint16_t>(blocks[3] | offsetMagnitude);
     if (offset < 0) {
         blocks[3] = static_cast<uint16_t>(blocks[3] | CT_LOCAL_OFFSET_SIGN_BIT);
     }
@@ -253,12 +246,12 @@ void RdsEncoder::serializeBlocks(const std::array<uint16_t, RDS_BLOCKS_PER_GROUP
 
         // 16 information bits, MSB-first.
         for (int j{0}; j < RDS_BLOCK_BITS; ++j) {
-            bits[static_cast<std::size_t>(idx++)] = (block & (1 << (RDS_BLOCK_BITS - 1))) != 0 ? 1 : 0;
+            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((block & (1 << (RDS_BLOCK_BITS - 1))) != 0);
             block                                 = static_cast<uint16_t>(block << 1);
         }
         // 10 CRC bits, MSB-first.
         for (int j{0}; j < RDS_CRC_BITS; ++j) {
-            bits[static_cast<std::size_t>(idx++)] = (check & (1 << (RDS_CRC_BITS - 1))) != 0 ? 1 : 0;
+            bits[static_cast<std::size_t>(idx++)] = static_cast<int>((check & (1 << (RDS_CRC_BITS - 1))) != 0);
             check                                 = static_cast<uint16_t>(check << 1);
         }
     }
