@@ -42,7 +42,7 @@
  */
 class RdsModulator {
 public:
-    RdsModulator();
+    RdsModulator() = default;
 
     RdsModulator(const RdsModulator&)            = delete;
     RdsModulator& operator=(const RdsModulator&) = delete;
@@ -57,7 +57,9 @@ public:
      *
      * @return Reference to the owned encoder.
      */
-    [[nodiscard]] RdsEncoder& encoder();
+    [[nodiscard]] RdsEncoder& encoder() {
+        return encoder_;
+    }
 
     /**
      * @brief Generate one 228 kHz baseband sample of the RDS subcarrier.
@@ -89,7 +91,10 @@ private:
      * @param rawBit Raw RDS bit from the encoder (0 or 1).
      * @return Differentially-encoded bit (0 or 1).
      */
-    int differentialEncode(int rawBit);
+    int differentialEncode(int rawBit) {
+        lastEncoded_ ^= rawBit & 1;
+        return lastEncoded_;
+    }
 
     /**
      * @brief Stamp a new biphase pulse into the rolling overlap-add buffer.
@@ -144,7 +149,7 @@ private:
      * before any sample is read. (Without this primer the first samples
      * out would be a single pulse instead of three overlapped ones.)
      */
-    int readIndex_;
+    int readIndex_{static_cast<int>(RDS_PULSE_SAMPLES) - 1};
 
     /**
      * @brief Sample countdown to the next bit boundary.

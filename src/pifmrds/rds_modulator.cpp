@@ -13,25 +13,12 @@
 
 #include <cstddef>
 
-RdsModulator::RdsModulator()
-    : readIndex_{static_cast<int>(RDS_PULSE_SAMPLES) - 1} {
-}
-
-RdsEncoder& RdsModulator::encoder() {
-    return encoder_;
-}
-
 int RdsModulator::nextBit() {
     if (bitPos_ >= RDS_BITS_PER_GROUP) {
         encoder_.nextGroupBits(bitBuffer_);
         bitPos_ = 0;
     }
     return bitBuffer_[static_cast<std::size_t>(bitPos_++)];
-}
-
-int RdsModulator::differentialEncode(int rawBit) {
-    lastEncoded_ ^= rawBit & 1;
-    return lastEncoded_;
 }
 
 void RdsModulator::stampPulse(bool invert) {
