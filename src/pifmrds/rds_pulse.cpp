@@ -607,5 +607,5 @@ namespace {
 }  // namespace
 
 std::span<const float> rdsPulse() {
-    return {kRdsBiphasePulse.data(), kRdsBiphasePulse.size()};
+    return std::span<const float>{kRdsBiphasePulse};
 }
