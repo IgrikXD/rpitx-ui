@@ -65,6 +65,36 @@ public:
     [[nodiscard]] static Biquad lowPass(float cutoffHz, float sampleRate, float q = BUTTERWORTH_Q);
 
     /**
+     * @brief Create a first-order FM pre-emphasis filter as a Biquad.
+     *
+     * Implements the broadcast-FM pre-emphasis transfer function
+     * H(s) = (1 + s*tau) / (1 + s*tau / boost), bilinear-transformed to
+     * the digital domain. The shelf rises at +6 dB/oct from f_low =
+     * 1/(2 pi tau) up to a high-frequency plateau at boost (in linear
+     * units), so the audio is amplified above the corner frequency before
+     * being radiated and the matching de-emphasis at the receiver restores
+     * a flat response while attenuating the FM detector noise floor.
+     *
+     * Time-constant convention:
+     *   - 50 us: ITU regions 1 / 3 (Europe, Africa, Asia, Oceania)
+     *   - 75 us: ITU region 2 (Americas) and Japan
+     *
+     * The high-frequency plateau is configurable but defaults to a typical
+     * commercial-exciter value (boost = 16, ~24 dB) - large enough that the
+     * upper-knee corner (boost / (2 pi tau)) sits well above the 15 kHz
+     * audio mask, so within the audio band the shelf is still rising at
+     * +6 dB/oct rather than already plateauing. Realised as a first-order
+     * IIR (b2 = a2 = 0) so it shares Biquad's Direct-Form-I run-time path
+     * and per-sample state without paying for a second-order's storage.
+     *
+     * @param tauSeconds Pre-emphasis time constant (5e-5 or 7.5e-5).
+     * @param sampleRate Sample rate in Hz.
+     * @param boost      Linear high-frequency plateau gain; must be > 1.
+     * @return Configured pre-emphasis Biquad instance.
+     */
+    [[nodiscard]] static Biquad preEmphasis(float tauSeconds, float sampleRate, float boost = 16.0f);
+
+    /**
      * @brief Process a single input sample through the filter.
      * @param in Input sample.
      * @return Filtered output sample.
