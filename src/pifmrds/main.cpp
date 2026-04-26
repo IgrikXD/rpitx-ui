@@ -391,7 +391,10 @@ int main(int argc, char* argv[]) {
     // sensible default (assumes the user knows their raw stream). For
     // anything that looks like a sane PCM rate we trust the WAV header
     // and let the polyphase resampler adjust.
-    const int audioRate{info.sampleRate > 0 ? info.sampleRate : DEFAULT_AUDIO_SAMPLE_RATE};
+    int audioRate{DEFAULT_AUDIO_SAMPLE_RATE};
+    if (info.sampleRate > 0) {
+        audioRate = info.sampleRate;
+    }
     if (audioRate < 8'000 || audioRate > MPX_SAMPLE_RATE) {
         std::cerr << "[ERROR] Input sample rate " << audioRate << " Hz is outside the supported range [8000, "
                   << MPX_SAMPLE_RATE << "]." << std::endl;
