@@ -63,7 +63,6 @@ sudo apt install -y \
   cmake \
   imagemagick \
   libfftw3-dev \
-  libsndfile1-dev \
   rtl-sdr
 print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
 
