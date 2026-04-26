@@ -122,7 +122,7 @@ namespace {
      * EN 50067 3.1.5.6 encodes the local-time offset in 30-minute steps
      * (signed), which is 30 * 60 = 1800 seconds.
      */
-    constexpr int CT_LOCAL_OFFSET_UNIT_SECONDS{30 * 60};
+    constexpr int CT_LOCAL_OFFSET_UNIT_SECONDS{1800};
 
     /**
      * @brief Sign bit position for the local-time offset (bit 5 of block 3).
@@ -140,7 +140,7 @@ namespace {
      */
     [[nodiscard]] int computeMjd(std::chrono::sys_days utcDay) {
         constexpr std::chrono::sys_days mjdEpoch{std::chrono::year{1858} / std::chrono::month{11} /
-                                                  std::chrono::day{17}};
+                                                 std::chrono::day{17}};
 
         return static_cast<int>((utcDay - mjdEpoch).count());
     }
@@ -190,14 +190,14 @@ namespace {
 
 void RdsEncoder::setPs(std::string_view ps) {
     ps_.fill(' ');
-    const auto n{std::min(ps.size(), static_cast<std::size_t>(PS_LENGTH))};
-    std::copy_n(ps.begin(), n, ps_.begin());
+    const auto charsToCopy{std::min(ps.size(), static_cast<std::size_t>(PS_LENGTH))};
+    std::copy_n(ps.begin(), charsToCopy, ps_.begin());
 }
 
 void RdsEncoder::setRt(std::string_view rt) {
     rt_.fill(' ');
-    const auto n{std::min(rt.size(), static_cast<std::size_t>(RT_LENGTH))};
-    std::copy_n(rt.begin(), n, rt_.begin());
+    const auto charsToCopy{std::min(rt.size(), static_cast<std::size_t>(RT_LENGTH))};
+    std::copy_n(rt.begin(), charsToCopy, rt_.begin());
 }
 
 uint16_t RdsEncoder::crc(uint16_t block) {
