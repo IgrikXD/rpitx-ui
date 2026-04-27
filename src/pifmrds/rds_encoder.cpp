@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <ctime>
 
 #include "byte_utils.h"
@@ -246,7 +245,8 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     // reach for the system clock every group call (~11 Hz at 1187.5 bit/s
     // and 104 bits per group, negligible cost) rather than maintaining a
     // parallel timer. UTC fields are derived with std::chrono; local-offset
-    // lookup still goes through the platform time-zone database below.
+    // lookup still goes through the platform time-zone database via the
+    // localUtcOffsetHalfHours() helper.
     const auto utc{currentUtcMinuteTime()};
 
     if (lastCtUtcMinute_.has_value() && lastCtUtcMinute_ == utc.minutePoint) {

@@ -11,7 +11,6 @@
 
 #include "rds_modulator.h"
 
-#include <array>
 #include <cstddef>
 
 namespace {
@@ -77,7 +76,7 @@ float RdsModulator::nextSample() {
     // zero crossing (which is itself sine-form here).
     const auto bufferIndex{static_cast<std::size_t>(readIndex_)};
     const float sample{overlapBuffer_[bufferIndex] * SUBCARRIER_GAIN[static_cast<std::size_t>(subcarrierPhase_)]};
-    overlapBuffer_[bufferIndex] = 0.0f;
+    overlapBuffer_[bufferIndex] = 0.0F;
 
     // The read head stays one bit period behind the write head.
     if (++readIndex_ >= OVERLAP_BUFFER_SIZE) {
