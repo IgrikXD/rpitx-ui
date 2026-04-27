@@ -22,11 +22,9 @@
 /**
  * @brief AudioSource backed by a libsndfile SNDFILE handle.
  *
- * Single concrete class shared by the file / stdin / raw factories below.
- * The variant is captured in the construction-time arguments (handle source,
- * seekable flag, description) rather than in the type, because libsndfile
- * provides a uniform read / seek API regardless of backing store - splitting
- * into three classes would just duplicate the read / rewind / close path.
+ * Concrete class used by the file factory below. Backing-specific details
+ * (seekable flag, description) are captured at construction time while the
+ * read / rewind / close path stays shared in one place.
  *
  * Owns the SNDFILE handle and closes it in the destructor. Non-copyable
  * (handle ownership is unique) and non-movable (matches AudioSource base).
@@ -41,8 +39,7 @@ public:
      *
      * @param handle Open SNDFILE handle (must be non-null).
      * @param info Format information from sf_open / sf_open_virtual.
-     * @param seekable Whether the backing supports rewind (true for files,
-     *                 false for stdin).
+     * @param seekable Whether the backing supports rewind.
      * @param description Human-readable format description for logging.
      */
     LibsndfileAudioSource(SNDFILE* handle, SF_INFO info, bool seekable, std::string description);
@@ -68,9 +65,10 @@ private:
  * @brief Open a file-backed audio source via libsndfile.
  *
  * Accepts any format libsndfile is built with: WAV / AIFF / FLAC / OGG /
- * Opus / etc. Output is always normalized float regardless of on-disk
- * encoding (PCM_16, PCM_24, FLOAT, ...). Backing is seekable, so rewind()
- * and --loop work.
+ * Opus / etc. Output samples are finite floats clamped to [-1, 1] regardless
+ * of on-disk encoding (PCM_16, PCM_24, FLOAT, ...). Rewind support is taken
+ * from libsndfile metadata, so regular files can loop while FIFO / device
+ * paths fail loop validation.
  *
  * On failure prints a diagnostic to stderr and returns nullptr.
  *
@@ -78,39 +76,3 @@ private:
  * @return Owning pointer to the source on success, nullptr on failure.
  */
 [[nodiscard]] std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path);
-
-/**
- * @brief Open a stdin-backed audio source via libsndfile virtual I/O.
- *
- * Wraps stdin with a libsndfile SF_VIRTUAL_IO whose seek / tell / get_filelen
- * callbacks all report "unsupported", forcing libsndfile into single-pass
- * streaming mode. Suitable for `cat file.wav | tool` style pipelines, but
- * not seekable - rewind() always fails, so --loop is incompatible with
- * stdin-mode and the caller should reject the combination at startup.
- *
- * Provided for completeness so future modules that need pipeline composition
- * can build against it; the pifmrds / piam / pinfm CLI uses makeFileAudioSource
- * exclusively because the cat-loop pattern injected RIFF headers mid-stream.
- *
- * On failure prints a diagnostic to stderr and returns nullptr.
- *
- * @return Owning pointer to the source on success, nullptr on failure.
- */
-[[nodiscard]] std::unique_ptr<AudioSource> makeStdinAudioSource();
-
-/**
- * @brief Open a headerless raw PCM file via libsndfile (16-bit signed PCM).
- *
- * For files that contain only audio samples with no container - the caller
- * must specify channel count and sample rate explicitly because there is
- * no header to read them from. Encoding is fixed at PCM_16; if other raw
- * encodings are needed in the future, this signature can grow a third
- * parameter without breaking the AudioSource interface.
- *
- * On failure prints a diagnostic to stderr and returns nullptr.
- *
- * @param path Path to the raw PCM file.
- * @param format Channel count and sample rate of the raw stream.
- * @return Owning pointer to the source on success, nullptr on failure.
- */
-[[nodiscard]] std::unique_ptr<AudioSource> makeRawAudioSource(const std::string& path, AudioFormat format);
