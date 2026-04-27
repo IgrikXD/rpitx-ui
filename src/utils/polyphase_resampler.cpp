@@ -14,17 +14,65 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <numbers>
+#include <numeric>
+#include <stdexcept>
 
 namespace {
+    struct PolyphaseRatio {
+        int L;
+        int M;
+    };
+
+    [[nodiscard]] constexpr PolyphaseRatio computePolyphaseRatio(int sourceRate, int targetRate) {
+        const int g{std::gcd(sourceRate, targetRate)};
+        return PolyphaseRatio{.L = targetRate / g, .M = sourceRate / g};
+    }
+
+    [[nodiscard]] int alignedInputForOutput(int targetOutput, int L, int M) {
+        // ceil(targetOutput * M / L), then round up to the next multiple of M.
+        const long long approxIn{(static_cast<long long>(targetOutput) * static_cast<long long>(M) +
+                                  static_cast<long long>(L) - 1LL) /
+                                 static_cast<long long>(L)};
+        const long long alignedIn{((approxIn + static_cast<long long>(M) - 1LL) / static_cast<long long>(M)) *
+                                  static_cast<long long>(M)};
+        if (alignedIn > static_cast<long long>(std::numeric_limits<int>::max())) {
+            throw std::invalid_argument{"AudioRateConverter input frame count overflows int"};
+        }
+        return static_cast<int>(alignedIn);
+    }
+
+    [[nodiscard]] constexpr float safeResamplerCutoff(int sourceRate, int targetRate, float maxCutoffHz) {
+        const float minRate{static_cast<float>(std::min(sourceRate, targetRate))};
+        return std::min(maxCutoffHz, 0.45F * minRate);
+    }
+
+    void validateResamplerArgs(int interpL, int decimM, int tapsPerPhase, float cutoffHz, float sampleRateIn) {
+        if (interpL < 1 || decimM < 1 || tapsPerPhase < 1 || cutoffHz <= 0.0F || sampleRateIn <= 0.0F ||
+            std::isfinite(cutoffHz) == false || std::isfinite(sampleRateIn) == false) {
+            throw std::invalid_argument{"Invalid PolyphaseResampler parameters"};
+        }
+        if (interpL > std::numeric_limits<int>::max() / tapsPerPhase) {
+            throw std::invalid_argument{"PolyphaseResampler tap count overflows int"};
+        }
+    }
+
+    void validateRateConverterArgs(int sourceRate, int targetRate, int targetOutputFrames, int tapsPerPhase,
+                                   float maxCutoffHz) {
+        if (sourceRate < 1 || targetRate < 1 || targetOutputFrames < 1 || tapsPerPhase < 1 || maxCutoffHz <= 0.0F ||
+            std::isfinite(maxCutoffHz) == false) {
+            throw std::invalid_argument{"Invalid AudioRateConverter parameters"};
+        }
+    }
+
     /**
      * @brief Evaluate the prototype filter h[k] at index k.
      *
-     * The prototype is a Hamming-windowed sinc, normalised so the sum of the
-     * polyphase sub-filter sums to 1.0 after the +L scaling - i.e. unity DC
-     * gain through the resampler. Centred at (totalTaps - 1) / 2 (an integer
-     * for odd totalTaps, half-integer for even - both work because the sinc
-     * is evaluated at the corresponding offset).
+     * The prototype is a Hamming-windowed sinc centred at (totalTaps - 1) / 2
+     * (an integer for odd totalTaps, half-integer for even - both work because
+     * the sinc is evaluated at the corresponding offset). Per-phase unity DC
+     * gain normalisation happens after polyphase decomposition.
      *
      * @param k             Tap index, 0 <= k < totalTaps.
      * @param totalTaps     Total prototype filter length (== L * tapsPerPhase).
@@ -46,10 +94,9 @@ namespace {
             h = std::sin(arg) / (std::numbers::pi_v<float> * m);
         }
 
-        // Hamming window: 0.54 - 0.46 * cos(2 pi k / (N - 1)). Trades a touch
-        // of stop-band attenuation versus rectangular for sharply suppressed
-        // ripple, which matters here because the resampler doubles as the
-        // 15 kHz audio bandwidth guard for the FM MPX.
+        // Hamming window: 0.54 - 0.46 * cos(2 pi k / (N - 1)). It gives
+        // predictable stop-band attenuation without the ripple of a rectangular
+        // truncation, which is enough for the shared AM / FM audio guards.
         const float window{0.54f - 0.46f * std::cos(2.0f * std::numbers::pi_v<float> * static_cast<float>(k) /
                                                     static_cast<float>(totalTaps - 1))};
         return h * window;
@@ -57,37 +104,60 @@ namespace {
 }  // namespace
 
 PolyphaseResampler::PolyphaseResampler(int interpL, int decimM, int tapsPerPhase, float cutoffHz, float sampleRateIn)
-    : L_{interpL},
-      M_{decimM},
-      tapsPerPhase_{tapsPerPhase},
-      coefs_(static_cast<std::size_t>(interpL) * static_cast<std::size_t>(tapsPerPhase), 0.0f),
-      delay_(static_cast<std::size_t>(tapsPerPhase), 0.0f) {
-    assert(interpL >= 1 && decimM >= 1 && tapsPerPhase >= 1);
-    assert(cutoffHz > 0.0f && sampleRateIn > 0.0f);
+    : L_{0}, M_{0}, tapsPerPhase_{0} {
+    validateResamplerArgs(interpL, decimM, tapsPerPhase, cutoffHz, sampleRateIn);
+
+    L_            = interpL;
+    M_            = decimM;
+    tapsPerPhase_ = tapsPerPhase;
+    coefs_.assign(static_cast<std::size_t>(L_) * static_cast<std::size_t>(tapsPerPhase_), 0.0F);
+    delay_.assign(static_cast<std::size_t>(tapsPerPhase_), 0.0F);
 
     const int totalTaps{L_ * tapsPerPhase_};
     // Cutoff is specified at the input rate but the prototype operates at the
     // virtual L*Fs rate, so divide by L to get cycles per virtual sample.
     const float fcNormalised{cutoffHz / (static_cast<float>(L_) * sampleRateIn)};
-    assert(fcNormalised > 0.0f && fcNormalised < 0.5f);
+    if (fcNormalised <= 0.0F || fcNormalised >= 0.5F || std::isfinite(fcNormalised) == false) {
+        throw std::invalid_argument{"Invalid PolyphaseResampler cutoff"};
+    }
 
     // Decompose the prototype into L polyphase sub-filters. Each sub-filter
     // gets the +L scaling that compensates for the implicit zero-stuffing in
     // the polyphase decomposition (without it, every output is divided by L).
+    // Then normalise each row independently so a DC input keeps unity gain
+    // even when the finite window leaves the raw row sum below 1.0.
     //
     // Layout note: coefs_[phase][tap] = h_proto[tap * L + phase] is the
     // standard polyphase mapping. The +L scaling is folded in here so the
     // run-time inner product needs no per-output division.
     for (int phase{0}; phase < L_; ++phase) {
+        float rowSum{0.0F};
         for (int tap{0}; tap < tapsPerPhase_; ++tap) {
             const int k{tap * L_ + phase};
-            coefs_[static_cast<std::size_t>(phase) * static_cast<std::size_t>(tapsPerPhase_) +
-                   static_cast<std::size_t>(tap)] = evaluateProto(k, totalTaps, fcNormalised) * static_cast<float>(L_);
+            const std::size_t coefIndex{static_cast<std::size_t>(phase) * static_cast<std::size_t>(tapsPerPhase_) +
+                                        static_cast<std::size_t>(tap)};
+            coefs_[coefIndex] = evaluateProto(k, totalTaps, fcNormalised) * static_cast<float>(L_);
+            rowSum += coefs_[coefIndex];
+        }
+
+        if (std::abs(rowSum) <= 1e-12F || std::isfinite(rowSum) == false) {
+            throw std::invalid_argument{"Invalid PolyphaseResampler coefficient sum"};
+        }
+        for (int tap{0}; tap < tapsPerPhase_; ++tap) {
+            const std::size_t coefIndex{static_cast<std::size_t>(phase) * static_cast<std::size_t>(tapsPerPhase_) +
+                                        static_cast<std::size_t>(tap)};
+            coefs_[coefIndex] /= rowSum;
         }
     }
 }
 
-std::size_t PolyphaseResampler::outputSize(std::size_t inSize) const {
+std::optional<std::size_t> PolyphaseResampler::outputSize(std::size_t inSize) const {
+    if (inSize % static_cast<std::size_t>(M_) != 0) {
+        return std::nullopt;
+    }
+    if (inSize > std::numeric_limits<std::size_t>::max() / static_cast<std::size_t>(L_)) {
+        return std::nullopt;
+    }
     return inSize * static_cast<std::size_t>(L_) / static_cast<std::size_t>(M_);
 }
 
@@ -111,9 +181,11 @@ float PolyphaseResampler::convolveAtPhase(int phase) const {
     return acc;
 }
 
-void PolyphaseResampler::resample(std::span<const float> in, std::span<float> out) {
-    assert(in.size() % static_cast<std::size_t>(M_) == 0);
-    assert(out.size() == outputSize(in.size()));
+bool PolyphaseResampler::resample(std::span<const float> in, std::span<float> out) {
+    const auto expectedOut{outputSize(in.size())};
+    if (expectedOut == std::nullopt || out.size() != expectedOut.value()) {
+        return false;
+    }
 
     std::size_t outIdx{0};
     for (std::size_t i{0}; i < in.size(); ++i) {
@@ -130,14 +202,15 @@ void PolyphaseResampler::resample(std::span<const float> in, std::span<float> ou
         }
         virtualPhase_ = (virtualPhase_ + L_) % M_;
     }
+
+    assert(outIdx == out.size());
+    return true;
 }
 
 AudioRateConverter::AudioRateConverter(int sourceRate, int targetRate, int targetOutputFrames, int tapsPerPhase,
                                        float maxCutoffHz)
     : inputFrames_{0}, outputFrames_{0} {
-    assert(sourceRate > 0);
-    assert(targetRate > 0);
-    assert(targetOutputFrames > 0);
+    validateRateConverterArgs(sourceRate, targetRate, targetOutputFrames, tapsPerPhase, maxCutoffHz);
 
     if (sourceRate == targetRate) {
         // Passthrough: identical rates, block size is verbatim the requested
@@ -149,6 +222,9 @@ AudioRateConverter::AudioRateConverter(int sourceRate, int targetRate, int targe
 
     const auto ratio{computePolyphaseRatio(sourceRate, targetRate)};
     inputFrames_  = alignedInputForOutput(targetOutputFrames, ratio.L, ratio.M);
+    if (inputFrames_ > std::numeric_limits<int>::max() / ratio.L) {
+        throw std::invalid_argument{"AudioRateConverter output frame count overflows int"};
+    }
     outputFrames_ = inputFrames_ * ratio.L / ratio.M;
     const float cutoff{safeResamplerCutoff(sourceRate, targetRate, maxCutoffHz)};
     resampler_.emplace(ratio.L, ratio.M, tapsPerPhase, cutoff, static_cast<float>(sourceRate));
@@ -162,19 +238,16 @@ int AudioRateConverter::outputFrames() const {
     return outputFrames_;
 }
 
-bool AudioRateConverter::isPassthrough() const {
-    return resampler_ == std::nullopt;
-}
-
-void AudioRateConverter::process(std::span<const float> in, std::span<float> out) {
-    assert(in.size() == static_cast<std::size_t>(inputFrames_));
-    assert(out.size() == static_cast<std::size_t>(outputFrames_));
+bool AudioRateConverter::process(std::span<const float> in, std::span<float> out) {
+    if (in.size() != static_cast<std::size_t>(inputFrames_) || out.size() != static_cast<std::size_t>(outputFrames_)) {
+        return false;
+    }
 
     if (resampler_ == std::nullopt) {
         // Passthrough: input and output spans have identical size by ctor
         // invariant; std::copy is the canonical zero-overhead memcpy here.
         std::copy(in.begin(), in.end(), out.begin());
-        return;
+        return true;
     }
-    resampler_.value().resample(in, out);
+    return resampler_.value().resample(in, out);
 }

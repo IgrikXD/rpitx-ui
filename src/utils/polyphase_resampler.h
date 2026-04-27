@@ -11,9 +11,7 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
-#include <numeric>
 #include <optional>
 #include <span>
 #include <vector>
@@ -36,8 +34,8 @@
  *
  * The prototype filter is designed inside the constructor as a
  * Hamming-windowed sinc with cutoff at cutoffHz, evaluated at the virtual
- * (L * sampleRateIn) rate, with a +L gain to compensate for the implicit
- * zero-stuffing of the polyphase decomposition. cutoffHz must sit safely
+ * (L * sampleRateIn) rate. Each polyphase sub-filter is normalised to unity
+ * DC gain after the +L zero-stuffing compensation. cutoffHz must sit safely
  * below min(Fs_in, Fs_out) / 2 to avoid aliasing on either side.
  *
  * @code
@@ -45,7 +43,7 @@
  * PolyphaseResampler r{19, 4, 32, 15'000.0F, 48'000.0F};
  * std::array<float, 1024>  in{};
  * std::array<float, 4'864> out{};   // 1024 * 19 / 4 = 4864
- * r.resample(in, out);
+ * const bool ok{r.resample(in, out)};
  * @endcode
  */
 class PolyphaseResampler {
@@ -76,33 +74,22 @@ public:
     /**
      * @brief Process one block of input samples, writing the resampled output.
      *
-     * @pre in.size() is a multiple of M.
-     * @pre out.size() == in.size() * L / M.
-     *
      * The contract guarantees deterministic block-to-block alignment: with the
      * input size a multiple of M, the internal phase state advances by an
      * integer number of full L-cycles and so re-enters every block in the
      * same configuration it left the previous one - no carry samples, no
-     * partial outputs.
+     * partial outputs. Invalid buffer sizes are rejected before the delay
+     * line or phase state are changed.
      *
      * @param in  Input samples (size must be a multiple of M).
      * @param out Output buffer (size must equal in.size() * L / M).
+     * @return true on success, false when the buffer geometry is invalid.
      */
-    void resample(std::span<const float> in, std::span<float> out);
-
-    /**
-     * @brief Number of output samples produced for a given input block size.
-     *
-     * Convenience helper that mirrors the resample() size invariant so callers
-     * can size their output buffers without recomputing the L/M ratio at
-     * each call site.
-     *
-     * @param inSize Input block size (must be a multiple of M).
-     * @return inSize * L / M.
-     */
-    [[nodiscard]] std::size_t outputSize(std::size_t inSize) const;
+    [[nodiscard]] bool resample(std::span<const float> in, std::span<float> out);
 
 private:
+    [[nodiscard]] std::optional<std::size_t> outputSize(std::size_t inSize) const;
+
     /**
      * @brief Push a new input sample into the delay line.
      *
@@ -146,89 +133,6 @@ private:
     int virtualPhase_{0};
 };
 
-// --------------------------------------------------------------------------
-// Rate-conversion helpers
-// --------------------------------------------------------------------------
-// Free, side-effect-free helpers used to derive polyphase parameters from
-// source / target sample rates and a desired block size. Kept exposed (not
-// hidden inside AudioRateConverter) because the L/M math is independently
-// useful for callers that need finer control than the high-level converter
-// offers - e.g. multi-channel processors that want a single L/M pair shared
-// across several PolyphaseResampler instances.
-// --------------------------------------------------------------------------
-
-/**
- * @brief Polyphase factor pair (interpolation L, decimation M) for L/M rate conversion.
- *
- * Produced by computePolyphaseRatio(); consumed by alignedInputForOutput()
- * and by PolyphaseResampler's constructor.
- */
-struct PolyphaseRatio {
-    int L;  ///< Interpolation factor (== targetRate / gcd(srcRate, tgtRate)).
-    int M;  ///< Decimation factor    (== sourceRate / gcd(srcRate, tgtRate)).
-};
-
-/**
- * @brief Reduce source / target sample rates to coprime L/M factors via gcd.
- *
- * The gcd reduction is the tightest possible, yielding the smallest L
- * (== phase count materialised by the resampler). Common rates produce
- * modest L:
- *   48000 -> 228000 :  L=19,   M=4
- *   44100 -> 48000  :  L=160,  M=147
- *   22050 -> 48000  :  L=320,  M=147
- *   96000 -> 48000  :  L=1,    M=2
- *
- * @param sourceRate Input sample rate in Hz (must be > 0).
- * @param targetRate Output sample rate in Hz (must be > 0).
- * @return Coprime L/M pair such that targetRate / sourceRate == L / M.
- */
-[[nodiscard]] constexpr PolyphaseRatio computePolyphaseRatio(int sourceRate, int targetRate) {
-    const int g{std::gcd(sourceRate, targetRate)};
-    return PolyphaseRatio{.L = targetRate / g, .M = sourceRate / g};
-}
-
-/**
- * @brief Smallest input block size (multiple of M) producing >= targetOutput
- *        output frames.
- *
- * Use when the latency budget is fixed at the OUTPUT rate - typical for
- * piam / pinfm where the DMA cadence at 48 kHz governs end-to-end delay.
- *
- * @param targetOutput Minimum desired output frames per block (> 0).
- * @param L Polyphase interpolation factor (>= 1).
- * @param M Polyphase decimation factor (>= 1).
- * @return Input frame count, always a multiple of M, that yields at least
- *         targetOutput output frames after L/M conversion.
- */
-[[nodiscard]] constexpr int alignedInputForOutput(int targetOutput, int L, int M) {
-    // ceil(targetOutput * M / L), then round up to the next multiple of M.
-    const int approxIn{(targetOutput * M + L - 1) / L};
-    return ((approxIn + M - 1) / M) * M;
-}
-
-/**
- * @brief Safe LPF cutoff for a polyphase resampler given source / target rates.
- *
- * Caps the requested maxCutoffHz at 0.45 * min(sourceRate, targetRate) -
- * the 0.45 factor leaves a 10 % margin below the half-Nyquist point of
- * whichever rate is smaller, which is what the prototype filter has to
- * sit under to avoid aliasing on either side of the conversion. Callers
- * pass their natural audio-band LPF (e.g. 4500 Hz for AM, 3000 Hz for
- * NBFM, 15000 Hz for FM) and let this helper trim it down only when the
- * source rate is too low to support that bandwidth.
- *
- * @param sourceRate Input sample rate in Hz (> 0).
- * @param targetRate Output sample rate in Hz (> 0).
- * @param maxCutoffHz Caller's preferred maximum cutoff (> 0).
- * @return Effective cutoff in Hz, guaranteed to satisfy the resampler's
- *         cutoff < min(srcRate, tgtRate) / 2 invariant.
- */
-[[nodiscard]] constexpr float safeResamplerCutoff(int sourceRate, int targetRate, float maxCutoffHz) {
-    const float minRate{static_cast<float>(std::min(sourceRate, targetRate))};
-    return std::min(maxCutoffHz, 0.45F * minRate);
-}
-
 /**
  * @brief High-level streaming rate converter wrapping PolyphaseResampler.
  *
@@ -264,9 +168,9 @@ public:
      * @param tapsPerPhase       Resampler taps per phase (ignored in
      *                           passthrough mode).
      * @param maxCutoffHz        Caller's preferred LPF cutoff in Hz. The
-     *                           converter caps this via safeResamplerCutoff
-     *                           so the prototype filter never aliases on
-     *                           either side. Ignored in passthrough mode.
+     *                           converter caps this internally so the
+     *                           prototype filter never aliases on either
+     *                           side. Ignored in passthrough mode.
      */
     AudioRateConverter(int sourceRate, int targetRate, int targetOutputFrames, int tapsPerPhase, float maxCutoffHz);
 
@@ -293,23 +197,14 @@ public:
     [[nodiscard]] int outputFrames() const;
 
     /**
-     * @brief Whether the converter operates in passthrough (copy) mode.
-     *
-     * True iff source rate == target rate at construction; in that case
-     * process() performs a plain copy with no resampler involvement.
-     */
-    [[nodiscard]] bool isPassthrough() const;
-
-    /**
      * @brief Process one block of audio.
      *
      * In resample mode, runs the input through the polyphase resampler.
      * In passthrough mode, copies in -> out (sizes must match by contract).
      *
-     * @pre in.size() == inputFrames()
-     * @pre out.size() == outputFrames()
+     * @return true on success, false when the buffer geometry is invalid.
      */
-    void process(std::span<const float> in, std::span<float> out);
+    [[nodiscard]] bool process(std::span<const float> in, std::span<float> out);
 
 private:
     int inputFrames_;
