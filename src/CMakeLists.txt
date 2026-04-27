@@ -25,7 +25,6 @@ add_library(rpitx_utils STATIC
     utils/hilbert.cpp
     utils/io_utils.cpp
     utils/libsndfile_audio_source.cpp
-    utils/morse_encoder.cpp
     utils/polyphase_resampler.cpp
     utils/sawtooth.cpp
     utils/wav_utils.cpp
@@ -66,7 +65,10 @@ add_executable(pifmrds
 target_link_libraries(pifmrds PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pimorse ---
-add_executable(pimorse pimorse/pimorse.cpp)
+add_executable(pimorse 
+    pimorse/morse_encoder.cpp
+    pimorse/pimorse.cpp
+)
 target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
