@@ -1,6 +1,6 @@
 /**
- * @file main.cpp
- * @brief Wideband RF generator transmitter for a user-defined bandwidth.
+ * @file pirfgen.cpp
+ * @brief Wideband RF generator transmitter implementation for a user-defined bandwidth.
  *
  * Emits an RF waveform centered on the requested carrier frequency,
  * spread across the specified bandwidth. The waveform can be uniform
@@ -21,75 +21,35 @@
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
-#include <librpitx/librpitx.h>
+#include "pirfgen.h"
 
-#include <array>
+#include <librpitx/librpitx.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <cmath>
 #include <csignal>
-#include <cstdint>
+#include <cstddef>
 #include <iostream>
 #include <optional>
-#include <span>
-#include <string_view>
 
-#include "cli_utils.h"
-#include "rfgen_processor.h"
+namespace pirfgen {
+    namespace {
+        /**
+         * @brief Atomic flag for graceful shutdown on signal reception.
+         *
+         * Must be lock-free to be safe to touch from a signal handler; statically
+         * asserted below to fail fast on any exotic platform where it is not.
+         */
+        std::atomic<bool> running{true};
+        static_assert(std::atomic<bool>::is_always_lock_free,
+                      "std::atomic<bool> must be lock-free for signal-handler access");
+    }  // namespace
 
-namespace {
-    /**
-     * @brief DMA sample buffer depth.
-     */
-    constexpr int DMA_FIFO_SIZE{4096};
-
-    /**
-     * @brief DMA time-register precision in bits (matches other rpitx modules).
-     */
-    constexpr int DMA_BIT_DEPTH{14};
-
-    /**
-     * @brief Default DMA sample rate in Hz.
-     */
-    constexpr uint32_t DEFAULT_SAMPLE_RATE{500'000};
-
-    /**
-     * @brief Maximum allowed multitone tone count.
-     *
-     * Caps the pre-computed tone table size to guard against accidental or
-     * malicious oversized allocations from CLI input.
-     */
-    constexpr int MAX_TONE_COUNT{1024};
-
-    /**
-     * @brief DMA drain fraction used to pace the refill loop.
-     *
-     * The loop sleeps for 3/4 of the time it takes to drain the FIFO at the
-     * current sample rate, which keeps CPU usage low while ensuring the DMA
-     * buffer never underruns.
-     */
-    constexpr float DMA_DRAIN_FRACTION{0.75F};
-
-    /**
-     * @brief Atomic flag for graceful shutdown on signal reception.
-     *
-     * Must be lock-free to be safe to touch from a signal handler; statically
-     * asserted below to fail fast on any exotic platform where it is not.
-     */
-    std::atomic<bool> running{true};
-    static_assert(std::atomic<bool>::is_always_lock_free,
-                  "std::atomic<bool> must be lock-free for signal-handler access");
-
-    /**
-     * @brief Signal handler for SIGTERM and SIGINT.
-     * @param sig Signal number.
-     */
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
-    /**
-     * @brief Print the command-line usage to stderr.
-     */
     void printUsage() {
         std::cerr << "Usage: pirfgen <freq_Hz> <bandwidth_Hz> [options]" << std::endl
                   << "  -m <mode>     RF generator mode: noise (default) | sweep | multitone" << std::endl
@@ -99,37 +59,7 @@ namespace {
                   << "  -h            Print this help message" << std::endl;
     }
 
-    /**
-     * @brief RfGenMode textual names for CLI parsing and display.
-     */
-    constexpr std::array MODE_TABLE{
-        NamedEnum<RfGenMode>{"noise", RfGenMode::Noise},
-        NamedEnum<RfGenMode>{"sweep", RfGenMode::Sweep},
-        NamedEnum<RfGenMode>{"multitone", RfGenMode::Multitone},
-    };
-
-    /**
-     * @brief RF generator parameters extracted from argv.
-     */
-    struct RfGenParameters {
-        RfGenMode mode{RfGenMode::Noise};
-        uint64_t freq{0};
-        float bandwidth{0.0F};
-        uint32_t sampleRate{DEFAULT_SAMPLE_RATE};
-        std::optional<int> toneCount;  ///< Engaged iff -t was given on the CLI. Required for
-                                       ///< Multitone mode; ignored (with a warning) otherwise.
-    };
-
-    /**
-     * @brief Parse and validate the two positional arguments (frequency, bandwidth).
-     * @param freqArg Frequency string (Hz, scientific notation allowed).
-     * @param bwArg Bandwidth string (Hz).
-     * @param params Output - populated on success.
-     * @return ParseResult::Ok on success, ::Error on error (message already
-     *         printed to stderr).
-     */
-    [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, std::string_view bwArg,
-                                                  RfGenParameters& params) {
+    ParseResult parsePositionalArgs(std::string_view freqArg, std::string_view bwArg, RfGenParameters& params) {
         // Frequency is parsed as double to accept scientific notation (e.g. "434e6")
         const auto freqOpt{parseNumericArg<double>(freqArg)};
         if (freqOpt == std::nullopt) {
@@ -163,19 +93,7 @@ namespace {
         return ParseResult::Ok;
     }
 
-    /**
-     * @brief Walk the optional flag arguments and populate params.
-     *
-     * @note -h is handled upstream in parseArgs() via a single pre-scan of argv,
-     *       so this function only deals with value-carrying flags.
-     *
-     * @param args   Slice of argv covering only the optional-flag region
-     *               (i.e. the caller drops argv[0] and the two positional args).
-     * @param params Output - mutated in place with flag values.
-     * @return ParseResult::Ok on success, ::Error on a bad flag (diagnostic
-     *         already printed).
-     */
-    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, RfGenParameters& params) {
+    ParseResult parseOptionalFlags(std::span<char* const> args, RfGenParameters& params) {
         for (std::size_t i{0}; i < args.size(); ++i) {
             const std::string_view arg{args[i]};
 
@@ -217,12 +135,7 @@ namespace {
         return ParseResult::Ok;
     }
 
-    /**
-     * @brief Run cross-field validation after all CLI values have been collected.
-     * @param params Populated options struct.
-     * @return ParseResult::Ok on success, ::Error if any invariant is violated.
-     */
-    [[nodiscard]] ParseResult validateOptions(const RfGenParameters& params) {
+    ParseResult validateOptions(const RfGenParameters& params) {
         // Warn (but don't fail) when -t is passed without -m multitone: the value
         // has no effect in noise/sweep modes and would otherwise be silently dropped,
         // which is confusing when the user has explicitly supplied it.
@@ -260,14 +173,7 @@ namespace {
         return ParseResult::Ok;
     }
 
-    /**
-     * @brief Parse and validate command-line arguments.
-     * @param argc Argument count.
-     * @param argv Argument vector.
-     * @param params Output - populated on success.
-     * @return ParseResult indicating success, error, or a help request.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
+    ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
         // -h at any position short-circuits - regardless of positional-count state -
         // so that `pirfgen -h`, `pirfgen 100 -h`, etc. all print help and exit cleanly.
         if (containsFlag({argv + 1, argv + argc}, "-h")) {
@@ -292,58 +198,62 @@ namespace {
         return ParseResult::Ok;
     }
 
-}  // namespace
+    int run(int argc, char* argv[]) {
+        RfGenParameters params;
+        // No default branch: ParseResult is closed-set, so -Wswitch flags any future
+        // enumerator that forgets to update this dispatch.
+        switch (parseArgs(argc, argv, params)) {
+            case ParseResult::Ok:
+                break;
+            case ParseResult::Help:
+                return 0;
+            case ParseResult::Error:
+                return 1;
+        }
 
-int main(int argc, char* argv[]) {
-    RfGenParameters params;
-    // No default branch: ParseResult is closed-set, so -Wswitch flags any future
-    // enumerator that forgets to update this dispatch.
-    switch (parseArgs(argc, argv, params)) {
-        case ParseResult::Ok:
-            break;
-        case ParseResult::Help:
-            return 0;
-        case ParseResult::Error:
-            return 1;
-    }
+        std::signal(SIGTERM, handleSignal);
+        std::signal(SIGINT, handleSignal);
 
-    std::signal(SIGTERM, handleSignal);
-    std::signal(SIGINT, handleSignal);
+        std::cout << "pirfgen: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
+                  << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE) << ", rate=" << params.sampleRate
+                  << " Hz";
+        if (params.mode == RfGenMode::Multitone) {
+            std::cout << ", tones=" << params.toneCount.value();
+        }
+        std::cout << std::endl;
 
-    std::cout << "pirfgen: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
-              << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE) << ", rate=" << params.sampleRate << " Hz";
-    if (params.mode == RfGenMode::Multitone) {
-        std::cout << ", tones=" << params.toneCount.value();
-    }
-    std::cout << std::endl;
+        RfGenProcessor rfgen{{
+            .mode       = params.mode,
+            .bandwidth  = params.bandwidth,
+            .sampleRate = params.sampleRate,
+            // RfGenConfig::toneCount is ignored outside Multitone (see rfgen_processor.h),
+            // so the 0 fallback is inert there; Multitone guarantees the optional is engaged.
+            .toneCount = params.toneCount.value_or(0),
+        }};
 
-    RfGenProcessor rfgen{{
-        .mode       = params.mode,
-        .bandwidth  = params.bandwidth,
-        .sampleRate = params.sampleRate,
-        // RfGenConfig::toneCount is ignored outside Multitone (see rfgen_processor.h),
-        // so the 0 fallback is inert there; Multitone guarantees the optional is engaged.
-        .toneCount = params.toneCount.value_or(0),
-    }};
+        ngfmdmasync dma{params.freq, params.sampleRate, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-    ngfmdmasync dma{params.freq, params.sampleRate, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
+        const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
+                                                   static_cast<float>(params.sampleRate))};
 
-    // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
-    const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
-                                               static_cast<float>(params.sampleRate))};
+        while (running.load(std::memory_order_relaxed)) {
+            usleep(sleepUs);
 
-    while (running.load(std::memory_order_relaxed)) {
-        usleep(sleepUs);
-
-        if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-            const int index{dma.GetUserMemIndex()};
-            for (int j{0}; j < available; ++j) {
-                dma.SetFrequencySample(index + j, rfgen.nextSample());
+            if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
+                const int index{dma.GetUserMemIndex()};
+                for (int j{0}; j < available; ++j) {
+                    dma.SetFrequencySample(index + j, rfgen.nextSample());
+                }
             }
         }
-    }
 
-    dma.stop();
-    std::cout << "pirfgen: transmission stopped." << std::endl;
-    return 0;
+        dma.stop();
+        std::cout << "pirfgen: transmission stopped." << std::endl;
+        return 0;
+    }
+}  // namespace pirfgen
+
+int main(int argc, char* argv[]) {
+    return pirfgen::run(argc, argv);
 }

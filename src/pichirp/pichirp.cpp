@@ -1,6 +1,6 @@
 /**
- * @file main.cpp
- * @brief Sinusoidal FM chirp transmitter.
+ * @file pichirp.cpp
+ * @brief Sinusoidal FM chirp transmitter implementation.
  *
  * Emits a sinusoidal frequency sweep centered on the requested carrier,
  * with a peak deviation of bandwidth / 2 and one full cycle every
@@ -18,103 +18,41 @@
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
+#include "pichirp.h"
+
 #include <librpitx/librpitx.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <cmath>
 #include <csignal>
-#include <cstdint>
 #include <iostream>
 #include <numbers>
 #include <optional>
 
-#include "cli_utils.h"
+namespace pichirp {
+    namespace {
+        /**
+         * @brief Atomic flag for graceful shutdown on signal reception.
+         *
+         * Must be lock-free to be safe to touch from a signal handler; statically
+         * asserted below to fail fast on any exotic platform where it is not.
+         */
+        std::atomic<bool> running{true};
+        static_assert(std::atomic<bool>::is_always_lock_free,
+                      "std::atomic<bool> must be lock-free for signal-handler access");
+    }  // namespace
 
-namespace {
-    /**
-     * @brief DMA sample buffer depth.
-     */
-    constexpr int DMA_FIFO_SIZE{4096};
-
-    /**
-     * @brief DMA time-register precision in bits (matches other rpitx modules).
-     */
-    constexpr int DMA_BIT_DEPTH{14};
-
-    /**
-     * @brief DMA sample rate in Hz.
-     */
-    constexpr uint32_t SAMPLE_RATE{200'000};
-
-    /**
-     * @brief DMA drain fraction used to pace the refill loop.
-     *
-     * The loop sleeps for 3/4 of the time it takes to drain the FIFO at the
-     * current sample rate, which keeps CPU usage low while ensuring the DMA
-     * buffer never underruns.
-     */
-    constexpr float DMA_DRAIN_FRACTION{0.75F};
-
-    /**
-     * @brief Minimum number of samples per sweep cycle.
-     *
-     * Below this floor the sine is sampled too coarsely to produce a
-     * meaningful chirp (a 1-sample period degenerates to a flat carrier).
-     */
-    constexpr int MIN_PERIOD_SAMPLES{100};
-
-    /**
-     * @brief Maximum number of samples per sweep cycle.
-     *
-     * Keeps (sweep_time * sample_rate) comfortably inside int range and
-     * preserves double-precision phase accuracy throughout one cycle.
-     */
-    constexpr int MAX_PERIOD_SAMPLES{1'000'000'000};
-
-    /**
-     * @brief Atomic flag for graceful shutdown on signal reception.
-     *
-     * Must be lock-free to be safe to touch from a signal handler; statically
-     * asserted below to fail fast on any exotic platform where it is not.
-     */
-    std::atomic<bool> running{true};
-    static_assert(std::atomic<bool>::is_always_lock_free,
-                  "std::atomic<bool> must be lock-free for signal-handler access");
-
-    /**
-     * @brief Signal handler for SIGTERM and SIGINT.
-     * @param sig Signal number.
-     */
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
-    /**
-     * @brief Print the command-line usage to stderr.
-     */
     void printUsage() {
         std::cerr << "Usage: pichirp <freq_Hz> <bandwidth_Hz> <sweep_time_s>" << std::endl
                   << "  -h  Print this help message" << std::endl;
     }
 
-    /**
-     * @brief Chirp parameters extracted from argv.
-     */
-    struct ChirpParameters {
-        uint64_t freq{0};
-        float bandwidth{0.0F};
-        float sweepTime{0.0F};
-        int periodSamples{0};  ///< Derived: sweepTime * SAMPLE_RATE, validated in parseArgs.
-    };
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     * @param argc Argument count.
-     * @param argv Argument vector.
-     * @param params Output - populated on success.
-     * @return ParseResult indicating success, error, or a help request.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params) {
+    ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params) {
         // -h at any position short-circuits - regardless of positional-count state -
         // so that `pichirp -h`, `pichirp 100 -h`, etc. all print help and exit cleanly.
         if (containsFlag({argv + 1, argv + argc}, "-h")) {
@@ -192,54 +130,57 @@ namespace {
         return ParseResult::Ok;
     }
 
-}  // namespace
+    int run(int argc, char* argv[]) {
+        ChirpParameters params;
+        // No default branch: ParseResult is closed-set, so -Wswitch flags any future
+        // enumerator that forgets to update this dispatch.
+        switch (parseArgs(argc, argv, params)) {
+            case ParseResult::Ok:
+                break;
+            case ParseResult::Help:
+                return 0;
+            case ParseResult::Error:
+                return 1;
+        }
 
-int main(int argc, char* argv[]) {
-    ChirpParameters params;
-    // No default branch: ParseResult is closed-set, so -Wswitch flags any future
-    // enumerator that forgets to update this dispatch.
-    switch (parseArgs(argc, argv, params)) {
-        case ParseResult::Ok:
-            break;
-        case ParseResult::Help:
-            return 0;
-        case ParseResult::Error:
-            return 1;
-    }
+        std::signal(SIGTERM, handleSignal);
+        std::signal(SIGINT, handleSignal);
 
-    std::signal(SIGTERM, handleSignal);
-    std::signal(SIGINT, handleSignal);
+        std::cout << "pichirp: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
+                  << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
 
-    std::cout << "pichirp: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
-              << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
+        ngfmdmasync dma{params.freq, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-    ngfmdmasync dma{params.freq, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
+        const float deviation{params.bandwidth * 0.5F};
+        // Phase math stays in double so that count -> angle retains full precision even for
+        // long sweeps (float loses integer precision above 2^24 ~= 16.8 M).
+        const double phaseStep{2.0 * std::numbers::pi_v<double> / static_cast<double>(params.periodSamples)};
 
-    // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
-    const float deviation{params.bandwidth * 0.5F};
-    // Phase math stays in double so that count -> angle retains full precision even for
-    // long sweeps (float loses integer precision above 2^24 ~= 16.8 M).
-    const double phaseStep{2.0 * std::numbers::pi_v<double> / static_cast<double>(params.periodSamples)};
+        const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
+                                                   static_cast<float>(SAMPLE_RATE))};
 
-    const auto sleepUs{
-        static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION / static_cast<float>(SAMPLE_RATE))};
+        int count{0};
+        while (running.load(std::memory_order_relaxed)) {
+            usleep(sleepUs);
 
-    int count{0};
-    while (running.load(std::memory_order_relaxed)) {
-        usleep(sleepUs);
-
-        if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-            const int index{dma.GetUserMemIndex()};
-            for (int j{0}; j < available; ++j) {
-                dma.SetFrequencySample(index + j, static_cast<float>(deviation * std::sin(phaseStep * count)));
-                if (++count >= params.periodSamples) {
-                    count = 0;
+            if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
+                const int index{dma.GetUserMemIndex()};
+                for (int j{0}; j < available; ++j) {
+                    dma.SetFrequencySample(index + j, static_cast<float>(deviation * std::sin(phaseStep * count)));
+                    if (++count >= params.periodSamples) {
+                        count = 0;
+                    }
                 }
             }
         }
-    }
 
-    dma.stop();
-    std::cout << "pichirp: transmission stopped." << std::endl;
-    return 0;
+        dma.stop();
+        std::cout << "pichirp: transmission stopped." << std::endl;
+        return 0;
+    }
+}  // namespace pichirp
+
+int main(int argc, char* argv[]) {
+    return pichirp::run(argc, argv);
 }

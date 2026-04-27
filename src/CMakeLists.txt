@@ -44,20 +44,20 @@ target_link_libraries(rpitx_utils PRIVATE m)
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE librpitx::librpitx)
 
-# --- piam (stdin int16 -> librpitx amdmasync, self-contained) ---
+# --- piam (audio file -> librpitx amdmasync, self-contained) ---
 add_executable(piam
-    piam/main.cpp
+    piam/piam.cpp
     piam/am_processor.cpp
 )
 target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pichirp ---
-add_executable(pichirp pichirp/main.cpp)
+add_executable(pichirp pichirp/pichirp.cpp)
 target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
 
-# --- pifmrds (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+# --- pifmrds (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
-    pifmrds/main.cpp
+    pifmrds/pifmrds.cpp
     pifmrds/fmrds_processor.cpp
     pifmrds/rds_encoder.cpp
     pifmrds/rds_modulator.cpp
@@ -66,12 +66,12 @@ add_executable(pifmrds
 target_link_libraries(pifmrds PRIVATE rpitx_utils librpitx::librpitx)
 
 # --- pimorse ---
-add_executable(pimorse pimorse/main.cpp)
+add_executable(pimorse pimorse/pimorse.cpp)
 target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
 
-# --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+# --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
-    pinfm/main.cpp
+    pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
 target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
@@ -82,7 +82,7 @@ target_link_libraries(piopera PRIVATE librpitx::librpitx)
 
 # --- pirfgen ---
 add_executable(pirfgen
-    pirfgen/main.cpp
+    pirfgen/pirfgen.cpp
     pirfgen/rfgen_processor.cpp
     pirfgen/generators/multitone_generator.cpp
     pirfgen/generators/noise_generator.cpp
@@ -96,7 +96,7 @@ target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
 # --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
 add_executable(pissb
-    pissb/main.cpp
+    pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
 target_link_libraries(pissb PRIVATE rpitx_utils)
