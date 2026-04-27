@@ -39,26 +39,20 @@ bool validateLoopSupport(const AudioSource& source, bool loopRequested) {
     return true;
 }
 
-AudioBlockReader::AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop)
+AudioPipeline::AudioBlockReader::AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop)
     : source_{source}, channels_{channels}, framesPerBlock_{framesPerBlock}, loop_{loop} {
     assert(channels > 0);
     assert(framesPerBlock > 0);
 }
 
-int AudioBlockReader::channels() const {
-    return channels_;
-}
-
-int AudioBlockReader::framesPerBlock() const {
-    return framesPerBlock_;
-}
-
-std::size_t AudioBlockReader::samplesPerBlock() const {
+std::size_t AudioPipeline::AudioBlockReader::samplesPerBlock() const {
     return static_cast<std::size_t>(channels_) * static_cast<std::size_t>(framesPerBlock_);
 }
 
-AudioPipelineStatus AudioBlockReader::read(std::span<float> dst) {
-    assert(dst.size() == samplesPerBlock());
+AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) {
+    if (dst.size() != samplesPerBlock()) {
+        return AudioPipelineStatus::Error;
+    }
 
     std::size_t filledSamples{0};
     int consecutiveEofWithoutProgress{0};
@@ -72,6 +66,9 @@ AudioPipelineStatus AudioBlockReader::read(std::span<float> dst) {
                 return AudioPipelineStatus::Error;
             }
             filledSamples += samplesRead;
+            if (source_.error()) {
+                return AudioPipelineStatus::Error;
+            }
             consecutiveEofWithoutProgress = 0;
             continue;
         }
@@ -108,25 +105,27 @@ AudioPipelineStatus AudioBlockReader::read(std::span<float> dst) {
     return AudioPipelineStatus::Ok;
 }
 
-void downmixInterleavedToMono(std::span<const float> interleaved, int channels, std::span<float> mono) {
-    assert(channels > 0);
-    assert(interleaved.size() == mono.size() * static_cast<std::size_t>(channels));
+namespace {
+    void downmixInterleavedToMono(std::span<const float> interleaved, int channels, std::span<float> mono) {
+        assert(channels > 0);
+        assert(interleaved.size() == mono.size() * static_cast<std::size_t>(channels));
 
-    if (channels == 1) {
-        std::copy(interleaved.begin(), interleaved.end(), mono.begin());
-        return;
-    }
-
-    const auto chCount{static_cast<std::size_t>(channels)};
-    const float scale{1.0F / static_cast<float>(channels)};
-    for (std::size_t i{0}; i < mono.size(); ++i) {
-        float sum{0.0F};
-        for (std::size_t c{0}; c < chCount; ++c) {
-            sum += interleaved[i * chCount + c];
+        if (channels == 1) {
+            std::copy(interleaved.begin(), interleaved.end(), mono.begin());
+            return;
         }
-        mono[i] = sum * scale;
+
+        const auto chCount{static_cast<std::size_t>(channels)};
+        const float scale{1.0F / static_cast<float>(channels)};
+        for (std::size_t i{0}; i < mono.size(); ++i) {
+            float sum{0.0F};
+            for (std::size_t c{0}; c < chCount; ++c) {
+                sum += interleaved[i * chCount + c];
+            }
+            mono[i] = sum * scale;
+        }
     }
-}
+}  // namespace
 
 AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
     : sourceFormat_{source.format()},
@@ -152,16 +151,8 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
                           std::vector<float>(static_cast<std::size_t>(outputFrames_), 0.0F));
 }
 
-AudioFormat AudioPipeline::sourceFormat() const {
-    return sourceFormat_;
-}
-
 int AudioPipeline::outputChannels() const {
     return outputChannels_;
-}
-
-int AudioPipeline::inputFrames() const {
-    return inputFrames_;
 }
 
 int AudioPipeline::outputFrames() const {
@@ -173,8 +164,9 @@ std::size_t AudioPipeline::outputSamplesPerBlock() const {
 }
 
 AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
-    assert(out.size() == outputSamplesPerBlock());
-    assert(reader_ != std::nullopt);
+    if (out.size() != outputSamplesPerBlock() || reader_ == std::nullopt) {
+        return AudioPipelineStatus::Error;
+    }
 
     const auto status{reader_->read({interleavedInput_.data(), interleavedInput_.size()})};
     if (status != AudioPipelineStatus::Ok) {
@@ -195,8 +187,11 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     }
 
     for (int c{0}; c < outputChannels_; ++c) {
-        rateConverters_[static_cast<std::size_t>(c)].process(channelInput_[static_cast<std::size_t>(c)],
-                                                             channelOutput_[static_cast<std::size_t>(c)]);
+        const bool converted{rateConverters_[static_cast<std::size_t>(c)].process(
+            channelInput_[static_cast<std::size_t>(c)], channelOutput_[static_cast<std::size_t>(c)])};
+        if (converted == false) {
+            return AudioPipelineStatus::Error;
+        }
     }
 
     if (outputChannels_ == 1) {

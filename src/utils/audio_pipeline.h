@@ -52,66 +52,6 @@ enum class AudioPipelineStatus {
 [[nodiscard]] bool validateLoopSupport(const AudioSource& source, bool loopRequested);
 
 /**
- * @brief Read fixed-size interleaved blocks from an AudioSource.
- *
- * The reader centralizes EOF, loop, and zero-padding policy:
- *   - normal full reads return Ok;
- *   - non-loop partial tail blocks are zero-padded and returned once;
- *   - loop partial tail blocks rewind immediately and continue reading,
- *     avoiding a silence gap at the file boundary;
- *   - a clean EOF before any new samples returns End.
- */
-class AudioBlockReader {
-public:
-    /**
-     * @brief Construct a fixed-shape block reader.
-     *
-     * @param source Source to read from; must outlive this reader.
-     * @param channels Source channel count (>= 1).
-     * @param framesPerBlock Frames per returned block (> 0).
-     * @param loop Whether EOF should rewind and continue.
-     */
-    AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop);
-
-    AudioBlockReader(const AudioBlockReader&)            = delete;
-    AudioBlockReader& operator=(const AudioBlockReader&) = delete;
-    AudioBlockReader(AudioBlockReader&&)                 = delete;
-    AudioBlockReader& operator=(AudioBlockReader&&)      = delete;
-
-    [[nodiscard]] int channels() const;
-    [[nodiscard]] int framesPerBlock() const;
-    [[nodiscard]] std::size_t samplesPerBlock() const;
-
-    /**
-     * @brief Fill one interleaved block.
-     *
-     * @pre dst.size() == samplesPerBlock().
-     *
-     * @param dst Destination block; interleaved by source channel count.
-     * @return Ok, End, or Error.
-     */
-    [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
-
-private:
-    AudioSource& source_;
-    int channels_;
-    int framesPerBlock_;
-    bool loop_;
-};
-
-/**
- * @brief Downmix interleaved audio to mono with equal channel weighting.
- *
- * @pre interleaved.size() == mono.size() * channels.
- * @pre channels >= 1.
- *
- * @param interleaved Source samples.
- * @param channels Source channel count.
- * @param mono Destination mono frames.
- */
-void downmixInterleavedToMono(std::span<const float> interleaved, int channels, std::span<float> mono);
-
-/**
  * @brief Channel-adaptation mode for AudioPipeline.
  */
 enum class AudioChannelMode {
@@ -153,16 +93,14 @@ public:
     AudioPipeline(AudioPipeline&&)                 = delete;
     AudioPipeline& operator=(AudioPipeline&&)      = delete;
 
-    [[nodiscard]] AudioFormat sourceFormat() const;
     [[nodiscard]] int outputChannels() const;
-    [[nodiscard]] int inputFrames() const;
     [[nodiscard]] int outputFrames() const;
     [[nodiscard]] std::size_t outputSamplesPerBlock() const;
 
     /**
      * @brief Read and convert one block at the target sample rate.
      *
-     * @pre out.size() == outputSamplesPerBlock().
+     * Returns Error when out.size() does not equal outputSamplesPerBlock().
      *
      * @param out Destination block, interleaved by outputChannels().
      * @return Ok, End, or Error.
@@ -170,6 +108,25 @@ public:
     [[nodiscard]] AudioPipelineStatus read(std::span<float> out);
 
 private:
+    class AudioBlockReader {
+    public:
+        AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop);
+
+        AudioBlockReader(const AudioBlockReader&)            = delete;
+        AudioBlockReader& operator=(const AudioBlockReader&) = delete;
+        AudioBlockReader(AudioBlockReader&&)                 = delete;
+        AudioBlockReader& operator=(AudioBlockReader&&)      = delete;
+
+        [[nodiscard]] std::size_t samplesPerBlock() const;
+        [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
+
+    private:
+        AudioSource& source_;
+        int channels_;
+        int framesPerBlock_;
+        bool loop_;
+    };
+
     AudioFormat sourceFormat_;
     AudioPipelineConfig config_;
     int outputChannels_;

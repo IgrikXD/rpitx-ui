@@ -34,17 +34,18 @@ struct AudioFormat {
 /**
  * @brief Streaming pull-mode audio source producing normalized float samples.
  *
- * Concrete implementations wrap a backing decoder (libsndfile for files /
- * stdin, raw PCM for headerless input, ...). Output is always interleaved
- * float in [-1.0, 1.0] regardless of the on-disk sample format so consumers
- * do not have to know how to convert int16 / int24 / float / etc. into the
- * normalized representation their DSP chain expects.
+ * Concrete implementations wrap a backing decoder (libsndfile for files).
+ * Output is always interleaved float in [-1.0, 1.0] regardless of the
+ * on-disk sample format so consumers do not have to know how to convert
+ * int16 / int24 / float / etc. into the normalized representation their
+ * DSP chain expects.
  *
  * Loop semantics live in the consumer, not in the source: when read()
- * returns 0 the caller distinguishes EOF from error via error() and decides
- * whether to call rewind() or stop. Sources stay policy-free; rewind()
- * fails (returns false) on non-seekable backings, which the caller can
- * pre-check via seekable() to fail fast on `--loop` over stdin.
+ * returns 0 the caller distinguishes EOF from a fatal source error via
+ * error() and decides whether to call rewind() or stop. Sources stay
+ * policy-free; rewind() fails (returns false) on non-seekable backings,
+ * which the caller can pre-check via seekable() to fail fast on `--loop`
+ * over stdin / FIFO-style inputs.
  */
 class AudioSource {
 public:
@@ -81,8 +82,10 @@ public:
      * count via dst.size() / format().channels.
      *
      * Returns the number of float samples actually written. A return value
-     * less than dst.size() indicates either clean end-of-stream or a read
-     * failure - distinguish via error(). Returns 0 at EOF and on error.
+     * less than dst.size() indicates either a clean end-of-stream or a fatal
+     * source error; distinguish via error(). A fatal error may be reported
+     * after a positive short read if the backend returned partial data before
+     * surfacing the failure. Output samples are finite and clamped to [-1, 1].
      *
      * @param dst Destination buffer; size must be a multiple of channels.
      * @return Number of float samples written (0 on EOF or error).
@@ -104,24 +107,22 @@ public:
     /**
      * @brief Whether the underlying stream supports rewind().
      *
-     * File-backed sources are seekable; stdin-backed sources are not.
-     * Used by callers to fail fast at startup when --loop is requested
-     * over a non-seekable backing.
+     * Regular file-backed sources are usually seekable; FIFO / device paths
+     * are not. Used by callers to fail fast at startup when --loop is
+     * requested over a non-seekable backing.
      *
      * @return true if rewind() can succeed, false otherwise.
      */
     [[nodiscard]] virtual bool seekable() const = 0;
 
     /**
-     * @brief Whether the most recent read() failed with an I/O error.
+     * @brief Whether this source has encountered a fatal read error.
      *
-     * Read failures and clean EOF both surface as a 0 return from read();
-     * the caller distinguishes the two by querying error() afterwards.
-     * On a true return, the source's read state is no longer trusted -
-     * the caller should stop transmitting and report an error rather than
-     * attempting to rewind and continue.
+     * The flag is sticky: once true, the source's read state is no longer
+     * trusted. Callers should stop transmitting and report an error rather
+     * than attempting to rewind and continue.
      *
-     * @return true if the last read() encountered an I/O error (not EOF).
+     * @return true if any read has encountered a fatal I/O / decoder error.
      */
     [[nodiscard]] virtual bool error() const = 0;
 
