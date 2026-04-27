@@ -12,12 +12,11 @@
 
 #pragma once
 
-#include <optional>
+#include <array>
 #include <span>
 
 #include "agc.h"
 #include "biquad.h"
-#include "polyphase_resampler.h"
 #include "rds_encoder.h"
 #include "rds_modulator.h"
 
@@ -27,7 +26,7 @@
  * @attention All fields must be set explicitly - no in-class initializers.
  */
 struct FmRdsConfig {
-    int audioSampleRate;   ///< Input audio sample rate in Hz (any reasonable PCM rate).
+    int audioSampleRate;   ///< Processor input sample rate in Hz (normally == mpxSampleRate).
     int channels;          ///< Channel count: 1 (mono) or 2 (stereo).
     int mpxSampleRate;     ///< MPX/DMA sample rate in Hz (228000 - locked to 4 x 57 kHz).
     float peakDeviation;   ///< FM peak deviation in Hz (75000 for FM broadcast).
@@ -38,7 +37,7 @@ struct FmRdsConfig {
  * @brief Streaming MPX-domain processor that converts audio + RDS into
  *        per-sample frequency-deviation values for ngfmdmasync.
  *
- * Audio chain (per input channel, applied at the audio sample rate):
+ * Audio chain (per input channel, applied at the processor input rate):
  *   1. HPF 30 Hz   - DC block (a residual DC offset would manifest as a
  *                    constant carrier shift that wastes deviation headroom).
  *   2. Pre-emphasis (50 / 75 us) - matches the receiver's de-emphasis so
@@ -53,31 +52,33 @@ struct FmRdsConfig {
  * applies the same gain to both channels - the stereo image stays intact
  * because L and R never see independent gain trajectories.
  *
+ * Audio file decoding, loop handling, channel preservation, and source-rate
+ * conversion are handled upstream by AudioPipeline. This processor receives
+ * audio already running at the MPX rate and focuses on FM-broadcast DSP:
+ *
  * MPX chain (at the 228 kHz MPX rate):
- *   4. Polyphase resampling per channel (rational L/M derived from
- *      gcd(audioSampleRate, mpxSampleRate)).
- *   5. Compose MPX:
+ *   4. Compose MPX:
  *        - mono:    audio + RDS_subcarrier
  *        - stereo:  (L+R) + pilot_19k + (L-R) * sin(2 pi 38k t) + RDS_subcarrier
  *      Phase-locked 19 kHz pilot and 38 kHz subcarrier (38 kHz = 2 * 19 kHz)
  *      use sine LUTs sized to the integer 228 kHz / pilot_freq ratios
  *      (12 phases for 19 kHz, 6 phases for 38 kHz) so no NCO arithmetic
  *      is needed at run time.
- *   6. Hard-clamp to +-peakDeviation - the AGC can briefly overshoot on a
+ *   5. Hard-clamp to +-peakDeviation - the AGC can briefly overshoot on a
  *      level transient and an unclamped overshoot would radiate as
  *      adjacent-channel splatter.
  *
  * @code
  * FmRdsProcessor proc{{
- *     .audioSampleRate = 44100,
+ *     .audioSampleRate = 228000,
  *     .channels        = 2,
  *     .mpxSampleRate   = 228000,
  *     .peakDeviation   = 75000.0F,
  *     .preEmphasisTau  = 50e-6F,
  * }};
  * proc.encoder().setPi(0xFFFF);
- * std::vector<float> audioInLR(proc.audioFramesPerBlock() * 2);
- * std::vector<float> mpxOut(proc.mpxSamplesPerBlock());
+ * std::vector<float> audioInLR(4096 * 2);
+ * std::vector<float> mpxOut(4096);
  * proc.process(audioInLR, mpxOut);
  * @endcode
  */
@@ -102,33 +103,11 @@ public:
     [[nodiscard]] RdsEncoder& encoder();
 
     /**
-     * @brief Audio frames per processing block.
-     *
-     * The polyphase resampler requires the input frame count per call to
-     * be a multiple of the decimation factor M (which depends on the
-     * input/MPX rate ratio). audioFramesPerBlock() returns a target block
-     * size that satisfies that invariant and lands close to a 20 ms audio
-     * window (the same ballpark piam / pinfm use). Callers must respect
-     * this size when building their input buffers.
-     *
-     * @return Frame count per process() call (always a multiple of M).
-     */
-    [[nodiscard]] int audioFramesPerBlock() const;
-
-    /**
-     * @brief MPX samples produced per process() block.
-     *
-     * @return Output sample count per process() call (== frames * L / M).
-     */
-    [[nodiscard]] int mpxSamplesPerBlock() const;
-
-    /**
      * @brief Process one block of audio into MPX-domain frequency deviations.
      *
-     * @pre For mono:   audioIn.size() == audioFramesPerBlock().
-     * @pre For stereo: audioIn.size() == audioFramesPerBlock() * 2,
+     * @pre For mono:   audioIn.size() == mpxOut.size().
+     * @pre For stereo: audioIn.size() == mpxOut.size() * 2,
      *                  interleaved as L0, R0, L1, R1, ...
-     * @pre mpxOut.size() == mpxSamplesPerBlock().
      *
      * @param audioIn Normalised audio samples in [-1, 1] (PCM16 / 32768 typical).
      *                Mono: single channel. Stereo: interleaved L, R.
@@ -139,21 +118,17 @@ public:
 
 private:
     /**
-     * @brief Audio-rate AGC tuning, identical to piam/pinfm.
+     * @brief MPX-rate AGC tuning.
      *
-     * Same broadcast-leveller timing as the AM and NBFM processors:
-     * attack=0.003 (~7 ms tau, ~23 Hz control cutoff) keeps the AGC
-     * response well below the lowest voice fundamental (~85 Hz), so
-     * gain modulation within a glottal period cannot produce IM that
-     * would widen the MPX spectrum past the LPF guard. decay=0.0001
-     * (~208 ms) gives the classic broadcast release that avoids
-     * inter-syllable pumping. initialEnvelope=target so the first
-     * sample sees gain=1.0 and stays inside the deviation clamp.
+     * Coefficients are scaled from the 48 kHz piam/pinfm leveller
+     * (attack=0.003, decay=0.0001) to preserve the same approximate
+     * time constants after AudioPipeline has resampled input audio to
+     * the 228 kHz MPX rate before this processor runs.
      */
     static constexpr AgcConfig FMRDS_AGC_CONFIG{
         .target          = 0.8F,
-        .attack          = 0.003F,
-        .decay           = 0.0001F,
+        .attack          = 0.00063158F,
+        .decay           = 0.00002105F,
         .initialEnvelope = 0.8F,
     };
 
@@ -178,15 +153,6 @@ private:
      * 19 kHz pilot region and the 38 kHz stereo subcarrier.
      */
     static constexpr int LPF_ORDER{4};
-
-    /**
-     * @brief Polyphase resampler taps per phase.
-     *
-     * 32 taps per phase combined with a Hamming window gives ~80 dB of
-     * stop-band attenuation, sufficient to keep image spectra of the audio
-     * from spilling near the 19 kHz pilot and the 38 kHz subcarrier.
-     */
-    static constexpr int RESAMPLER_TAPS_PER_PHASE{32};
 
     /**
      * @brief Per-channel audio gain into the L+R sum and L-R difference.
@@ -319,20 +285,7 @@ private:
      */
     Agc agc_{FMRDS_AGC_CONFIG};
 
-    /**
-     * @brief Per-channel polyphase resampler (audio rate -> 228 kHz).
-     *
-     * Held in optional slots because PolyphaseResampler is non-movable, and
-     * the constructor computes L/M from the configured rates before
-     * constructing it in place. Two slots: in mono mode the second slot
-     * remains disengaged.
-     */
-    std::array<std::optional<PolyphaseResampler>, 2> resamplers_;
-
     RdsModulator rdsModulator_;
-
-    int audioFrames_{0};  ///< Frames per process() block (multiple of M).
-    int mpxSamples_{0};   ///< MPX samples per process() block (== frames * L / M).
 
     /**
      * @brief 19 kHz pilot phase index in [0, 12). Advances by 1 per MPX sample.
@@ -357,21 +310,4 @@ private:
      */
     std::array<float, CARRIER_38K_PERIOD> carrierTable_{};
 
-    /**
-     * @brief Audio-domain scratch buffers (per channel).
-     *
-     * Sized by audioFrames_ in the ctor. Holds the post-filter, post-AGC
-     * float samples for one block before they are fed into the per-channel
-     * resampler.
-     */
-    std::array<std::vector<float>, 2> audioScratch_;
-
-    /**
-     * @brief MPX-domain scratch buffers (per channel).
-     *
-     * Sized by mpxSamples_ in the ctor. Holds the per-channel resampled
-     * 228 kHz audio before the L+R / L-R / pilot / RDS mixer combines
-     * them in buildMpxSample().
-     */
-    std::array<std::vector<float>, 2> mpxScratch_;
 };

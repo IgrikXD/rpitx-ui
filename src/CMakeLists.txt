@@ -5,19 +5,36 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # ----------------------------------------------------------
+# Audio I/O backend (libsndfile via pkg-config)
+# ----------------------------------------------------------
+# Uses pkg-config rather than find_package(SndFile) for compatibility with
+# Raspberry Pi OS (Bullseye / Bookworm) - older libsndfile packages do not
+# ship a SndFileConfig.cmake, but every Debian-derived distro ships
+# sndfile.pc since libsndfile 1.0.x.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
+
+# ----------------------------------------------------------
 # Shared DSP and I/O utility library
 # ----------------------------------------------------------
 add_library(rpitx_utils STATIC
     utils/agc.cpp
+    utils/audio_pipeline.cpp
     utils/biquad.cpp
     utils/cli_utils.cpp
     utils/hilbert.cpp
+    utils/io_utils.cpp
+    utils/libsndfile_audio_source.cpp
     utils/morse_encoder.cpp
     utils/polyphase_resampler.cpp
     utils/sawtooth.cpp
     utils/wav_utils.cpp
 )
 target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+# libsndfile is PUBLIC: as a STATIC archive, rpitx_utils itself does not
+# carry its dependencies, so consumers (pifmrds / piam / pinfm) need the
+# transitive link line for sndfile symbols to resolve at executable link.
+target_link_libraries(rpitx_utils PUBLIC PkgConfig::SNDFILE)
 target_link_libraries(rpitx_utils PRIVATE m)
 
 # ----------------------------------------------------------

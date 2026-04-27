@@ -12,6 +12,7 @@ DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
 DEFAULT_NFM_MODE="Wide"
+DEFAULT_PLAYBACK="loop"
 DEFAULT_RDS_PI="1234"
 DEFAULT_RDS_PS="rpitx-ui"
 DEFAULT_RDS_RT="rpitx-ui Broadcast WFM with RDS"
@@ -154,6 +155,21 @@ LAST_ITEM="$menuchoice"
 if NFM_MODE=$(whiptail --default-item "$DEFAULT_NFM_MODE" --title "NFM deviation mode" --menu "Select NFM deviation mode:" 15 78 2 \
 	"Wide" "+-5 kHz deviation for 25 kHz channels (amateur VHF/UHF)" \
 	"Narrow" "+-2.5 kHz deviation for 12.5 kHz channels (PMR/DMR)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
+do_enter_playback_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if PLAYBACK_MODE=$(whiptail --default-item "$DEFAULT_PLAYBACK" --title "Playback mode" --menu "Select playback mode:" 15 78 2 \
+	"loop" "Replay the audio file continuously" \
+	"once" "Play once and stop at end of file" \
 	3>&1 1>&2 2>&3); then
 	abort_action=0
 else
@@ -348,22 +364,28 @@ do_freq_setup
 			do_status
 			;;
 			
-			4\ *) do_file_choose ".wav (16 bit per sample, mono or stereo)" "$RESOURCES_LOCATION" ".wav"
+			4\ *) do_file_choose ".wav (libsndfile-supported, mono or stereo)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				do_enter_rds_params
+				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
-					testfmrds.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$RDS_PI" "$RDS_PS" "$RDS_RT" "$RDS_PE" >/dev/null 2>/dev/null &
-					do_status
+					do_enter_rds_params
+					if [ $abort_action -eq 0 ]; then
+						testfmrds.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "$RDS_PI" "$RDS_PS" "$RDS_RT" "$RDS_PE" >/dev/null 2>/dev/null &
+						do_status
+					fi
 				fi
 			fi
 			;;
-			
-			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
+
+			5\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				do_enter_nfm_mode
+				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
-					testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
-					do_status
+					do_enter_nfm_mode
+					if [ $abort_action -eq 0 ]; then
+						testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
+						do_status
+					fi
 				fi
 			fi
 			;;
@@ -382,10 +404,13 @@ do_freq_setup
 			fi
 			;;
 			
-			8\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
+			8\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testam.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_playback_mode
+				if [ $abort_action -eq 0 ]; then
+					testam.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			

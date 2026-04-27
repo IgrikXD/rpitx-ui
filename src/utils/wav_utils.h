@@ -1,6 +1,11 @@
 /**
  * @file wav_utils.h
- * @brief WAV file header detection and low-level I/O utilities.
+ * @brief Minimal stdin WAV-header skip helper.
+ *
+ * Retained as a transitional utility for pissb, which still consumes
+ * audio from stdin in a pipeline (`cat file.wav | pissb -u | sendiq`).
+ * New modules should use AudioSource (audio_source.h) which delegates
+ * format parsing to libsndfile and supports a wider format range.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 27.03.2026
@@ -12,7 +17,6 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <optional>
@@ -49,15 +53,3 @@ struct CarryBuffer {
  * @return CarryBuffer on success, std::nullopt on read error / EOF.
  */
 [[nodiscard]] std::optional<CarryBuffer> skipWavHeader(std::FILE* input = stdin);
-
-/**
- * @brief Write all bytes from a buffer to a file descriptor.
- *
- * Retries partial writes until all data is written or an error occurs.
- *
- * @param fd File descriptor to write to.
- * @param buf Pointer to the data buffer.
- * @param bytes Number of bytes to write.
- * @return true if all bytes were written, false on error.
- */
-[[nodiscard]] bool writeAll(int fd, const void* buf, size_t bytes);

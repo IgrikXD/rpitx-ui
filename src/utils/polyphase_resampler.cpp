@@ -11,6 +11,7 @@
 
 #include "polyphase_resampler.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <numbers>
@@ -129,4 +130,51 @@ void PolyphaseResampler::resample(std::span<const float> in, std::span<float> ou
         }
         virtualPhase_ = (virtualPhase_ + L_) % M_;
     }
+}
+
+AudioRateConverter::AudioRateConverter(int sourceRate, int targetRate, int targetOutputFrames, int tapsPerPhase,
+                                       float maxCutoffHz)
+    : inputFrames_{0}, outputFrames_{0} {
+    assert(sourceRate > 0);
+    assert(targetRate > 0);
+    assert(targetOutputFrames > 0);
+
+    if (sourceRate == targetRate) {
+        // Passthrough: identical rates, block size is verbatim the requested
+        // output target. resampler_ stays nullopt; process() will memcpy.
+        inputFrames_  = targetOutputFrames;
+        outputFrames_ = targetOutputFrames;
+        return;
+    }
+
+    const auto ratio{computePolyphaseRatio(sourceRate, targetRate)};
+    inputFrames_  = alignedInputForOutput(targetOutputFrames, ratio.L, ratio.M);
+    outputFrames_ = inputFrames_ * ratio.L / ratio.M;
+    const float cutoff{safeResamplerCutoff(sourceRate, targetRate, maxCutoffHz)};
+    resampler_.emplace(ratio.L, ratio.M, tapsPerPhase, cutoff, static_cast<float>(sourceRate));
+}
+
+int AudioRateConverter::inputFrames() const {
+    return inputFrames_;
+}
+
+int AudioRateConverter::outputFrames() const {
+    return outputFrames_;
+}
+
+bool AudioRateConverter::isPassthrough() const {
+    return resampler_ == std::nullopt;
+}
+
+void AudioRateConverter::process(std::span<const float> in, std::span<float> out) {
+    assert(in.size() == static_cast<std::size_t>(inputFrames_));
+    assert(out.size() == static_cast<std::size_t>(outputFrames_));
+
+    if (resampler_ == std::nullopt) {
+        // Passthrough: input and output spans have identical size by ctor
+        // invariant; std::copy is the canonical zero-overhead memcpy here.
+        std::copy(in.begin(), in.end(), out.begin());
+        return;
+    }
+    resampler_.value().resample(in, out);
 }

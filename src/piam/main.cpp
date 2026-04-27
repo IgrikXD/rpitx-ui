@@ -2,17 +2,20 @@
  * @file main.cpp
  * @brief Amplitude-modulation (AM) transmitter.
  *
- * Reads 16-bit PCM audio (48 kHz mono) from stdin, forms the canonical
- * DSB-FC AM envelope, and drives librpitx::amdmasync directly at the
- * requested carrier frequency. Transmission runs until SIGTERM / SIGINT
- * (the rpitx-ui launcher stops the process centrally via killall when
- * the user dismisses the dialog).
+ * Reads audio from a file (any format libsndfile supports), downmixes to
+ * mono, resamples to 48 kHz if needed, forms the canonical DSB-FC AM
+ * envelope, and drives librpitx::amdmasync directly at the requested
+ * carrier frequency. Transmission runs until the audio ends (or forever
+ * when -l is set), or until SIGTERM / SIGINT (the rpitx-ui launcher stops
+ * the process centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: piam <freq_Hz> [-h]
- *   - -h  Print the help message and exit
+ * @note Usage: piam <freq_Hz> -a <file> [-l] [-h]
+ *   - -a   Path to the audio file (any format libsndfile understands).
+ *   - -l   Loop the audio file (replay from the start on EOF).
+ *   - -h   Print the help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 20.04.2026
+ * @date 27.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -20,19 +23,22 @@
 
 #include <librpitx/librpitx.h>
 
-#include <array>
 #include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <csignal>
 #include <cstdint>
-#include <cstdio>
 #include <iostream>
-#include <limits>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "am_processor.h"
+#include "audio_pipeline.h"
 #include "cli_utils.h"
-#include "wav_utils.h"
+#include "libsndfile_audio_source.h"
 
 namespace {
     /**
@@ -46,23 +52,59 @@ namespace {
     constexpr int DMA_BIT_DEPTH{14};
 
     /**
-     * @brief DMA sample rate in Hz (must match the input audio rate).
+     * @brief Internal AM processing rate in Hz (also the DMA rate).
      *
-     * amdmasync consumes one amplitude per sample at this rate; 48 kHz matches
-     * the mandatory input PCM rate and is also the rate F5OEO's librpitx
-     * testrpitx.cpp SimpleTestAm uses.
+     * 48 kHz is the rate the AM processor's HPF / LPF / AGC are designed
+     * around and the rate at which amdmasync consumes envelope samples.
+     * Source rate matching is handled by the polyphase resampler stage.
      */
-    constexpr uint32_t SAMPLE_RATE{48'000};
+    constexpr uint32_t TARGET_SAMPLE_RATE{48'000};
 
     /**
-     * @brief Block size for PCM sample processing (~21 ms at 48 kHz).
+     * @brief Target output frames per processing block (~21 ms at 48 kHz).
+     *
+     * Sized for a comfortable balance between per-block syscall overhead
+     * and end-to-end latency. The actual input block size is derived from
+     * this target plus the resampler's M factor when resampling is active.
      */
-    constexpr int BLOCK_SIZE{1024};
+    constexpr int TARGET_OUTPUT_FRAMES{1024};
 
     /**
-     * @brief Normalization divisor for int16_t -> float [-1.0, 1.0] conversion (2^15).
+     * @brief Polyphase resampler taps per phase.
+     *
+     * 32 taps + Hamming window gives ~80 dB stop-band attenuation, well
+     * past the AM channel mask requirement for any plausible source rate.
      */
-    constexpr float PCM16_MAX{static_cast<float>(std::numeric_limits<int16_t>::max()) + 1.0f};
+    constexpr int RESAMPLER_TAPS_PER_PHASE{32};
+
+    /**
+     * @brief Polyphase resampler LPF cutoff in Hz.
+     *
+     * Matches the AM voice-bandwidth guard in AmProcessor (4500 Hz). The
+     * runtime min(LPF_CUTOFF, 0.45 * min(srcRate, target)) cap ensures the
+     * cutoff stays safely below Nyquist for both source and target rates -
+     * required when the source rate is below 10 kHz, where 4500 Hz would
+     * otherwise alias.
+     */
+    constexpr float RESAMPLER_LPF_CUTOFF{4'500.0F};
+
+    /**
+     * @brief Minimum accepted input sample rate in Hz.
+     *
+     * 8 kHz is the lower bound where the resampler can still produce a
+     * usable AM passband (cutoff at 0.45 * 8000 = 3600 Hz). Below this
+     * the output bandwidth would be too narrow for intelligible voice.
+     */
+    constexpr int MIN_INPUT_RATE{8'000};
+
+    /**
+     * @brief Maximum accepted input sample rate in Hz.
+     *
+     * 192 kHz covers studio-master rates (up to DVD-Audio); higher rates
+     * are unlikely in practice and would inflate the resampler L factor
+     * (== output_rate / gcd) without acoustic benefit.
+     */
+    constexpr int MAX_INPUT_RATE{192'000};
 
     /**
      * @brief Atomic flag for graceful shutdown on signal reception.
@@ -86,9 +128,12 @@ namespace {
      * @brief Print the command-line usage to stderr.
      */
     void printUsage() {
-        std::cerr << "Usage: piam <freq_Hz>" << std::endl
-                  << "  -h  Print this help message" << std::endl
-                  << "  Reads 16-bit PCM mono audio at " << SAMPLE_RATE << " Hz from stdin." << std::endl;
+        std::cerr << "Usage: piam <freq_Hz> -a <file> [options]" << std::endl
+                  << "  -a <file>  Path to the audio file (libsndfile-supported format)" << std::endl
+                  << "  -l         Loop the audio file (replay on EOF)" << std::endl
+                  << "  -h         Print this help message" << std::endl
+                  << "  Audio is downmixed to mono and resampled to " << TARGET_SAMPLE_RATE
+                  << " Hz internally." << std::endl;
     }
 
     /**
@@ -96,18 +141,59 @@ namespace {
      */
     struct AmParameters {
         uint64_t freq{0};
+        std::string audioPath;
+        bool loop{false};
     };
 
     /**
+     * @brief Parse and validate the single positional argument (frequency).
+     */
+    [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, AmParameters& params) {
+        const auto freqOpt{parseNumericArg<double>(freqArg)};
+        if (freqOpt == std::nullopt) {
+            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
+            return ParseResult::Error;
+        }
+        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
+        // exactly representable as double; std::ldexp(1.0, 64) is exactly 2^64
+        // and is the strict upper bound any finite double can convert from.
+        const double freqValue{freqOpt.value()};
+        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
+            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
+            return ParseResult::Error;
+        }
+        params.freq = static_cast<uint64_t>(freqValue);
+        return ParseResult::Ok;
+    }
+
+    /**
+     * @brief Walk the optional flag tail and populate params.
+     */
+    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, AmParameters& params) {
+        for (std::size_t i{0}; i < args.size(); ++i) {
+            const std::string_view arg{args[i]};
+
+            if (arg == "-l") {
+                params.loop = true;
+                continue;
+            }
+            if (arg != "-a") {
+                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
+                return ParseResult::Error;
+            }
+            if (++i >= args.size()) {
+                std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
+                return ParseResult::Error;
+            }
+            params.audioPath.assign(args[i]);
+        }
+        return ParseResult::Ok;
+    }
+
+    /**
      * @brief Parse and validate command-line arguments.
-     * @param argc Argument count.
-     * @param argv Argument vector.
-     * @param params Output - populated on success.
-     * @return ParseResult indicating success, error, or a help request.
      */
     [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], AmParameters& params) {
-        // -h at any position short-circuits - regardless of positional-count state -
-        // so that `piam -h`, `piam 100 -h`, etc. all print help and exit cleanly.
         if (containsFlag({argv + 1, argv + argc}, "-h")) {
             printUsage();
             return ParseResult::Help;
@@ -116,61 +202,24 @@ namespace {
             printUsage();
             return ParseResult::Error;
         }
-
-        // Frequency is parsed as double to accept scientific notation (e.g. "434e6")
-        const auto freqOpt{parseNumericArg<double>(argv[1])};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
+        if (const auto result{parsePositionalArgs(argv[1], params)}; result != ParseResult::Ok) {
+            return result;
+        }
+        const std::span<char* const> flagArgs{argv + 2, argv + argc};
+        if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
+            return result;
+        }
+        if (params.audioPath.empty()) {
+            std::cerr << "[ERROR] Missing required option: -a <file>!" << std::endl;
             return ParseResult::Error;
         }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
-        // exactly representable as double, so casting it rounds up to 2^64 and
-        // makes the comparison bound implementation-dependent. std::ldexp(1.0, 64)
-        // is exactly 2^64 and is the strict upper bound: any finite double
-        // strictly below it converts safely to uint64_t.
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
-
         return ParseResult::Ok;
-    }
-
-    /**
-     * @brief Normalize a block of int16 PCM samples, run them through the AM
-     *        processor, and hand the resulting envelope off to the DMA.
-     *
-     * amdmasync::SetAmSamples handles FIFO back-pressure internally (sleeps
-     * until ~75 % of the FIFO is drained), so no explicit pacing is needed.
-     *
-     * @param am Active AM processor.
-     * @param dma Active amdmasync instance.
-     * @param scratch Scratch buffer (size BLOCK_SIZE) for the intermediate envelope; count must not exceed BLOCK_SIZE.
-     * @param pcm PCM samples to process.
-     * @param count Number of valid samples in pcm.
-     */
-    void processBlock(AmProcessor& am, amdmasync& dma, std::array<float, BLOCK_SIZE>& scratch, const int16_t* pcm,
-                      int count) {
-        // skipWavHeader returns count = 0 on a clean RIFF match (no carry-over
-        // bytes to replay) - short-circuit so the DMA never sees a zero-length
-        // batch, which is ill-defined for SetAmSamples.
-        if (count <= 0) {
-            return;
-        }
-        for (int i{0}; i < count; ++i) {
-            scratch[i] = am.process(static_cast<float>(pcm[i]) / PCM16_MAX);
-        }
-        dma.SetAmSamples(scratch.data(), static_cast<size_t>(count));
     }
 
 }  // namespace
 
 int main(int argc, char* argv[]) {
     AmParameters params;
-    // No default branch: ParseResult is closed-set, so -Wswitch flags any future
-    // enumerator that forgets to update this dispatch.
     switch (parseArgs(argc, argv, params)) {
         case ParseResult::Ok:
             break;
@@ -188,31 +237,56 @@ int main(int argc, char* argv[]) {
     // a graceful shutdown instead.
     std::signal(SIGPIPE, handleSignal);
 
-    std::cout << "piam: center=" << params.freq << " Hz, rate=" << SAMPLE_RATE << " Hz" << std::endl;
+    auto source{makeFileAudioSource(params.audioPath)};
+    if (source == nullptr) {
+        return 1;
+    }
+    if (validateLoopSupport(*source, params.loop) == false) {
+        return 1;
+    }
 
-    AmProcessor am{static_cast<float>(SAMPLE_RATE)};
-    amdmasync dma{params.freq, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+    const auto fmt{source->format()};
+    if (validateMonoStereoAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
+        return 1;
+    }
 
-    std::array<int16_t, BLOCK_SIZE> inbuf{};
-    std::array<float, BLOCK_SIZE> outbuf{};
+    AudioPipeline audio{*source,
+                        {
+                            .loop               = params.loop,
+                            .targetSampleRate   = static_cast<int>(TARGET_SAMPLE_RATE),
+                            .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                            .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
+                            .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
+                            .channelMode        = AudioChannelMode::Mono,
+                        }};
 
-    // Skip the WAV header exactly once at stream start. The easytest.sh
-    // pipeline (`while true; do cat $file; done`) holds the write end of
-    // the pipe open across cat iterations, so fread never returns a
-    // partial read at a file boundary - any follow-up RIFF headers land
-    // mid-block and cannot be recovered from partial-read detection.
-    const auto header{skipWavHeader()};
-    if (header != std::nullopt) {
-        const auto& carry{header.value()};
-        processBlock(am, dma, outbuf, carry.samples.data(), carry.count);
+    std::cout << "piam: center=" << params.freq << " Hz, src_rate=" << fmt.sampleRate
+              << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
+              << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
-        while (running.load(std::memory_order_relaxed)) {
-            const auto n{static_cast<int>(std::fread(inbuf.data(), sizeof(int16_t), BLOCK_SIZE, stdin))};
-            if (n <= 0) {
-                break;
-            }
-            processBlock(am, dma, outbuf, inbuf.data(), n);
+    AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
+    amdmasync dma{params.freq, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+
+    // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
+    // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused
+    // for the AM envelope in place before handing the block to DMA.
+    std::vector<float> outputBuf(audio.outputSamplesPerBlock());
+
+    while (running.load(std::memory_order_relaxed)) {
+        const auto status{audio.read(outputBuf)};
+        if (status == AudioPipelineStatus::End) {
+            break;
         }
+        if (status == AudioPipelineStatus::Error) {
+            std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
+            dma.stop();
+            return 1;
+        }
+
+        for (float& sample: outputBuf) {
+            sample = am.process(sample);
+        }
+        dma.SetAmSamples(outputBuf.data(), outputBuf.size());
     }
 
     dma.stop();

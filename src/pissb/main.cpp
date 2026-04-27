@@ -25,6 +25,7 @@
 #include <cstring>
 #include <limits>
 
+#include "io_utils.h"
 #include "ssb_processor.h"
 #include "wav_utils.h"
 

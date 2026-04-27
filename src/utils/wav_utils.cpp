@@ -11,8 +11,6 @@
 
 #include "wav_utils.h"
 
-#include <unistd.h>
-
 #include <algorithm>
 #include <bit>
 #include <cstring>
@@ -151,19 +149,4 @@ std::optional<CarryBuffer> skipWavHeader(std::FILE* input) {
             return std::nullopt;
         }
     }
-}
-
-bool writeAll(int fd, const void* buf, size_t bytes) {
-    auto ptr{static_cast<const char*>(buf)};
-
-    while (bytes > 0) {
-        const ssize_t written{write(fd, ptr, bytes)};
-        if (written <= 0) {
-            return false;
-        }
-        ptr += written;
-        bytes -= static_cast<size_t>(written);
-    }
-
-    return true;
 }

@@ -2,15 +2,18 @@
  * @file main.cpp
  * @brief Wide-band FM with RDS broadcast transmitter.
  *
- * Reads 16-bit PCM audio (mono or stereo, any sample rate) from stdin,
- * builds the FM broadcast MPX (audio + 19 kHz pilot + 38 kHz suppressed-
- * carrier (L-R) subcarrier when stereo + 57 kHz RDS subcarrier with
- * EN 50067 PI / PS / RT / CT data), and drives librpitx::ngfmdmasync at
- * 228 kHz to produce the on-air signal. Transmission runs until SIGTERM /
- * SIGINT (the rpitx-ui launcher stops the process centrally via killall
- * when the user dismisses the dialog).
+ * Reads audio (mono or stereo, any rate / bit-depth supported by libsndfile)
+ * from a file specified via -a, builds the FM broadcast MPX (audio + 19 kHz
+ * pilot + 38 kHz suppressed-carrier (L-R) subcarrier when stereo + 57 kHz
+ * RDS subcarrier with EN 50067 PI / PS / RT / CT data), and drives
+ * librpitx::ngfmdmasync at 228 kHz to produce the on-air signal. Transmission
+ * runs until the audio ends (or forever when -l is set), or until SIGTERM /
+ * SIGINT (the rpitx-ui launcher stops the process centrally via killall when
+ * the user dismisses the dialog).
  *
- * @note Usage: pifmrds <freq_Hz> [-pi <hex>] [-ps <text>] [-rt <text>] [-pe <50|75>] [-h]
+ * @note Usage: pifmrds <freq_Hz> -a <file> [-l] [-pi <hex>] [-ps <text>] [-rt <text>] [-pe <50|75>] [-h]
+ *   - -a   Path to the audio file (any format libsndfile understands).
+ *   - -l   Loop the audio file (replay from the start on EOF).
  *   - -pi  RDS Programme Identification, 4 hex digits (default: 0x1234)
  *   - -ps  RDS Programme Service name, up to 8 chars (default: "rpitx-ui")
  *   - -rt  RDS RadioText, up to 64 chars (default: "rpitx-ui Broadcast WFM with RDS")
@@ -19,7 +22,7 @@
  *   - -h   Print the help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 26.04.2026
+ * @date 27.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -32,17 +35,18 @@
 #include <cmath>
 #include <csignal>
 #include <cstdint>
-#include <cstdio>
 #include <iostream>
-#include <limits>
+#include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include "audio_pipeline.h"
 #include "cli_utils.h"
 #include "fmrds_processor.h"
-#include "wav_utils.h"
+#include "libsndfile_audio_source.h"
 
 namespace {
     /**
@@ -66,14 +70,22 @@ namespace {
     constexpr int MPX_SAMPLE_RATE{228'000};
 
     /**
-     * @brief Default audio sample rate when no RIFF header is present.
-     *
-     * skipWavHeader returns sampleRate == 0 for raw PCM streams (no RIFF
-     * detected); we fall back to this value rather than aborting because
-     * raw 48 kHz PCM is a common pipeline format and any genuine mismatch
-     * just results in audible pitch shift, not a transmission failure.
+     * @brief Target MPX output frames per processing block (~18 ms at 228 kHz).
      */
-    constexpr int DEFAULT_AUDIO_SAMPLE_RATE{48'000};
+    constexpr int TARGET_OUTPUT_FRAMES{4096};
+
+    /**
+     * @brief Polyphase resampler taps per phase.
+     */
+    constexpr int RESAMPLER_TAPS_PER_PHASE{32};
+
+    /**
+     * @brief Polyphase resampler LPF cutoff in Hz.
+     *
+     * Matches the FM broadcast audio mask; AudioPipeline caps this further
+     * when the source rate cannot support a full 15 kHz audio bandwidth.
+     */
+    constexpr float RESAMPLER_LPF_CUTOFF{15'000.0F};
 
     /**
      * @brief Peak FM deviation in Hz.
@@ -83,11 +95,6 @@ namespace {
      * because narrow-deviation operation is the role of pinfm.
      */
     constexpr float PEAK_DEVIATION{75'000.0F};
-
-    /**
-     * @brief Normalization divisor for int16_t -> float [-1.0, 1.0] conversion (2^15).
-     */
-    constexpr float PCM16_MAX{static_cast<float>(std::numeric_limits<int16_t>::max()) + 1.0f};
 
     /**
      * @brief Default RDS Programme Identification code.
@@ -163,13 +170,14 @@ namespace {
      * @brief Print the command-line usage to stderr.
      */
     void printUsage() {
-        std::cerr << "Usage: pifmrds <freq_Hz> [options]" << std::endl
+        std::cerr << "Usage: pifmrds <freq_Hz> -a <file> [options]" << std::endl
+                  << "  -a <file>   Path to the audio file (libsndfile-supported format)" << std::endl
+                  << "  -l          Loop the audio file (replay on EOF)" << std::endl
                   << "  -pi <hex>   RDS Programme Identification, 4 hex digits (default 0x1234)" << std::endl
                   << "  -ps <text>  RDS Programme Service name, up to 8 chars (default \"rpitx-ui\")" << std::endl
                   << "  -rt <text>  RDS RadioText, up to 64 chars" << std::endl
                   << "  -pe <50|75> Pre-emphasis time constant in microseconds (default 50)" << std::endl
-                  << "  -h          Print this help message" << std::endl
-                  << "  Reads 16-bit PCM audio (mono or stereo, any rate) from stdin." << std::endl;
+                  << "  -h          Print this help message" << std::endl;
     }
 
     /**
@@ -177,6 +185,8 @@ namespace {
      */
     struct FmRdsParameters {
         uint64_t freq{0};
+        std::string audioPath;
+        bool loop{false};
         uint16_t pi{DEFAULT_RDS_PI};
         std::string_view ps{DEFAULT_RDS_PS};
         std::string_view rt{DEFAULT_RDS_RT};
@@ -247,9 +257,16 @@ namespace {
         for (std::size_t i{0}; i < args.size(); ++i) {
             const std::string_view arg{args[i]};
 
+            // -l is a presence-only boolean and so is parsed separately; the
+            // remaining flags all consume one value argument.
+            if (arg == "-l") {
+                params.loop = true;
+                continue;
+            }
+
             // Reject unknown flags before consuming a value, so that a trailing unknown flag
             // surfaces as "Unknown option" instead of the misleading "Option -x requires an argument".
-            if (arg != "-pi" && arg != "-ps" && arg != "-rt" && arg != "-pe") {
+            if (arg != "-a" && arg != "-pi" && arg != "-ps" && arg != "-rt" && arg != "-pe") {
                 std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
                 return ParseResult::Error;
             }
@@ -259,7 +276,9 @@ namespace {
             }
             const std::string_view value{args[i]};
 
-            if (arg == "-pi") {
+            if (arg == "-a") {
+                params.audioPath.assign(value);
+            } else if (arg == "-pi") {
                 if (const auto result{parsePi(value, params.pi)}; result != ParseResult::Ok) {
                     return result;
                 }
@@ -306,46 +325,13 @@ namespace {
         if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
             return result;
         }
+        if (params.audioPath.empty()) {
+            std::cerr << "[ERROR] Missing required option: -a <file>!" << std::endl;
+            return ParseResult::Error;
+        }
         return ParseResult::Ok;
     }
 
-    /**
-     * @brief Read one block of audio frames from stdin into the float scratch.
-     *
-     * Reads exactly `proc.audioFramesPerBlock()` frames; on a short read at
-     * end-of-stream the remaining slots are zero-padded so the resampler's
-     * `inSize % M == 0` invariant is preserved (any tail less than one
-     * block is rounded up rather than dropped).
-     *
-     * @param channels Channel count from the WAV header (1 or 2).
-     * @param frames   Frames to read (== proc.audioFramesPerBlock()).
-     * @param pcmBuf   int16 scratch sized at frames * channels.
-     * @param outBuf   Output float buffer sized at frames * channels.
-     *                 For stereo, samples are interleaved L, R, L, R, ...
-     * @return Number of full audio frames actually read; 0 on EOF.
-     */
-    [[nodiscard]] int readAudioBlock(int channels, int frames, std::vector<int16_t>& pcmBuf,
-                                     std::vector<float>& outBuf) {
-        const auto framesRead{static_cast<int>(std::fread(pcmBuf.data(),
-                                                          sizeof(int16_t) * static_cast<std::size_t>(channels),
-                                                          static_cast<std::size_t>(frames),
-                                                          stdin))};
-        if (framesRead <= 0) {
-            return 0;
-        }
-        const std::size_t samplesRead{static_cast<std::size_t>(framesRead) * static_cast<std::size_t>(channels)};
-        for (std::size_t i{0}; i < samplesRead; ++i) {
-            outBuf[i] = static_cast<float>(pcmBuf[i]) / PCM16_MAX;
-        }
-        // Zero-pad the tail so the block is always exactly `frames` frames -
-        // resampler invariant + avoids leaving a partial trailing-frame
-        // block undelivered when the input stream runs short.
-        const std::size_t fullSamples{static_cast<std::size_t>(frames) * static_cast<std::size_t>(channels)};
-        for (std::size_t i{samplesRead}; i < fullSamples; ++i) {
-            outBuf[i] = 0.0F;
-        }
-        return framesRead;
-    }
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -367,48 +353,38 @@ int main(int argc, char* argv[]) {
     // a graceful shutdown instead.
     std::signal(SIGPIPE, handleSignal);
 
-    // Skip the WAV header exactly once at stream start. The easytest.sh
-    // pipeline (`while true; do cat $file; done`) holds the write end of
-    // the pipe open across cat iterations, so fread never returns a
-    // partial read at a file boundary - any follow-up RIFF headers land
-    // mid-block and cannot be recovered from partial-read detection.
-    const auto header{skipWavHeader()};
-    if (header == std::nullopt) {
-        std::cerr << "pifmrds: stdin closed before any audio was read." << std::endl;
+    auto source{makeFileAudioSource(params.audioPath)};
+    if (source == nullptr) {
         return 1;
     }
-    const auto& info{header.value()};
-
-    if (info.channels != 1 && info.channels != 2) {
-        std::cerr << "[ERROR] Input must be mono or stereo, got " << info.channels << " channels." << std::endl;
-        return 1;
-    }
-    if (info.bitsPerSample != 16) {
-        std::cerr << "[ERROR] Input must be 16-bit PCM, got " << info.bitsPerSample << "-bit." << std::endl;
-        return 1;
-    }
-    // sampleRate == 0 means "no RIFF header was found" - fall back to a
-    // sensible default (assumes the user knows their raw stream). For
-    // anything that looks like a sane PCM rate we trust the WAV header
-    // and let the polyphase resampler adjust.
-    int audioRate{DEFAULT_AUDIO_SAMPLE_RATE};
-    if (info.sampleRate > 0) {
-        audioRate = info.sampleRate;
-    }
-    if (audioRate < 8'000 || audioRate > MPX_SAMPLE_RATE) {
-        std::cerr << "[ERROR] Input sample rate " << audioRate << " Hz is outside the supported range [8000, "
-                  << MPX_SAMPLE_RATE << "]." << std::endl;
+    if (validateLoopSupport(*source, params.loop) == false) {
         return 1;
     }
 
-    std::cout << "pifmrds: center=" << params.freq << " Hz, audio_rate=" << audioRate
-              << " Hz, channels=" << info.channels << ", mpx_rate=" << MPX_SAMPLE_RATE << " Hz" << std::endl
+    const auto audioFormat{source->format()};
+    if (validateMonoStereoAudioFormat(audioFormat, 8'000, MPX_SAMPLE_RATE) == false) {
+        return 1;
+    }
+
+    AudioPipeline audio{*source,
+                        {
+                            .loop               = params.loop,
+                            .targetSampleRate   = MPX_SAMPLE_RATE,
+                            .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                            .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
+                            .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
+                            .channelMode        = AudioChannelMode::Preserve,
+                        }};
+
+    std::cout << "pifmrds: center=" << params.freq << " Hz, audio_rate=" << audioFormat.sampleRate
+              << " Hz, channels=" << audioFormat.channels << ", mpx_rate=" << MPX_SAMPLE_RATE
+              << " Hz, format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl
               << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
               << params.rt << "\", pre-emph=" << formatNamedEnum(params.preEmph, PRE_EMPH_TABLE) << " us" << std::endl;
 
     FmRdsProcessor proc{{
-        .audioSampleRate = audioRate,
-        .channels        = info.channels,
+        .audioSampleRate = MPX_SAMPLE_RATE,
+        .channels        = audio.outputChannels(),
         .mpxSampleRate   = MPX_SAMPLE_RATE,
         .peakDeviation   = PEAK_DEVIATION,
         .preEmphasisTau  = preEmphasisTauFor(params.preEmph),
@@ -419,20 +395,21 @@ int main(int argc, char* argv[]) {
 
     ngfmdmasync dma{params.freq, MPX_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-    // Buffers sized per-block from the processor's runtime-derived block
-    // size. std::vector here (rather than std::array) because the audio
-    // sample rate is detected from the WAV header at run time, so the
-    // M-aligned block size is not a compile-time constant.
-    const int frames{proc.audioFramesPerBlock()};
-    const int mpxLen{proc.mpxSamplesPerBlock()};
-    std::vector<int16_t> pcmBuf(static_cast<std::size_t>(frames) * static_cast<std::size_t>(info.channels));
-    std::vector<float> audioBuf(static_cast<std::size_t>(frames) * static_cast<std::size_t>(info.channels));
-    std::vector<float> mpxBuf(static_cast<std::size_t>(mpxLen));
+    // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
+    // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
+    // processor receives one already-rate-matched audio frame per MPX sample.
+    std::vector<float> audioBuf(audio.outputSamplesPerBlock());
+    std::vector<float> mpxBuf(static_cast<std::size_t>(audio.outputFrames()));
 
     while (running.load(std::memory_order_relaxed)) {
-        const int n{readAudioBlock(info.channels, frames, pcmBuf, audioBuf)};
-        if (n <= 0) {
+        const auto status{audio.read(audioBuf)};
+        if (status == AudioPipelineStatus::End) {
             break;
+        }
+        if (status == AudioPipelineStatus::Error) {
+            std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
+            dma.stop();
+            return 1;
         }
         proc.process({audioBuf.data(), audioBuf.size()}, {mpxBuf.data(), mpxBuf.size()});
         dma.SetFrequencySamples(mpxBuf.data(), mpxBuf.size());
