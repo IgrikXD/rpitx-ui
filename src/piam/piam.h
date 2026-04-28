@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the AM transmitter.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -12,11 +12,9 @@
 #pragma once
 
 #include <cstdint>
-#include <span>
 #include <string>
-#include <string_view>
 
-#include "cli_utils.h"
+#include "cli_parse_result.h"
 
 namespace piam {
     /**
@@ -79,24 +77,9 @@ namespace piam {
     void handleSignal(int sig);
 
     /**
-     * @brief Print the command-line usage to stderr.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void printUsage();
-
-    /**
-     * @brief Parse and validate the single positional argument (frequency).
-     */
-    [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, AmParameters& params);
-
-    /**
-     * @brief Walk the optional flag tail and populate params.
-     */
-    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, AmParameters& params);
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], AmParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], AmParameters& params);
 
     /**
      * @brief Run the AM transmitter command.

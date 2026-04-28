@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the sinusoidal FM chirp transmitter.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 17.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include "cli_utils.h"
+#include "cli_parse_result.h"
 
 namespace pichirp {
     /**
@@ -62,14 +62,9 @@ namespace pichirp {
     void handleSignal(int sig);
 
     /**
-     * @brief Print the command-line usage to stderr.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void printUsage();
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params);
 
     /**
      * @brief Run the sinusoidal FM chirp transmitter.

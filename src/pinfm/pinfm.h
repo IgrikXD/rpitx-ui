@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the narrow-band FM transmitter.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -11,13 +11,10 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <span>
 #include <string>
-#include <string_view>
 
-#include "cli_utils.h"
+#include "cli_parse_result.h"
 
 namespace pinfm {
     /**
@@ -69,14 +66,6 @@ namespace pinfm {
     };
 
     /**
-     * @brief NfmMode textual names for CLI parsing and display.
-     */
-    inline constexpr std::array<NamedEnum<NfmMode>, 2> MODE_TABLE{{
-        NamedEnum<NfmMode>{"narrow", NfmMode::Narrow},
-        NamedEnum<NfmMode>{"wide", NfmMode::Wide},
-    }};
-
-    /**
      * @brief NFM parameters extracted from argv.
      */
     struct NfmParameters {
@@ -92,30 +81,20 @@ namespace pinfm {
     [[nodiscard]] float peakDeviationFor(NfmMode mode);
 
     /**
+     * @brief Display name for an NfmMode (matches the --mode CLI value).
+     */
+    [[nodiscard]] const char* modeName(NfmMode mode);
+
+    /**
      * @brief Signal handler for SIGTERM, SIGINT, and SIGPIPE.
      * @param sig Signal number.
      */
     void handleSignal(int sig);
 
     /**
-     * @brief Print the command-line usage to stderr.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void printUsage();
-
-    /**
-     * @brief Parse and validate the single positional argument (frequency).
-     */
-    [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, NfmParameters& params);
-
-    /**
-     * @brief Walk the optional flag tail and populate params.
-     */
-    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, NfmParameters& params);
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], NfmParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], NfmParameters& params);
 
     /**
      * @brief Run the NBFM transmitter command.

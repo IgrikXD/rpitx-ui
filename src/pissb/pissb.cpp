@@ -5,12 +5,12 @@
  * Reads 16-bit PCM audio from stdin, applies SSB modulation (USB or LSB),
  * and writes float IQ pairs to stdout for consumption by sendiq.
  *
- * @note Usage: pissb [-u | -l]
- *   - -u  Upper sideband (default)
- *   - -l  Lower sideband
+ * @note Usage: pissb [--sideband usb|lsb] [-h | --help]
+ *   - --sideband  Sideband selection: usb (default) | lsb
+ *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.03.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -18,6 +18,7 @@
 
 #include "pissb.h"
 
+#include <CLI/CLI.hpp>
 #include <unistd.h>
 
 #include <atomic>
@@ -25,8 +26,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
+#include <map>
+#include <string>
 
+#include "cli_common.h"
 #include "io_utils.h"
 #include "wav_utils.h"
 
@@ -47,15 +50,29 @@ namespace pissb {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void parseArgs(int argc, char* argv[], PissbParameters& params) {
-        if (argc > 1 && std::strcmp(argv[1], "-l") == 0) {
-            params.mode = SsbMode::LSB;
-        }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PissbParameters& params) {
+        CLI::App app{"Streaming SSB modulator (stdin int16 PCM -> stdout float IQ)"};
+
+        const std::map<std::string, SsbMode> sidebandMap{
+            {"usb", SsbMode::USB},
+            {"lsb", SsbMode::LSB},
+        };
+        app.add_option("--sideband", params.mode, "Sideband selection: usb (default) | lsb")
+            ->transform(CLI::CheckedTransformer(sidebandMap, CLI::ignore_case));
+
+        return rpitx::cli::finalizeParse(app, argc, argv);
     }
 
     int run(int argc, char* argv[]) {
         PissbParameters params;
-        parseArgs(argc, argv, params);
+        switch (parseArgs(argc, argv, params)) {
+            case rpitx::cli::ParseResult::Ok:
+                break;
+            case rpitx::cli::ParseResult::Help:
+                return 0;
+            case rpitx::cli::ParseResult::Error:
+                return 1;
+        }
 
         std::signal(SIGTERM, handleSignal);
         std::signal(SIGINT, handleSignal);

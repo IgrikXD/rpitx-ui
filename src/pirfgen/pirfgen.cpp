@@ -8,14 +8,17 @@
  * Transmission runs until SIGTERM / SIGINT (the rpitx-ui launcher stops
  * the process centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pirfgen <freq_Hz> <bandwidth_Hz> [-m <mode>] [-t <tones>] [-s <rate>] [-h]
- *   - -m  RF generator mode: noise (default) | sweep | multitone
- *   - -t  Tone count for multitone mode (required for multitone)
- *   - -s  DMA sample rate in Hz (default 500000)
- *   - -h  Print the help message and exit
+ * @note Usage: pirfgen --freq <Hz> --bandwidth <Hz> [--sample-rate <Hz>]
+ *               [--mode noise|sweep|multitone] [--tone-count <count>] [-h | --help]
+ *   - --freq         Carrier frequency in Hz
+ *   - --bandwidth    RF bandwidth in Hz (must be below --sample-rate)
+ *   - --sample-rate  DMA sample rate in Hz (default 500000)
+ *   - --mode         RF generator mode: noise (default) | sweep | multitone
+ *   - --tone-count   Number of equidistant tones (only valid with --mode multitone)
+ *   - -h, --help     Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 14.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -23,15 +26,18 @@
 
 #include "pirfgen.h"
 
+#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 #include <unistd.h>
 
 #include <atomic>
-#include <cmath>
 #include <csignal>
-#include <cstddef>
 #include <iostream>
-#include <optional>
+#include <map>
+#include <string>
+
+#include "cli_common.h"
+#include "cli_validators.h"
 
 namespace pirfgen {
     namespace {
@@ -46,108 +52,66 @@ namespace pirfgen {
                       "std::atomic<bool> must be lock-free for signal-handler access");
     }  // namespace
 
+    const char* modeName(RfGenMode mode) {
+        switch (mode) {
+            case RfGenMode::Noise:
+                return "noise";
+            case RfGenMode::Sweep:
+                return "sweep";
+            case RfGenMode::Multitone:
+                return "multitone";
+        }
+        return "unknown";
+    }
+
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void printUsage() {
-        std::cerr << "Usage: pirfgen <freq_Hz> <bandwidth_Hz> [options]" << std::endl
-                  << "  -m <mode>     RF generator mode: noise (default) | sweep | multitone" << std::endl
-                  << "  -t <count>    Tone count (required for multitone mode, [2, " << MAX_TONE_COUNT << "])"
-                  << std::endl
-                  << "  -s <rate_Hz>  DMA sample rate in Hz (default " << DEFAULT_SAMPLE_RATE << ")" << std::endl
-                  << "  -h            Print this help message" << std::endl;
-    }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
+        CLI::App app{"Wideband RF generator (noise / sweep / multitone)"};
 
-    ParseResult parsePositionalArgs(std::string_view freqArg, std::string_view bwArg, RfGenParameters& params) {
-        // Frequency is parsed as double to accept scientific notation (e.g. "434e6")
-        const auto freqOpt{parseNumericArg<double>(freqArg)};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
-            return ParseResult::Error;
+        std::string freqText;
+        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--bandwidth", params.bandwidth, "RF bandwidth in Hz (must be below --sample-rate)")
+            ->required()
+            ->check(rpitx::cli::validators::PositiveFiniteFloat);
+        app.add_option("--sample-rate", params.sampleRate, "DMA sample rate in Hz (default 500000)")
+            ->check(CLI::PositiveNumber);
+
+        const std::map<std::string, RfGenMode> modeMap{
+            {"noise", RfGenMode::Noise},
+            {"sweep", RfGenMode::Sweep},
+            {"multitone", RfGenMode::Multitone},
+        };
+        app.add_option("--mode", params.mode, "RF generator mode: noise (default) | sweep | multitone")
+            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case));
+
+        // --tone-count is captured into a local optional so that "user did not
+        // supply this option" stays distinguishable from "user supplied 0".
+        // Only copied into params.toneCount after semantic validation succeeds,
+        // so RfGenConfig never sees a stale value when a non-multitone mode
+        // was paired with --tone-count.
+        std::optional<int> toneCountOpt;
+        app.add_option("--tone-count", toneCountOpt,
+                       "Number of equidistant tones for --mode multitone (range [2, 1024])")
+            ->check(CLI::Range(2, MAX_TONE_COUNT));
+
+        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+            result != rpitx::cli::ParseResult::Ok) {
+            return result;
         }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
-        // exactly representable as double, so casting it rounds up to 2^64 and
-        // makes the comparison bound implementation-dependent. std::ldexp(1.0, 64)
-        // is exactly 2^64 and is the strict upper bound: any finite double
-        // strictly below it converts safely to uint64_t.
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
 
-        const auto bandwidthOpt{parseNumericArg<float>(bwArg)};
-        if (bandwidthOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid bandwidth argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        const float bandwidthValue{bandwidthOpt.value()};
-        if (bandwidthValue <= 0.0F || std::isfinite(bandwidthValue) == false) {
-            std::cerr << "[ERROR] Bandwidth must be a positive finite value!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.bandwidth = bandwidthValue;
-
-        return ParseResult::Ok;
-    }
-
-    ParseResult parseOptionalFlags(std::span<char* const> args, RfGenParameters& params) {
-        for (std::size_t i{0}; i < args.size(); ++i) {
-            const std::string_view arg{args[i]};
-
-            // Reject unknown flags before consuming a value, so that a trailing unknown flag
-            // (e.g. `pirfgen 434e6 200000 -x`) surfaces as "Unknown option" instead of the
-            // misleading "Option -x requires an argument".
-            if (arg != "-m" && arg != "-t" && arg != "-s") {
-                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
-                return ParseResult::Error;
-            }
-
-            // All known flags here take a value argument - advance and bounds-check.
-            if (++i >= args.size()) {
-                std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
-                return ParseResult::Error;
-            }
-            const std::string_view value{args[i]};
-
-            if (arg == "-m") {
-                const auto mode{parseNamedEnum(value, MODE_TABLE)};
-                if (mode == std::nullopt) {
-                    std::cerr << "[ERROR] Unknown mode '" << value << "'. Expected noise | sweep | multitone."
-                              << std::endl;
-                    return ParseResult::Error;
-                }
-                params.mode = mode.value();
-            } else if (arg == "-t") {
-                if (const auto result{assignNumericFlag(value, "tone count", params.toneCount)};
-                    result != ParseResult::Ok) {
-                    return result;
-                }
-            } else if (arg == "-s") {
-                if (const auto result{assignNumericFlag(value, "sample rate", params.sampleRate)};
-                    result != ParseResult::Ok) {
-                    return result;
-                }
-            }
-        }
-        return ParseResult::Ok;
-    }
-
-    ParseResult validateOptions(const RfGenParameters& params) {
-        // Warn (but don't fail) when -t is passed without -m multitone: the value
-        // has no effect in noise/sweep modes and would otherwise be silently dropped,
-        // which is confusing when the user has explicitly supplied it.
-        if (params.mode != RfGenMode::Multitone && params.toneCount != std::nullopt) {
-            std::cerr << "[WARN] -t is only meaningful with -m multitone, ignoring." << std::endl;
+        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+            result != rpitx::cli::ParseResult::Ok) {
+            return result;
         }
 
         // Nyquist: peak frequency deviation is bandwidth/2, which must fit strictly
         // within sampleRate/2. Equivalently, bandwidth must stay below sampleRate;
-        // equality sits exactly on the aliasing boundary and is disallowed. Note
-        // that sampleRate == 0 is also caught here, since bandwidth is already
-        // validated to be strictly positive upstream.
+        // equality sits exactly on the aliasing boundary and is disallowed.
         //
         // sampleRate is cast to double so a uint32_t above ~16.7 MHz is not
         // rounded into a 24-bit float mantissa (which would shift the Nyquist
@@ -155,47 +119,30 @@ namespace pirfgen {
         // widened to double by the usual arithmetic conversions; double's
         // 53-bit mantissa represents both sides exactly.
         if (params.bandwidth >= static_cast<double>(params.sampleRate)) {
-            std::cerr << "[ERROR] Bandwidth (" << params.bandwidth << " Hz) must be below sample rate ("
+            std::cerr << "[ERROR] --bandwidth (" << params.bandwidth << " Hz) must be below --sample-rate ("
                       << params.sampleRate << " Hz) - Nyquist limit!" << std::endl;
-            return ParseResult::Error;
+            return rpitx::cli::ParseResult::Error;
         }
 
-        // Multitone requires an explicit -t value in [2, MAX_TONE_COUNT]. There is
-        // no sensible default (any fixed number would be arbitrary), and a single
-        // tone degenerates to a plain carrier. Short-circuit evaluation guarantees
-        // .value() is only reached when the optional is engaged.
-        if (params.mode == RfGenMode::Multitone && (params.toneCount == std::nullopt || params.toneCount.value() < 2 ||
-                                                    params.toneCount.value() > MAX_TONE_COUNT)) {
-            std::cerr << "[ERROR] Multitone mode requires -t <count> in [2, " << MAX_TONE_COUNT << "]!" << std::endl;
-            return ParseResult::Error;
+        // --tone-count is meaningful only with --mode multitone. Reject (not warn)
+        // when paired with another mode so the user does not silently transmit a
+        // different waveform than they asked for.
+        if (params.mode != RfGenMode::Multitone && toneCountOpt != std::nullopt) {
+            std::cerr << "[ERROR] --tone-count is only valid with --mode multitone!" << std::endl;
+            return rpitx::cli::ParseResult::Error;
         }
 
-        return ParseResult::Ok;
-    }
+        // Multitone requires an explicit --tone-count value; there is no sensible
+        // default (any fixed number would be arbitrary), and a single tone
+        // degenerates to a plain carrier.
+        if (params.mode == RfGenMode::Multitone && toneCountOpt == std::nullopt) {
+            std::cerr << "[ERROR] --mode multitone requires --tone-count <count> in [2, " << MAX_TONE_COUNT << "]!"
+                      << std::endl;
+            return rpitx::cli::ParseResult::Error;
+        }
 
-    ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
-        // -h at any position short-circuits - regardless of positional-count state -
-        // so that `pirfgen -h`, `pirfgen 100 -h`, etc. all print help and exit cleanly.
-        if (containsFlag({argv + 1, argv + argc}, "-h")) {
-            printUsage();
-            return ParseResult::Help;
-        }
-        if (argc < 3) {
-            printUsage();
-            return ParseResult::Error;
-        }
-        if (const auto result{parsePositionalArgs(argv[1], argv[2], params)}; result != ParseResult::Ok) {
-            return result;
-        }
-        // Skip argv[0] (program name) and the two positional args - pass only the flag tail.
-        const std::span<char* const> flagArgs{argv + 3, argv + argc};
-        if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
-            return result;
-        }
-        if (const auto result{validateOptions(params)}; result != ParseResult::Ok) {
-            return result;
-        }
-        return ParseResult::Ok;
+        params.toneCount = toneCountOpt;
+        return rpitx::cli::ParseResult::Ok;
     }
 
     int run(int argc, char* argv[]) {
@@ -203,11 +150,11 @@ namespace pirfgen {
         // No default branch: ParseResult is closed-set, so -Wswitch flags any future
         // enumerator that forgets to update this dispatch.
         switch (parseArgs(argc, argv, params)) {
-            case ParseResult::Ok:
+            case rpitx::cli::ParseResult::Ok:
                 break;
-            case ParseResult::Help:
+            case rpitx::cli::ParseResult::Help:
                 return 0;
-            case ParseResult::Error:
+            case rpitx::cli::ParseResult::Error:
                 return 1;
         }
 
@@ -215,8 +162,7 @@ namespace pirfgen {
         std::signal(SIGINT, handleSignal);
 
         std::cout << "pirfgen: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
-                  << " Hz, mode=" << formatNamedEnum(params.mode, MODE_TABLE) << ", rate=" << params.sampleRate
-                  << " Hz";
+                  << " Hz, mode=" << modeName(params.mode) << ", rate=" << params.sampleRate << " Hz";
         if (params.mode == RfGenMode::Multitone) {
             std::cout << ", tones=" << params.toneCount.value();
         }

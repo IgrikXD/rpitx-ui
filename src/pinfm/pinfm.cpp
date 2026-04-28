@@ -8,18 +8,19 @@
  * librpitx::ngfmdmasync directly at the requested carrier frequency.
  * Replaces the legacy csdr-based testnfm.sh pipeline, which routed audio
  * through an IQ pipe and gave no bandwidth containment or level control.
- * Transmission runs until the audio ends (or forever when -l is set), or
- * until SIGTERM / SIGINT (the rpitx-ui launcher stops the process centrally
- * via killall when the user dismisses the dialog).
+ * Transmission runs until the audio ends (or forever when --loop is set),
+ * or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
+ * centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pinfm <freq_Hz> -a <file> [-l] [-m <mode>] [-h]
- *   - -a   Path to the audio file (any format libsndfile understands).
- *   - -l   Loop the audio file (replay from the start on EOF).
- *   - -m   NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)
- *   - -h   Print the help message and exit
+ * @note Usage: pinfm --freq <Hz> --audio <path> [--loop] [--mode narrow|wide] [-h | --help]
+ *   - --freq      Carrier frequency in Hz
+ *   - --audio     Path to the audio file (libsndfile-supported format)
+ *   - --loop      Loop the audio file (replay from the start on EOF)
+ *   - --mode      NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)
+ *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -27,17 +28,19 @@
 
 #include "pinfm.h"
 
+#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
 #include <atomic>
-#include <cmath>
 #include <csignal>
-#include <cstddef>
 #include <iostream>
-#include <optional>
+#include <map>
+#include <string>
 #include <vector>
 
 #include "audio_pipeline.h"
+#include "cli_common.h"
+#include "cli_validators.h"
 #include "libsndfile_audio_source.h"
 #include "nfm_processor.h"
 
@@ -63,98 +66,53 @@ namespace pinfm {
         return 0.0F;
     }
 
+    const char* modeName(NfmMode mode) {
+        switch (mode) {
+            case NfmMode::Narrow:
+                return "narrow";
+            case NfmMode::Wide:
+                return "wide";
+        }
+        return "unknown";
+    }
+
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void printUsage() {
-        std::cerr << "Usage: pinfm <freq_Hz> -a <file> [options]" << std::endl
-                  << "  -a <file>  Path to the audio file (libsndfile-supported format)" << std::endl
-                  << "  -l         Loop the audio file (replay on EOF)" << std::endl
-                  << "  -m <mode>  NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)" << std::endl
-                  << "  -h         Print this help message" << std::endl
-                  << "  Audio is downmixed to mono and resampled to " << TARGET_SAMPLE_RATE << " Hz internally."
-                  << std::endl;
-    }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], NfmParameters& params) {
+        CLI::App app{"Narrow-band FM transmitter (audio file -> librpitx ngfmdmasync)"};
 
-    ParseResult parsePositionalArgs(std::string_view freqArg, NfmParameters& params) {
-        const auto freqOpt{parseNumericArg<double>(freqArg)};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
-        return ParseResult::Ok;
-    }
+        std::string freqText;
+        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
+        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
-    ParseResult parseOptionalFlags(std::span<char* const> args, NfmParameters& params) {
-        for (std::size_t i{0}; i < args.size(); ++i) {
-            const std::string_view arg{args[i]};
+        const std::map<std::string, NfmMode> modeMap{
+            {"narrow", NfmMode::Narrow},
+            {"wide", NfmMode::Wide},
+        };
+        app.add_option("--mode", params.mode, "NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)")
+            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case));
 
-            if (arg == "-l") {
-                params.loop = true;
-                continue;
-            }
-            if (arg != "-a" && arg != "-m") {
-                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
-                return ParseResult::Error;
-            }
-            if (++i >= args.size()) {
-                std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
-                return ParseResult::Error;
-            }
-            const std::string_view value{args[i]};
-
-            if (arg == "-a") {
-                params.audioPath.assign(value);
-            } else if (arg == "-m") {
-                const auto mode{parseNamedEnum(value, MODE_TABLE)};
-                if (mode == std::nullopt) {
-                    std::cerr << "[ERROR] Unknown mode '" << value << "'. Expected narrow | wide." << std::endl;
-                    return ParseResult::Error;
-                }
-                params.mode = mode.value();
-            }
-        }
-        return ParseResult::Ok;
-    }
-
-    ParseResult parseArgs(int argc, char* argv[], NfmParameters& params) {
-        if (containsFlag({argv + 1, argv + argc}, "-h")) {
-            printUsage();
-            return ParseResult::Help;
-        }
-        if (argc < 2) {
-            printUsage();
-            return ParseResult::Error;
-        }
-        if (const auto result{parsePositionalArgs(argv[1], params)}; result != ParseResult::Ok) {
+        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+            result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
-        const std::span<char* const> flagArgs{argv + 2, argv + argc};
-        if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
-            return result;
-        }
-        if (params.audioPath.empty()) {
-            std::cerr << "[ERROR] Missing required option: -a <file>!" << std::endl;
-            return ParseResult::Error;
-        }
-        return ParseResult::Ok;
+
+        return rpitx::cli::assignFrequencyHz(freqText, params.freq);
     }
 
     int run(int argc, char* argv[]) {
         NfmParameters params;
         switch (parseArgs(argc, argv, params)) {
-            case ParseResult::Ok:
+            case rpitx::cli::ParseResult::Ok:
                 break;
-            case ParseResult::Help:
+            case rpitx::cli::ParseResult::Help:
                 return 0;
-            case ParseResult::Error:
+            case rpitx::cli::ParseResult::Error:
                 return 1;
         }
 
@@ -193,8 +151,8 @@ namespace pinfm {
 
         std::cout << "pinfm: center=" << params.freq << " Hz, src_rate=" << fmt.sampleRate
                   << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
-                  << ", format=" << source->description() << ", mode=" << formatNamedEnum(params.mode, MODE_TABLE)
-                  << " (+-" << peakDeviation << " Hz), loop=" << (params.loop ? "yes" : "no") << std::endl;
+                  << ", format=" << source->description() << ", mode=" << modeName(params.mode) << " (+-"
+                  << peakDeviation << " Hz), loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         NfmProcessor nfm{static_cast<float>(TARGET_SAMPLE_RATE), peakDeviation};
         ngfmdmasync dma{params.freq, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};

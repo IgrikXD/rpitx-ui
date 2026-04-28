@@ -62,6 +62,7 @@ sudo apt install -y \
   buffer \
   cmake \
   imagemagick \
+  libcli11-dev \
   libfftw3-dev \
   libsndfile1-dev \
   pkg-config \

@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the streaming SSB modulator.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.03.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <limits>
 
+#include "cli_parse_result.h"
 #include "ssb_processor.h"
 
 namespace pissb {
@@ -40,9 +41,9 @@ namespace pissb {
     void handleSignal(int sig);
 
     /**
-     * @brief Parse command-line arguments.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void parseArgs(int argc, char* argv[], PissbParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PissbParameters& params);
 
     /**
      * @brief Run the streaming SSB modulator.

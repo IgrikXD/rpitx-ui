@@ -3,26 +3,28 @@
  * @brief Wide-band FM with RDS broadcast transmitter implementation.
  *
  * Reads audio (mono or stereo, any rate / bit-depth supported by libsndfile)
- * from a file specified via -a, builds the FM broadcast MPX (audio + 19 kHz
- * pilot + 38 kHz suppressed-carrier (L-R) subcarrier when stereo + 57 kHz
- * RDS subcarrier with EN 50067 PI / PS / RT / CT data), and drives
- * librpitx::ngfmdmasync at 228 kHz to produce the on-air signal. Transmission
- * runs until the audio ends (or forever when -l is set), or until SIGTERM /
- * SIGINT (the rpitx-ui launcher stops the process centrally via killall when
- * the user dismisses the dialog).
+ * from a file specified via --audio, builds the FM broadcast MPX (audio +
+ * 19 kHz pilot + 38 kHz suppressed-carrier (L-R) subcarrier when stereo +
+ * 57 kHz RDS subcarrier with EN 50067 PI / PS / RT / CT data), and drives
+ * librpitx::ngfmdmasync at 228 kHz to produce the on-air signal.
+ * Transmission runs until the audio ends (or forever when --loop is set),
+ * or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
+ * centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pifmrds <freq_Hz> -a <file> [-l] [-pi <hex>] [-ps <text>] [-rt <text>] [-pe <50|75>] [-h]
- *   - -a   Path to the audio file (any format libsndfile understands).
- *   - -l   Loop the audio file (replay from the start on EOF).
- *   - -pi  RDS Programme Identification, 4 hex digits (default: 0x1234)
- *   - -ps  RDS Programme Service name, up to 8 chars (default: "rpitx-ui")
- *   - -rt  RDS RadioText, up to 64 chars (default: "rpitx-ui Broadcast WFM with RDS")
- *   - -pe  Pre-emphasis: 50 (us, ITU regions 1/3) | 75 (us, region 2 / Japan)
- *          (default: 50)
- *   - -h   Print the help message and exit
+ * @note Usage: pifmrds --freq <Hz> --audio <path> [--loop]
+ *               [--rds-pi <hex>] [--rds-ps <text>] [--rds-rt <text>]
+ *               [--pre-emphasis 50|75] [-h | --help]
+ *   - --freq          Carrier frequency in Hz
+ *   - --audio         Path to the audio file (libsndfile-supported format)
+ *   - --loop          Loop the audio file (replay from the start on EOF)
+ *   - --rds-pi        RDS Programme Identification, 1-4 hex digits (default 0x1234)
+ *   - --rds-ps        RDS Programme Service name, 1-8 bytes (default "rpitx-ui")
+ *   - --rds-rt        RDS RadioText, 1-64 bytes
+ *   - --pre-emphasis  FM pre-emphasis in microseconds: 50 | 75 (default 50)
+ *   - -h, --help      Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -30,19 +32,24 @@
 
 #include "pifmrds.h"
 
+#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
 #include <atomic>
-#include <cmath>
 #include <csignal>
 #include <cstddef>
 #include <iostream>
-#include <optional>
+#include <map>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "audio_pipeline.h"
+#include "cli_common.h"
+#include "cli_validators.h"
 #include "fmrds_processor.h"
 #include "libsndfile_audio_source.h"
+#include "rds_encoder.h"
 
 namespace pifmrds {
     namespace {
@@ -52,6 +59,38 @@ namespace pifmrds {
         std::atomic<bool> running{true};
         static_assert(std::atomic<bool>::is_always_lock_free,
                       "std::atomic<bool> must be lock-free for signal-handler access");
+
+        /**
+         * @brief Parse 1-4 hex digits (with optional 0x prefix) into uint16_t.
+         *
+         * Local to pifmrds - the RDS PI code format is unique to this binary
+         * and not worth factoring into the shared validator layer.
+         */
+        [[nodiscard]] bool parseRdsPi(std::string_view text, uint16_t& out) {
+            std::string_view body{text};
+            if (body.size() >= 2 && (body.substr(0, 2) == "0x" || body.substr(0, 2) == "0X")) {
+                body.remove_prefix(2);
+            }
+            if (body.empty() || body.size() > 4) {
+                return false;
+            }
+            uint16_t value{};
+            for (const char c: body) {
+                int digit{};
+                if (c >= '0' && c <= '9') {
+                    digit = c - '0';
+                } else if (c >= 'a' && c <= 'f') {
+                    digit = 10 + (c - 'a');
+                } else if (c >= 'A' && c <= 'F') {
+                    digit = 10 + (c - 'A');
+                } else {
+                    return false;
+                }
+                value = static_cast<uint16_t>((value << 4) | digit);
+            }
+            out = value;
+            return true;
+        }
     }  // namespace
 
     float preEmphasisTauFor(PreEmphasisMode mode) {
@@ -64,149 +103,101 @@ namespace pifmrds {
         return 0.0F;
     }
 
+    const char* preEmphasisName(PreEmphasisMode mode) {
+        switch (mode) {
+            case PreEmphasisMode::Eu50:
+                return "50";
+            case PreEmphasisMode::Us75:
+                return "75";
+        }
+        return "unknown";
+    }
+
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void printUsage() {
-        std::cerr << "Usage: pifmrds <freq_Hz> -a <file> [options]" << std::endl
-                  << "  -a <file>   Path to the audio file (libsndfile-supported format)" << std::endl
-                  << "  -l          Loop the audio file (replay on EOF)" << std::endl
-                  << "  -pi <hex>   RDS Programme Identification, 4 hex digits (default 0x1234)" << std::endl
-                  << "  -ps <text>  RDS Programme Service name, up to 8 chars (default \"rpitx-ui\")" << std::endl
-                  << "  -rt <text>  RDS RadioText, up to 64 chars" << std::endl
-                  << "  -pe <50|75> Pre-emphasis time constant in microseconds (default 50)" << std::endl
-                  << "  -h          Print this help message" << std::endl;
-    }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params) {
+        CLI::App app{"FM broadcast transmitter with RDS (audio file -> librpitx ngfmdmasync at 228 kHz)"};
 
-    ParseResult parsePositionalArgs(std::string_view freqArg, FmRdsParameters& params) {
-        const auto freqOpt{parseNumericArg<double>(freqArg)};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
-        // exactly representable as double; std::ldexp(1.0, 64) is exactly 2^64
-        // and is the strict upper bound any finite double can convert from.
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
-        return ParseResult::Ok;
-    }
+        std::string freqText;
+        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
+        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
-    ParseResult parsePi(std::string_view arg, uint16_t& out) {
-        std::string_view body{arg};
-        if (body.size() >= 2 && (body.substr(0, 2) == "0x" || body.substr(0, 2) == "0X")) {
-            body.remove_prefix(2);
-        }
-        if (body.empty() || body.size() > 4) {
-            return reportInvalidValue("PI code", arg);
-        }
-        uint16_t value{};
-        for (const char c: body) {
-            int digit{};
-            if (c >= '0' && c <= '9') {
-                digit = c - '0';
-            } else if (c >= 'a' && c <= 'f') {
-                digit = 10 + (c - 'a');
-            } else if (c >= 'A' && c <= 'F') {
-                digit = 10 + (c - 'A');
-            } else {
-                return reportInvalidValue("PI code", arg);
-            }
-            value = static_cast<uint16_t>((value << 4) | digit);
-        }
-        out = value;
-        return ParseResult::Ok;
-    }
+        std::string piText;
+        app.add_option("--rds-pi", piText, "RDS Programme Identification, 1-4 hex digits (default 1234)");
 
-    ParseResult parseOptionalFlags(std::span<char* const> args, FmRdsParameters& params) {
-        for (std::size_t i{0}; i < args.size(); ++i) {
-            const std::string_view arg{args[i]};
+        // PS / RT use byte-length validation (size() in bytes, not user-perceived
+        // characters): the RDS encoder copies up to PS_LENGTH / RT_LENGTH bytes
+        // into fixed-size arrays, so byte length is the meaningful unit here.
+        app.add_option("--rds-ps", params.ps,
+                       "RDS Programme Service name, 1-8 bytes (default \"rpitx-ui\")")
+            ->check(CLI::Validator{
+                [](const std::string& text) -> std::string {
+                    if (text.empty()) {
+                        return "must not be empty";
+                    }
+                    if (text.size() > RdsEncoder::PS_LENGTH) {
+                        return "must be at most 8 bytes";
+                    }
+                    return {};
+                },
+                "RDS PS, 1-8 bytes", "PS_BYTES"});
+        app.add_option("--rds-rt", params.rt,
+                       "RDS RadioText, 1-64 bytes (default \"rpitx-ui Broadcast WFM with RDS\")")
+            ->check(CLI::Validator{
+                [](const std::string& text) -> std::string {
+                    if (text.empty()) {
+                        return "must not be empty";
+                    }
+                    if (text.size() > RdsEncoder::RT_LENGTH) {
+                        return "must be at most 64 bytes";
+                    }
+                    return {};
+                },
+                "RDS RT, 1-64 bytes", "RT_BYTES"});
 
-            // -l is a presence-only boolean and so is parsed separately; the
-            // remaining flags all consume one value argument.
-            if (arg == "-l") {
-                params.loop = true;
-                continue;
-            }
+        const std::map<std::string, PreEmphasisMode> preEmphMap{
+            {"50", PreEmphasisMode::Eu50},
+            {"75", PreEmphasisMode::Us75},
+        };
+        app.add_option("--pre-emphasis", params.preEmph, "FM pre-emphasis in microseconds: 50 (default) | 75")
+            ->transform(CLI::CheckedTransformer(preEmphMap));
 
-            // Reject unknown flags before consuming a value, so that a trailing unknown flag
-            // surfaces as "Unknown option" instead of the misleading "Option -x requires an argument".
-            if (arg != "-a" && arg != "-pi" && arg != "-ps" && arg != "-rt" && arg != "-pe") {
-                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
-                return ParseResult::Error;
-            }
-            if (++i >= args.size()) {
-                std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
-                return ParseResult::Error;
-            }
-            const std::string_view value{args[i]};
-
-            if (arg == "-a") {
-                params.audioPath.assign(value);
-            } else if (arg == "-pi") {
-                if (const auto result{parsePi(value, params.pi)}; result != ParseResult::Ok) {
-                    return result;
-                }
-            } else if (arg == "-ps") {
-                if (value.size() > RdsEncoder::PS_LENGTH) {
-                    std::cerr << "[ERROR] PS exceeds " << RdsEncoder::PS_LENGTH << " characters!" << std::endl;
-                    return ParseResult::Error;
-                }
-                params.ps = value;
-            } else if (arg == "-rt") {
-                if (value.size() > RdsEncoder::RT_LENGTH) {
-                    std::cerr << "[ERROR] RT exceeds " << RdsEncoder::RT_LENGTH << " characters!" << std::endl;
-                    return ParseResult::Error;
-                }
-                params.rt = value;
-            } else if (arg == "-pe") {
-                const auto mode{parseNamedEnum(value, PRE_EMPH_TABLE)};
-                if (mode == std::nullopt) {
-                    std::cerr << "[ERROR] Unknown pre-emphasis '" << value << "'. Expected 50 | 75." << std::endl;
-                    return ParseResult::Error;
-                }
-                params.preEmph = mode.value();
-            }
-        }
-        return ParseResult::Ok;
-    }
-
-    ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params) {
-        if (containsFlag({argv + 1, argv + argc}, "-h")) {
-            printUsage();
-            return ParseResult::Help;
-        }
-        if (argc < 2) {
-            printUsage();
-            return ParseResult::Error;
-        }
-        if (const auto result{parsePositionalArgs(argv[1], params)}; result != ParseResult::Ok) {
+        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+            result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
-        const std::span<char* const> flagArgs{argv + 2, argv + argc};
-        if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
+
+        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+            result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
-        if (params.audioPath.empty()) {
-            std::cerr << "[ERROR] Missing required option: -a <file>!" << std::endl;
-            return ParseResult::Error;
+
+        // --rds-pi was captured as a string so we can validate the 1-4 hex
+        // digit format with a meaningful diagnostic; the default is left in
+        // place when the option is not supplied.
+        if (piText.empty() == false) {
+            if (parseRdsPi(piText, params.pi) == false) {
+                std::cerr << "[ERROR] Invalid --rds-pi: '" << piText << "' (expected 1-4 hex digits)" << std::endl;
+                return rpitx::cli::ParseResult::Error;
+            }
         }
-        return ParseResult::Ok;
+
+        return rpitx::cli::ParseResult::Ok;
     }
 
     int run(int argc, char* argv[]) {
         FmRdsParameters params;
         switch (parseArgs(argc, argv, params)) {
-            case ParseResult::Ok:
+            case rpitx::cli::ParseResult::Ok:
                 break;
-            case ParseResult::Help:
+            case rpitx::cli::ParseResult::Help:
                 return 0;
-            case ParseResult::Error:
+            case rpitx::cli::ParseResult::Error:
                 return 1;
         }
 
@@ -245,8 +236,7 @@ namespace pifmrds {
                   << " Hz, channels=" << audioFormat.channels << ", mpx_rate=" << MPX_SAMPLE_RATE
                   << " Hz, format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl
                   << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
-                  << params.rt << "\", pre-emph=" << formatNamedEnum(params.preEmph, PRE_EMPH_TABLE) << " us"
-                  << std::endl;
+                  << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
         FmRdsProcessor proc{{
             .audioSampleRate = MPX_SAMPLE_RATE,

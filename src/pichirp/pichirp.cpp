@@ -8,11 +8,14 @@
  * rpitx-ui launcher stops the process centrally via killall when the
  * user dismisses the dialog).
  *
- * @note Usage: pichirp <freq_Hz> <bandwidth_Hz> <sweep_time_s> [-h]
- *   - -h  Print the help message and exit
+ * @note Usage: pichirp --freq <Hz> --bandwidth <Hz> --sweep-time <seconds> [-h | --help]
+ *   - --freq         Carrier frequency in Hz
+ *   - --bandwidth    RF bandwidth in Hz (peak deviation = bandwidth / 2)
+ *   - --sweep-time   Sweep time in seconds
+ *   - -h, --help     Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 17.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -20,6 +23,7 @@
 
 #include "pichirp.h"
 
+#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 #include <unistd.h>
 
@@ -28,7 +32,10 @@
 #include <csignal>
 #include <iostream>
 #include <numbers>
-#include <optional>
+#include <string>
+
+#include "cli_common.h"
+#include "cli_validators.h"
 
 namespace pichirp {
     namespace {
@@ -47,87 +54,53 @@ namespace pichirp {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void printUsage() {
-        std::cerr << "Usage: pichirp <freq_Hz> <bandwidth_Hz> <sweep_time_s>" << std::endl
-                  << "  -h  Print this help message" << std::endl;
-    }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params) {
+        CLI::App app{"Sinusoidal FM chirp transmitter"};
 
-    ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params) {
-        // -h at any position short-circuits - regardless of positional-count state -
-        // so that `pichirp -h`, `pichirp 100 -h`, etc. all print help and exit cleanly.
-        if (containsFlag({argv + 1, argv + argc}, "-h")) {
-            printUsage();
-            return ParseResult::Help;
-        }
-        if (argc < 4) {
-            printUsage();
-            return ParseResult::Error;
+        std::string freqText;
+        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--bandwidth", params.bandwidth, "RF bandwidth in Hz (peak deviation = bandwidth / 2)")
+            ->required()
+            ->check(rpitx::cli::validators::PositiveFiniteFloat);
+        app.add_option("--sweep-time", params.sweepTime, "Sweep time in seconds")
+            ->required()
+            ->check(rpitx::cli::validators::PositiveFiniteFloat);
+
+        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+            result != rpitx::cli::ParseResult::Ok) {
+            return result;
         }
 
-        // Frequency is parsed as double to accept scientific notation (e.g. "434e6")
-        const auto freqOpt{parseNumericArg<double>(argv[1])};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
-            return ParseResult::Error;
+        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+            result != rpitx::cli::ParseResult::Ok) {
+            return result;
         }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
-        // exactly representable as double, so casting it rounds up to 2^64 and
-        // makes the comparison bound implementation-dependent. std::ldexp(1.0, 64)
-        // is exactly 2^64 and is the strict upper bound: any finite double
-        // strictly below it converts safely to uint64_t.
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
 
-        const auto bandwidthOpt{parseNumericArg<float>(argv[2])};
-        if (bandwidthOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid bandwidth argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        const float bandwidthValue{bandwidthOpt.value()};
-        if (bandwidthValue <= 0.0F || std::isfinite(bandwidthValue) == false) {
-            std::cerr << "[ERROR] Bandwidth must be a positive finite value!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.bandwidth = bandwidthValue;
-
-        const auto sweepTimeOpt{parseNumericArg<float>(argv[3])};
-        if (sweepTimeOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid sweep time argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        const float sweepTimeValue{sweepTimeOpt.value()};
-        if (sweepTimeValue <= 0.0F || std::isfinite(sweepTimeValue) == false) {
-            std::cerr << "[ERROR] Sweep time must be a positive finite value!" << std::endl;
-            return ParseResult::Error;
-        }
         // Compute the sweep period in double to avoid float overflow / precision loss
         // for large sweep_time values, and reject anything outside the supported range.
         // This guards the int cast against UB and rules out degenerate period-of-one-sample
         // inputs that would produce a silent carrier.
-        const double samplesPerCycle{static_cast<double>(sweepTimeValue) * static_cast<double>(SAMPLE_RATE)};
+        const double samplesPerCycle{static_cast<double>(params.sweepTime) * static_cast<double>(SAMPLE_RATE)};
         if (samplesPerCycle < static_cast<double>(MIN_PERIOD_SAMPLES) ||
             samplesPerCycle > static_cast<double>(MAX_PERIOD_SAMPLES)) {
-            std::cerr << "[ERROR] Sweep time (" << sweepTimeValue << " s) must yield [" << MIN_PERIOD_SAMPLES << ", "
-                      << MAX_PERIOD_SAMPLES << "] samples at " << SAMPLE_RATE << " Hz!" << std::endl;
-            return ParseResult::Error;
+            std::cerr << "[ERROR] --sweep-time (" << params.sweepTime << " s) must yield [" << MIN_PERIOD_SAMPLES
+                      << ", " << MAX_PERIOD_SAMPLES << "] samples at " << SAMPLE_RATE << " Hz!" << std::endl;
+            return rpitx::cli::ParseResult::Error;
         }
-        params.sweepTime     = sweepTimeValue;
         params.periodSamples = static_cast<int>(samplesPerCycle);
 
         // Nyquist: peak frequency deviation is bandwidth/2, which must fit strictly
         // within sampleRate/2. Equivalently, bandwidth must stay below sampleRate;
         // equality sits exactly on the aliasing boundary and is disallowed.
         if (params.bandwidth >= static_cast<double>(SAMPLE_RATE)) {
-            std::cerr << "[ERROR] Bandwidth (" << params.bandwidth << " Hz) must be below sample rate (" << SAMPLE_RATE
-                      << " Hz) - Nyquist limit!" << std::endl;
-            return ParseResult::Error;
+            std::cerr << "[ERROR] --bandwidth (" << params.bandwidth << " Hz) must be below sample rate ("
+                      << SAMPLE_RATE << " Hz) - Nyquist limit!" << std::endl;
+            return rpitx::cli::ParseResult::Error;
         }
 
-        return ParseResult::Ok;
+        return rpitx::cli::ParseResult::Ok;
     }
 
     int run(int argc, char* argv[]) {
@@ -135,11 +108,11 @@ namespace pichirp {
         // No default branch: ParseResult is closed-set, so -Wswitch flags any future
         // enumerator that forgets to update this dispatch.
         switch (parseArgs(argc, argv, params)) {
-            case ParseResult::Ok:
+            case rpitx::cli::ParseResult::Ok:
                 break;
-            case ParseResult::Help:
+            case rpitx::cli::ParseResult::Help:
                 return 0;
-            case ParseResult::Error:
+            case rpitx::cli::ParseResult::Error:
                 return 1;
         }
 

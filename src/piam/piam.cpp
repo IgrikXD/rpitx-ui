@@ -6,16 +6,18 @@
  * mono, resamples to 48 kHz if needed, forms the canonical DSB-FC AM
  * envelope, and drives librpitx::amdmasync directly at the requested
  * carrier frequency. Transmission runs until the audio ends (or forever
- * when -l is set), or until SIGTERM / SIGINT (the rpitx-ui launcher stops
- * the process centrally via killall when the user dismisses the dialog).
+ * when --loop is set), or until SIGTERM / SIGINT (the rpitx-ui launcher
+ * stops the process centrally via killall when the user dismisses the
+ * dialog).
  *
- * @note Usage: piam <freq_Hz> -a <file> [-l] [-h]
- *   - -a   Path to the audio file (any format libsndfile understands).
- *   - -l   Loop the audio file (replay from the start on EOF).
- *   - -h   Print the help message and exit
+ * @note Usage: piam --freq <Hz> --audio <path> [--loop] [-h | --help]
+ *   - --freq      Carrier frequency in Hz
+ *   - --audio     Path to the audio file (libsndfile-supported format)
+ *   - --loop      Loop the audio file (replay from the start on EOF)
+ *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -23,18 +25,19 @@
 
 #include "piam.h"
 
+#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
 #include <atomic>
-#include <cmath>
 #include <csignal>
-#include <cstddef>
 #include <iostream>
-#include <optional>
+#include <string>
 #include <vector>
 
 #include "am_processor.h"
 #include "audio_pipeline.h"
+#include "cli_common.h"
+#include "cli_validators.h"
 #include "libsndfile_audio_source.h"
 
 namespace piam {
@@ -54,85 +57,32 @@ namespace piam {
         running.store(false, std::memory_order_relaxed);
     }
 
-    void printUsage() {
-        std::cerr << "Usage: piam <freq_Hz> -a <file> [options]" << std::endl
-                  << "  -a <file>  Path to the audio file (libsndfile-supported format)" << std::endl
-                  << "  -l         Loop the audio file (replay on EOF)" << std::endl
-                  << "  -h         Print this help message" << std::endl
-                  << "  Audio is downmixed to mono and resampled to " << TARGET_SAMPLE_RATE << " Hz internally."
-                  << std::endl;
-    }
+    rpitx::cli::ParseResult parseArgs(int argc, char* argv[], AmParameters& params) {
+        CLI::App app{"AM transmitter (audio file -> librpitx amdmasync)"};
 
-    ParseResult parsePositionalArgs(std::string_view freqArg, AmParameters& params) {
-        const auto freqOpt{parseNumericArg<double>(freqArg)};
-        if (freqOpt == std::nullopt) {
-            std::cerr << "[ERROR] Invalid frequency argument!" << std::endl;
-            return ParseResult::Error;
-        }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is not
-        // exactly representable as double; std::ldexp(1.0, 64) is exactly 2^64
-        // and is the strict upper bound any finite double can convert from.
-        const double freqValue{freqOpt.value()};
-        if (freqValue <= 0.0 || std::isfinite(freqValue) == false || freqValue >= std::ldexp(1.0, 64)) {
-            std::cerr << "[ERROR] Frequency is out of representable range!" << std::endl;
-            return ParseResult::Error;
-        }
-        params.freq = static_cast<uint64_t>(freqValue);
-        return ParseResult::Ok;
-    }
+        std::string freqText;
+        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
+        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
-    ParseResult parseOptionalFlags(std::span<char* const> args, AmParameters& params) {
-        for (std::size_t i{0}; i < args.size(); ++i) {
-            const std::string_view arg{args[i]};
-
-            if (arg == "-l") {
-                params.loop = true;
-                continue;
-            }
-            if (arg != "-a") {
-                std::cerr << "[ERROR] Unknown option: " << arg << std::endl;
-                return ParseResult::Error;
-            }
-            if (++i >= args.size()) {
-                std::cerr << "[ERROR] Option " << arg << " requires an argument!" << std::endl;
-                return ParseResult::Error;
-            }
-            params.audioPath.assign(args[i]);
-        }
-        return ParseResult::Ok;
-    }
-
-    ParseResult parseArgs(int argc, char* argv[], AmParameters& params) {
-        if (containsFlag({argv + 1, argv + argc}, "-h")) {
-            printUsage();
-            return ParseResult::Help;
-        }
-        if (argc < 2) {
-            printUsage();
-            return ParseResult::Error;
-        }
-        if (const auto result{parsePositionalArgs(argv[1], params)}; result != ParseResult::Ok) {
+        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+            result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
-        const std::span<char* const> flagArgs{argv + 2, argv + argc};
-        if (const auto result{parseOptionalFlags(flagArgs, params)}; result != ParseResult::Ok) {
-            return result;
-        }
-        if (params.audioPath.empty()) {
-            std::cerr << "[ERROR] Missing required option: -a <file>!" << std::endl;
-            return ParseResult::Error;
-        }
-        return ParseResult::Ok;
+
+        return rpitx::cli::assignFrequencyHz(freqText, params.freq);
     }
 
     int run(int argc, char* argv[]) {
         AmParameters params;
         switch (parseArgs(argc, argv, params)) {
-            case ParseResult::Ok:
+            case rpitx::cli::ParseResult::Ok:
                 break;
-            case ParseResult::Help:
+            case rpitx::cli::ParseResult::Help:
                 return 0;
-            case ParseResult::Error:
+            case rpitx::cli::ParseResult::Error:
                 return 1;
         }
 

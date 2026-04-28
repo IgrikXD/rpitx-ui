@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the wide-band FM with RDS transmitter.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 27.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -11,13 +11,11 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <span>
 #include <string>
 #include <string_view>
 
-#include "cli_utils.h"
+#include "cli_parse_result.h"
 
 namespace pifmrds {
     /**
@@ -79,14 +77,6 @@ namespace pifmrds {
     };
 
     /**
-     * @brief PreEmphasisMode textual names for CLI parsing and display.
-     */
-    inline constexpr std::array<NamedEnum<PreEmphasisMode>, 2> PRE_EMPH_TABLE{{
-        NamedEnum<PreEmphasisMode>{"50", PreEmphasisMode::Eu50},
-        NamedEnum<PreEmphasisMode>{"75", PreEmphasisMode::Us75},
-    }};
-
-    /**
      * @brief FM-RDS parameters extracted from argv.
      */
     struct FmRdsParameters {
@@ -94,8 +84,8 @@ namespace pifmrds {
         std::string audioPath;
         bool loop{false};
         uint16_t pi{DEFAULT_RDS_PI};
-        std::string_view ps{DEFAULT_RDS_PS};
-        std::string_view rt{DEFAULT_RDS_RT};
+        std::string ps{DEFAULT_RDS_PS};
+        std::string rt{DEFAULT_RDS_RT};
         PreEmphasisMode preEmph{PreEmphasisMode::Eu50};
     };
 
@@ -105,35 +95,20 @@ namespace pifmrds {
     [[nodiscard]] float preEmphasisTauFor(PreEmphasisMode mode);
 
     /**
+     * @brief Display name for a PreEmphasisMode (matches the --pre-emphasis CLI value).
+     */
+    [[nodiscard]] const char* preEmphasisName(PreEmphasisMode mode);
+
+    /**
      * @brief Signal handler for SIGTERM, SIGINT, and SIGPIPE.
      * @param sig Signal number.
      */
     void handleSignal(int sig);
 
     /**
-     * @brief Print the command-line usage to stderr.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void printUsage();
-
-    /**
-     * @brief Parse and validate the single positional argument (frequency).
-     */
-    [[nodiscard]] ParseResult parsePositionalArgs(std::string_view freqArg, FmRdsParameters& params);
-
-    /**
-     * @brief Parse a hex PI code from a CLI argument.
-     */
-    [[nodiscard]] ParseResult parsePi(std::string_view arg, uint16_t& out);
-
-    /**
-     * @brief Walk the optional flag tail and populate params.
-     */
-    [[nodiscard]] ParseResult parseOptionalFlags(std::span<char* const> args, FmRdsParameters& params);
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params);
 
     /**
      * @brief Run the FM-RDS transmitter command.

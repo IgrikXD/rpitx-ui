@@ -15,13 +15,21 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 
 # ----------------------------------------------------------
+# CLI11 (header-based command-line parser)
+# ----------------------------------------------------------
+# CLI11 ships a CMake config package on every distribution that provides
+# libcli11-dev, so prefer find_package over pkg-config to pick up the
+# imported CLI11::CLI11 target with its include directories and required
+# C++ flags already wired up.
+find_package(CLI11 CONFIG REQUIRED)
+
+# ----------------------------------------------------------
 # Shared DSP and I/O utility library
 # ----------------------------------------------------------
 add_library(rpitx_utils STATIC
     utils/agc.cpp
     utils/audio_pipeline.cpp
     utils/biquad.cpp
-    utils/cli_utils.cpp
     utils/hilbert.cpp
     utils/io_utils.cpp
     utils/libsndfile_audio_source.cpp
@@ -37,6 +45,19 @@ target_link_libraries(rpitx_utils PUBLIC PkgConfig::SNDFILE)
 target_link_libraries(rpitx_utils PRIVATE m)
 
 # ----------------------------------------------------------
+# Shared CLI11 helpers used by migrated rpitx-ui binaries
+# ----------------------------------------------------------
+# Kept separate from rpitx_utils so the CLI11 dependency is isolated to
+# the migrated binaries that opt into it. Non-migrated targets keep their
+# legacy hand-written parsers without picking up CLI11.
+add_library(rpitx_cli_utils STATIC
+    utils/cli/cli_common.cpp
+    utils/cli/cli_validators.cpp
+)
+target_include_directories(rpitx_cli_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/cli)
+target_link_libraries(rpitx_cli_utils PUBLIC CLI11::CLI11)
+
+# ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
 # --- freedv ---
@@ -48,11 +69,11 @@ add_executable(piam
     piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(piam PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- pichirp ---
 add_executable(pichirp pichirp/pichirp.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pichirp PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pifmrds (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
@@ -62,21 +83,21 @@ add_executable(pifmrds
     pifmrds/rds_modulator.cpp
     pifmrds/rds_pulse.cpp
 )
-target_link_libraries(pifmrds PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pifmrds PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- pimorse ---
-add_executable(pimorse 
+add_executable(pimorse
     pimorse/morse_encoder.cpp
     pimorse/pimorse.cpp
 )
-target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pimorse PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
     pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pinfm PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -90,7 +111,7 @@ add_executable(pirfgen
     pirfgen/generators/noise_generator.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pirfgen PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
@@ -101,7 +122,7 @@ add_executable(pissb
     pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_utils)
+target_link_libraries(pissb PRIVATE rpitx_utils rpitx_cli_utils)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)

@@ -3,7 +3,7 @@
  * @brief CLI/runtime declarations for the Morse code CW OOK transmitter.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 04.04.2026
+ * @date 28.04.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -11,10 +11,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
-#include "cli_utils.h"
+#include "cli_parse_result.h"
 
 namespace pimorse {
     /**
@@ -36,20 +37,15 @@ namespace pimorse {
      * @brief Morse transmitter parameters extracted from argv.
      */
     struct PimorseParameters {
-        float freq{0.0F};
+        uint64_t freq{0};
         float wpm{0.0F};
-        std::string_view message;
+        std::string message;
     };
 
     /**
-     * @brief Print the command-line usage to stderr.
+     * @brief Parse and validate command-line arguments via CLI11.
      */
-    void printUsage();
-
-    /**
-     * @brief Parse and validate command-line arguments.
-     */
-    [[nodiscard]] ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
 
     /**
      * @brief Convert a text message into a contiguous CW OOK binary stream.
