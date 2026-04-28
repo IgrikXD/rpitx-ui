@@ -27,22 +27,16 @@ namespace rpitx::cli {
         // way. The entire input must be consumed - trailing garbage is an error.
         double value{};
         const auto first{text.data()};
-        const auto last{text.data() + text.size()};
+        const auto last{first + text.size()};
         if (const auto [ptr, ec]{std::from_chars(first, last, value)}; ec != std::errc{} || ptr != last) {
             return std::nullopt;
         }
 
-        if (std::isfinite(value) == false) {
-            return std::nullopt;
-        }
-        if (value <= 0.0) {
-            return std::nullopt;
-        }
-        // Guard the double -> uint64_t conversion. UINT64_MAX (2^64 - 1) is
-        // not exactly representable as double; std::ldexp(1.0, 64) is exactly
-        // 2^64 and is the strict upper bound any finite double can convert
-        // safely from.
-        if (value >= std::ldexp(1.0, 64)) {
+        // Guard invalid numeric values before the double -> uint64_t conversion.
+        // UINT64_MAX (2^64 - 1) is not exactly representable as double;
+        // std::ldexp(1.0, 64) is exactly 2^64 and is the strict upper bound
+        // any finite double can convert safely from.
+        if (std::isfinite(value) == false || value <= 0.0 || value >= std::ldexp(1.0, 64)) {
             return std::nullopt;
         }
 
