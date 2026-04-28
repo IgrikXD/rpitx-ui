@@ -112,7 +112,7 @@ namespace pirfgen {
         // within sampleRate/2. Equivalently, bandwidth must stay below sampleRate;
         // equality sits exactly on the aliasing boundary and is disallowed.
         //
-        // sampleRate is cast to double so a uint32_t above ~16.7 MHz is not
+        // sampleRate is cast to double so a 32-bit integer above ~16.7 MHz is not
         // rounded into a 24-bit float mantissa (which would shift the Nyquist
         // boundary by up to ~256 Hz). The float bandwidth is then implicitly
         // widened to double by the usual arithmetic conversions; double's
@@ -178,7 +178,8 @@ namespace pirfgen {
             .toneCount = params.toneCount.value_or(0),
         }};
 
-        ngfmdmasync dma{params.transmissionFrequency, params.sampleRate, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        ngfmdmasync dma{params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH,
+                        DMA_FIFO_SIZE};
 
         // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
         const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /

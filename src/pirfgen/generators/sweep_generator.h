@@ -11,8 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "rf_generator.h"
 #include "sawtooth.h"
 
@@ -29,7 +27,7 @@ public:
      * @param bandwidth Target RF bandwidth in Hz (amplitude of the ramp is bandwidth / 2).
      * @param sampleRate DMA sample rate in Hz.
      */
-    SweepGenerator(float bandwidth, uint32_t sampleRate);
+    SweepGenerator(float bandwidth, int sampleRate);
 
     [[nodiscard]] float nextSample() override;
 

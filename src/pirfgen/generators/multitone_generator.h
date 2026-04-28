@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <random>
 #include <vector>
 
@@ -33,7 +32,7 @@ public:
      * @param toneCount Number of equidistant tones (must be >= 2; a single tone would
      *                  degenerate to a plain carrier and is rejected upstream in the CLI).
      */
-    MultitoneGenerator(float bandwidth, uint32_t sampleRate, int toneCount);
+    MultitoneGenerator(float bandwidth, int sampleRate, int toneCount);
 
     [[nodiscard]] float nextSample() override;
 
@@ -56,7 +55,7 @@ private:
      * @param sampleRate DMA sample rate in Hz.
      * @return Hold duration in samples (clamped to >= 1).
      */
-    [[nodiscard]] static int computeSamplesPerHop(uint32_t sampleRate);
+    [[nodiscard]] static int computeSamplesPerHop(int sampleRate);
 
     std::mt19937 engine_{std::random_device{}()};  ///< PRNG engine (per-instance).
     std::uniform_int_distribution<int> dist_;      ///< Uniform tone-index distribution.

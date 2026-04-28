@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <cassert>
 
-MultitoneGenerator::MultitoneGenerator(float bandwidth, uint32_t sampleRate, int toneCount)
+MultitoneGenerator::MultitoneGenerator(float bandwidth, int sampleRate, int toneCount)
     : dist_{0, toneCount - 1},
       tones_{makeTones(bandwidth, toneCount)},
       samplesPerHop_{computeSamplesPerHop(sampleRate)},
@@ -44,6 +44,6 @@ std::vector<float> MultitoneGenerator::makeTones(float bandwidth, int toneCount)
     return result;
 }
 
-int MultitoneGenerator::computeSamplesPerHop(uint32_t sampleRate) {
+int MultitoneGenerator::computeSamplesPerHop(int sampleRate) {
     return std::max(1, static_cast<int>(static_cast<float>(sampleRate) / HOP_RATE_HZ));
 }

@@ -31,7 +31,7 @@ namespace pirfgen {
     /**
      * @brief Default DMA sample rate in Hz.
      */
-    inline constexpr uint32_t DEFAULT_SAMPLE_RATE{500'000};
+    inline constexpr int DEFAULT_SAMPLE_RATE{500'000};
 
     /**
      * @brief Maximum allowed multitone tone count.
@@ -50,7 +50,7 @@ namespace pirfgen {
         RfGenMode mode{RfGenMode::Noise};
         uint64_t transmissionFrequency{0};
         float bandwidth{0.0F};
-        uint32_t sampleRate{DEFAULT_SAMPLE_RATE};
+        int sampleRate{DEFAULT_SAMPLE_RATE};
         std::optional<int> toneCount;  ///< Engaged iff --tone-count was given on the CLI.
     };
 

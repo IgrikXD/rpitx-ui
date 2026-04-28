@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-NoiseGenerator::NoiseGenerator(float bandwidth, uint32_t sampleRate)
+NoiseGenerator::NoiseGenerator(float bandwidth, int sampleRate)
     : dist_{-bandwidth * 0.5F, bandwidth * 0.5F},
       holdSamples_{computeHoldSamples(bandwidth, sampleRate)},
       current_{dist_(engine_)} {
@@ -28,7 +28,7 @@ float NoiseGenerator::nextSample() {
     return current_;
 }
 
-int NoiseGenerator::computeHoldSamples(float bandwidth, uint32_t sampleRate) {
+int NoiseGenerator::computeHoldSamples(float bandwidth, int sampleRate) {
     const float modBw{bandwidth * MOD_BW_FRACTION};
     return std::max(1, static_cast<int>(static_cast<float>(sampleRate) / modBw));
 }

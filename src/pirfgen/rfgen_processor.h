@@ -37,10 +37,10 @@ enum class RfGenMode : uint8_t {
  * @endcode
  */
 struct RfGenConfig {
-    RfGenMode mode;       ///< Active RF generator mode.
-    float bandwidth;      ///< Generated bandwidth in Hz (full width, symmetric around center).
-    uint32_t sampleRate;  ///< DMA sample rate in Hz.
-    int toneCount;        ///< Number of tones for multitone mode (ignored otherwise).
+    RfGenMode mode;   ///< Active RF generator mode.
+    float bandwidth;  ///< Generated bandwidth in Hz (full width, symmetric around center).
+    int sampleRate;   ///< DMA sample rate in Hz.
+    int toneCount;    ///< Number of tones for multitone mode (ignored otherwise).
 };
 
 /**

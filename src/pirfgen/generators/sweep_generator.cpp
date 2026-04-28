@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-SweepGenerator::SweepGenerator(float bandwidth, uint32_t sampleRate)
+SweepGenerator::SweepGenerator(float bandwidth, int sampleRate)
     : sawtooth_{bandwidth * 0.5F, std::max(1, static_cast<int>(static_cast<float>(sampleRate) / RATE_HZ))} {
 }
 
