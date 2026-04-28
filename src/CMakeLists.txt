@@ -52,7 +52,13 @@ add_executable(piam
     piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(piam 
+    PRIVATE 
+        rpitx_audio_utils
+        rpitx_dsp_utils
+        rpitx_cli_utils
+        librpitx::librpitx
+)
 
 # --- pichirp ---
 add_executable(pichirp pichirp/pichirp.cpp)
@@ -70,6 +76,7 @@ target_link_libraries(pifmrds
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_dsp_utils
         librpitx::librpitx
 )
 
@@ -85,7 +92,13 @@ add_executable(pinfm
     pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pinfm 
+    PRIVATE 
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -111,7 +124,13 @@ add_executable(pissb
     pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pissb 
+    PRIVATE 
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
