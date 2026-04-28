@@ -91,7 +91,7 @@ namespace pissb {
             // Detect and skip WAV header at stream boundaries
             if (needHeader) {
                 auto result{skipWavHeader()};
-                if (!result) {
+                if (result.has_value() == false) {
                     break;
                 }
                 needHeader = false;
@@ -104,7 +104,8 @@ namespace pissb {
                     outbuf[i * 2 + 1] = iq.q;
                 }
                 if (result->count > 0) {
-                    if (!writeAll(STDOUT_FILENO, outbuf, static_cast<size_t>(result->count) * 2 * sizeof(float))) {
+                    if (writeAll(STDOUT_FILENO, outbuf,
+                                 static_cast<size_t>(result->count) * 2 * sizeof(float)) == false) {
                         break;
                     }
                 }
@@ -124,7 +125,7 @@ namespace pissb {
                 outbuf[i * 2 + 1] = iq.q;
             }
 
-            if (!writeAll(STDOUT_FILENO, outbuf, static_cast<size_t>(n) * 2 * sizeof(float))) {
+            if (writeAll(STDOUT_FILENO, outbuf, static_cast<size_t>(n) * 2 * sizeof(float)) == false) {
                 break;
             }
 
