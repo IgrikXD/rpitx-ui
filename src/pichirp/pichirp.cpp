@@ -23,10 +23,10 @@
 
 #include "pichirp.h"
 
-#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 #include <unistd.h>
 
+#include <CLI/CLI.hpp>
 #include <atomic>
 #include <cmath>
 #include <csignal>
@@ -68,8 +68,7 @@ namespace pichirp {
             ->required()
             ->check(rpitx::cli::validators::PositiveFiniteFloat);
 
-        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
-            result != rpitx::cli::ParseResult::Ok) {
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 

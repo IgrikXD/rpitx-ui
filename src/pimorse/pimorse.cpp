@@ -20,9 +20,9 @@
 
 #include "pimorse.h"
 
-#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
+#include <CLI/CLI.hpp>
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
@@ -47,12 +47,12 @@ namespace pimorse {
         app.add_option("--wpm", params.wpm, "Speed in words per minute (positive finite)")
             ->required()
             ->check(rpitx::cli::validators::PositiveFiniteFloat);
-        app.add_option("--message", params.message,
+        app.add_option("--message",
+                       params.message,
                        "Message to encode and transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\")")
             ->required();
 
-        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
-            result != rpitx::cli::ParseResult::Ok) {
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 

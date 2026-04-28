@@ -309,5 +309,4 @@ private:
      * @brief Pre-computed sin(2 pi * 38 kHz * t) sampled at 228 kHz, length 6.
      */
     std::array<float, CARRIER_38K_PERIOD> carrierTable_{};
-
 };

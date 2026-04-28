@@ -32,9 +32,9 @@
 
 #include "pifmrds.h"
 
-#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
+#include <CLI/CLI.hpp>
 #include <atomic>
 #include <csignal>
 #include <cstddef>
@@ -133,32 +133,30 @@ namespace pifmrds {
         // PS / RT use byte-length validation (size() in bytes, not user-perceived
         // characters): the RDS encoder copies up to PS_LENGTH / RT_LENGTH bytes
         // into fixed-size arrays, so byte length is the meaningful unit here.
-        app.add_option("--rds-ps", params.ps,
-                       "RDS Programme Service name, 1-8 bytes (default \"rpitx-ui\")")
-            ->check(CLI::Validator{
-                [](const std::string& text) -> std::string {
-                    if (text.empty()) {
-                        return "must not be empty";
-                    }
-                    if (text.size() > RdsEncoder::PS_LENGTH) {
-                        return "must be at most 8 bytes";
-                    }
-                    return {};
-                },
-                "RDS PS, 1-8 bytes", "PS_BYTES"});
-        app.add_option("--rds-rt", params.rt,
-                       "RDS RadioText, 1-64 bytes (default \"rpitx-ui Broadcast WFM with RDS\")")
-            ->check(CLI::Validator{
-                [](const std::string& text) -> std::string {
-                    if (text.empty()) {
-                        return "must not be empty";
-                    }
-                    if (text.size() > RdsEncoder::RT_LENGTH) {
-                        return "must be at most 64 bytes";
-                    }
-                    return {};
-                },
-                "RDS RT, 1-64 bytes", "RT_BYTES"});
+        app.add_option("--rds-ps", params.ps, "RDS Programme Service name, 1-8 bytes (default \"rpitx-ui\")")
+            ->check(CLI::Validator{[](const std::string& text) -> std::string {
+                                       if (text.empty()) {
+                                           return "must not be empty";
+                                       }
+                                       if (text.size() > RdsEncoder::PS_LENGTH) {
+                                           return "must be at most 8 bytes";
+                                       }
+                                       return {};
+                                   },
+                                   "RDS PS, 1-8 bytes",
+                                   "PS_BYTES"});
+        app.add_option("--rds-rt", params.rt, "RDS RadioText, 1-64 bytes (default \"rpitx-ui Broadcast WFM with RDS\")")
+            ->check(CLI::Validator{[](const std::string& text) -> std::string {
+                                       if (text.empty()) {
+                                           return "must not be empty";
+                                       }
+                                       if (text.size() > RdsEncoder::RT_LENGTH) {
+                                           return "must be at most 64 bytes";
+                                       }
+                                       return {};
+                                   },
+                                   "RDS RT, 1-64 bytes",
+                                   "RT_BYTES"});
 
         const std::map<std::string, PreEmphasisMode> preEmphMap{
             {"50", PreEmphasisMode::Eu50},
@@ -167,8 +165,7 @@ namespace pifmrds {
         app.add_option("--pre-emphasis", params.preEmph, "FM pre-emphasis in microseconds: 50 (default) | 75")
             ->transform(CLI::CheckedTransformer(preEmphMap));
 
-        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
-            result != rpitx::cli::ParseResult::Ok) {
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 

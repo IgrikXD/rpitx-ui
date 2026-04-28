@@ -40,7 +40,8 @@ namespace rpitx::cli::validators {
             }
             return {};
         },
-        "Positive finite float value", "POSITIVE_FLOAT"};
+        "Positive finite float value",
+        "POSITIVE_FLOAT"};
 
     const CLI::Validator FrequencyHz{
         [](const std::string& text) -> std::string {
@@ -49,5 +50,6 @@ namespace rpitx::cli::validators {
             }
             return {};
         },
-        "Frequency in Hz", "FREQ_HZ"};
+        "Frequency in Hz",
+        "FREQ_HZ"};
 }  // namespace rpitx::cli::validators

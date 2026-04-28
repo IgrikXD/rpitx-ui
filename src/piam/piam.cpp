@@ -25,9 +25,9 @@
 
 #include "piam.h"
 
-#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 
+#include <CLI/CLI.hpp>
 #include <atomic>
 #include <csignal>
 #include <iostream>
@@ -67,8 +67,7 @@ namespace piam {
         app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
         app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
-        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
-            result != rpitx::cli::ParseResult::Ok) {
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 

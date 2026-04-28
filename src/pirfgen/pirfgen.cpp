@@ -26,10 +26,10 @@
 
 #include "pirfgen.h"
 
-#include <CLI/CLI.hpp>
 #include <librpitx/librpitx.h>
 #include <unistd.h>
 
+#include <CLI/CLI.hpp>
 #include <atomic>
 #include <csignal>
 #include <iostream>
@@ -95,12 +95,11 @@ namespace pirfgen {
         // so RfGenConfig never sees a stale value when a non-multitone mode
         // was paired with --tone-count.
         std::optional<int> toneCountOpt;
-        app.add_option("--tone-count", toneCountOpt,
-                       "Number of equidistant tones for --mode multitone (range [2, 1024])")
+        app.add_option(
+               "--tone-count", toneCountOpt, "Number of equidistant tones for --mode multitone (range [2, 1024])")
             ->check(CLI::Range(2, MAX_TONE_COUNT));
 
-        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
-            result != rpitx::cli::ParseResult::Ok) {
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 

@@ -20,7 +20,6 @@
 #pragma once
 
 #include <CLI/CLI.hpp>
-
 #include <cstdint>
 #include <optional>
 #include <string_view>
