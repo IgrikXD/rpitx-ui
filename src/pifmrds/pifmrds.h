@@ -54,6 +54,16 @@ namespace pifmrds {
     inline constexpr float PEAK_DEVIATION{75'000.0F};
 
     /**
+     * @brief Minimum accepted input sample rate in Hz.
+     */
+    inline constexpr int MIN_INPUT_RATE{8'000};
+
+    /**
+     * @brief Maximum accepted input sample rate in Hz.
+     */
+    inline constexpr int MAX_INPUT_RATE{192'000};
+
+    /**
      * @brief Default RDS Programme Identification code.
      */
     inline constexpr uint16_t DEFAULT_RDS_PI{0x1234};

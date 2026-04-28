@@ -214,7 +214,7 @@ namespace pifmrds {
         }
 
         const auto audioFormat{source->format()};
-        if (validateAudioFormat(audioFormat, 8'000, MPX_SAMPLE_RATE) == false) {
+        if (validateAudioFormat(audioFormat, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
             return 1;
         }
 
