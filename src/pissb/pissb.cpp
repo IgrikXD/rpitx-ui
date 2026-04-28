@@ -119,7 +119,7 @@ namespace pissb {
         }
 
         const auto fmt{source->format()};
-        if (validateMonoStereoAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
+        if (validateAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
             return 1;
         }
 

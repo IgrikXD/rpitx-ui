@@ -16,7 +16,7 @@
 #include <iostream>
 #include <utility>
 
-bool validateMonoStereoAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRate) {
+bool validateAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRate) {
     if (format.channels != 1 && format.channels != 2) {
         std::cerr << "[ERROR] Input must be mono or stereo, got " << format.channels << " channels." << std::endl;
         return false;

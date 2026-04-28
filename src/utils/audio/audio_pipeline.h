@@ -38,7 +38,7 @@ enum class AudioPipelineStatus {
  * @param maxSampleRate Inclusive maximum sample rate in Hz.
  * @return true when the format is usable by the caller.
  */
-[[nodiscard]] bool validateMonoStereoAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRate);
+[[nodiscard]] bool validateAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRate);
 
 /**
  * @brief Validate that a source can satisfy requested loop playback.
