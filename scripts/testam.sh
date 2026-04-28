@@ -6,15 +6,15 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Usage: testam.sh <freq_Hz> <audio.wav> <loop|once>
-#   loop|once : Replay the audio file continuously, or play it once and stop.
-#   Input audio: any format libsndfile understands (downmixed to mono and
-#                resampled to 48 kHz internally).
+# Invokes: piam --freq <Hz> --audio <path> [--loop]
+#   --audio : any format libsndfile understands; mono/stereo input is
+#             downmixed to mono and resampled to 48 kHz internally.
+#   --loop  : replay the audio file continuously when requested by the UI.
 FREQ="$1"
 AUDIO="$2"
 PLAYBACK="${3:-loop}"
 
-# Optional fixed flag; keep unquoted in the command so an empty value vanishes.
+# Check if loop playback mode is requested
 LOOP_FLAG=""
 if [ "$PLAYBACK" = "loop" ]; then
   LOOP_FLAG="--loop"

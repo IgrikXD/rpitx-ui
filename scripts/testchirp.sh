@@ -6,9 +6,9 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Usage: testchirp.sh <freq_Hz>
-#   Bandwidth and sweep time are fixed at the legacy demo defaults
-#   (100 kHz across a 5 s period) used by the rpitx-ui menu.
+# Invokes: pichirp --freq <Hz> --bandwidth <Hz> --sweep-time <seconds>
+#   Bandwidth and sweep time are fixed by the rpitx-ui menu wrapper:
+#   100 kHz RF bandwidth across a 5 s sweep period.
 FREQ="$1"
 BANDWIDTH=100000
 SWEEP_TIME=5

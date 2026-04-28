@@ -6,6 +6,6 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Usage: testmorse.sh <freq_Hz> <WPM> <message>
-#   The message must be quoted at the call site if it contains spaces.
+# Invokes: pimorse --freq <Hz> --wpm <value> --message <text>
+#   --message must be quoted at the call site if it contains spaces.
 sudo pimorse --freq "$1" --wpm "$2" --message "$3"
