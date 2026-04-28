@@ -33,8 +33,8 @@
  */
 class Hilbert {
 public:
-    /** 
-     * @brief Default number of FIR filter taps. 
+    /**
+     * @brief Default number of FIR filter taps.
      */
     static constexpr int DEFAULT_TAPS{255};
 

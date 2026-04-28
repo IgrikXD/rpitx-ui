@@ -32,9 +32,9 @@ namespace {
 
     [[nodiscard]] int alignedInputForOutput(int targetOutput, int L, int M) {
         // ceil(targetOutput * M / L), then round up to the next multiple of M.
-        const long long approxIn{(static_cast<long long>(targetOutput) * static_cast<long long>(M) +
-                                  static_cast<long long>(L) - 1LL) /
-                                 static_cast<long long>(L)};
+        const long long approxIn{
+            (static_cast<long long>(targetOutput) * static_cast<long long>(M) + static_cast<long long>(L) - 1LL) /
+            static_cast<long long>(L)};
         const long long alignedIn{((approxIn + static_cast<long long>(M) - 1LL) / static_cast<long long>(M)) *
                                   static_cast<long long>(M)};
         if (alignedIn > static_cast<long long>(std::numeric_limits<int>::max())) {
@@ -221,7 +221,7 @@ AudioRateConverter::AudioRateConverter(int sourceRate, int targetRate, int targe
     }
 
     const auto ratio{computePolyphaseRatio(sourceRate, targetRate)};
-    inputFrames_  = alignedInputForOutput(targetOutputFrames, ratio.L, ratio.M);
+    inputFrames_ = alignedInputForOutput(targetOutputFrames, ratio.L, ratio.M);
     if (inputFrames_ > std::numeric_limits<int>::max() / ratio.L) {
         throw std::invalid_argument{"AudioRateConverter output frame count overflows int"};
     }

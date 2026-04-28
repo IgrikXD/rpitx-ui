@@ -63,10 +63,7 @@ namespace {
 }  // namespace
 
 LibsndfileAudioSource::LibsndfileAudioSource(SNDFILE* handle, SF_INFO info, bool seekable, std::string description)
-    : handle_{handle},
-      info_{info},
-      seekable_{seekable},
-      description_{std::move(description)} {
+    : handle_{handle}, info_{info}, seekable_{seekable}, description_{std::move(description)} {
     assert(handle != nullptr);
 }
 

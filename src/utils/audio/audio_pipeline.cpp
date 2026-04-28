@@ -136,8 +136,11 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
 
     rateConverters_.reserve(static_cast<std::size_t>(outputChannels_));
     for (int c{0}; c < outputChannels_; ++c) {
-        rateConverters_.emplace_back(sourceFormat_.sampleRate, config_.targetSampleRate, config_.targetOutputFrames,
-                                     config_.tapsPerPhase, config_.maxCutoffHz);
+        rateConverters_.emplace_back(sourceFormat_.sampleRate,
+                                     config_.targetSampleRate,
+                                     config_.targetOutputFrames,
+                                     config_.tapsPerPhase,
+                                     config_.maxCutoffHz);
     }
 
     inputFrames_  = rateConverters_.front().inputFrames();
@@ -200,7 +203,8 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
         for (int i{0}; i < outputFrames_; ++i) {
             for (int c{0}; c < outputChannels_; ++c) {
                 out[static_cast<std::size_t>(i) * static_cast<std::size_t>(outputChannels_) +
-                    static_cast<std::size_t>(c)] = channelOutput_[static_cast<std::size_t>(c)][static_cast<std::size_t>(i)];
+                    static_cast<std::size_t>(c)] =
+                    channelOutput_[static_cast<std::size_t>(c)][static_cast<std::size_t>(i)];
             }
         }
     }

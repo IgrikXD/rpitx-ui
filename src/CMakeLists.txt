@@ -15,25 +15,37 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 
 # ----------------------------------------------------------
-# Shared DSP and I/O utility library
+# Shared header-only common utilities
 # ----------------------------------------------------------
-add_library(rpitx_utils STATIC
-    utils/agc.cpp
-    utils/audio_pipeline.cpp
-    utils/biquad.cpp
-    utils/hilbert.cpp
-    utils/io_utils.cpp
-    utils/libsndfile_audio_source.cpp
-    utils/polyphase_resampler.cpp
-    utils/sawtooth.cpp
-    utils/wav_utils.cpp
+add_library(rpitx_common_utils INTERFACE)
+target_include_directories(rpitx_common_utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+
+# ----------------------------------------------------------
+# Shared DSP utility library
+# ----------------------------------------------------------
+add_library(rpitx_dsp_utils STATIC
+    utils/dsp/agc.cpp
+    utils/dsp/biquad.cpp
+    utils/dsp/hilbert.cpp
+    utils/dsp/polyphase_resampler.cpp
 )
-target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
-# libsndfile is PUBLIC: as a STATIC archive, rpitx_utils itself does not
+target_include_directories(rpitx_dsp_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/dsp)
+target_link_libraries(rpitx_dsp_utils PRIVATE m)
+
+# ----------------------------------------------------------
+# Shared audio utility library
+# ----------------------------------------------------------
+add_library(rpitx_audio_utils STATIC
+    utils/audio/audio_pipeline.cpp
+    utils/audio/io_utils.cpp
+    utils/audio/libsndfile_audio_source.cpp
+    utils/audio/wav_utils.cpp
+)
+target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/audio)
+# libsndfile is PUBLIC: as a STATIC archive, rpitx_audio_utils itself does not
 # carry its dependencies, so consumers (pifmrds / piam / pinfm) need the
 # transitive link line for sndfile symbols to resolve at executable link.
-target_link_libraries(rpitx_utils PUBLIC PkgConfig::SNDFILE)
-target_link_libraries(rpitx_utils PRIVATE m)
+target_link_libraries(rpitx_audio_utils PUBLIC rpitx_dsp_utils PkgConfig::SNDFILE)
 
 # ----------------------------------------------------------
 # Shared CLI11 helpers used by migrated rpitx-ui binaries
@@ -60,7 +72,7 @@ add_executable(piam
     piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(piam PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- pichirp ---
 add_executable(pichirp pichirp/pichirp.cpp)
@@ -74,7 +86,13 @@ add_executable(pifmrds
     pifmrds/rds_modulator.cpp
     pifmrds/rds_pulse.cpp
 )
-target_link_libraries(pifmrds PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pifmrds
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_common_utils
+        librpitx::librpitx
+)
 
 # --- pimorse ---
 add_executable(pimorse
@@ -88,7 +106,7 @@ add_executable(pinfm
     pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pinfm PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -103,7 +121,7 @@ add_executable(pirfgen
     pirfgen/generators/sawtooth.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pirfgen PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
@@ -114,7 +132,7 @@ add_executable(pissb
     pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_utils rpitx_cli_utils)
+target_link_libraries(pissb PRIVATE rpitx_audio_utils rpitx_cli_utils)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)

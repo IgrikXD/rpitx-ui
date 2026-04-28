@@ -29,7 +29,7 @@
  * Owns the SNDFILE handle and closes it in the destructor. Non-copyable
  * (handle ownership is unique) and non-movable (matches AudioSource base).
  */
-class LibsndfileAudioSource final: public AudioSource {
+class LibsndfileAudioSource final : public AudioSource {
 public:
     /**
      * @brief Construct from an open libsndfile handle.
