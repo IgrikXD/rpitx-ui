@@ -1,18 +1,8 @@
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
-# Date: 27.03.2026
+# Date: 28.04.2026
 # License: GPL-3.0
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
-
-# ----------------------------------------------------------
-# Audio I/O backend (libsndfile via pkg-config)
-# ----------------------------------------------------------
-# Uses pkg-config rather than find_package(SndFile) for compatibility with
-# Raspberry Pi OS (Bullseye / Bookworm) - older libsndfile packages do not
-# ship a SndFileConfig.cmake, but every Debian-derived distro ships
-# sndfile.pc since libsndfile 1.0.x.
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 
 # ----------------------------------------------------------
 # Shared DSP utility library
@@ -21,7 +11,6 @@ add_library(rpitx_dsp_utils STATIC
     utils/dsp/agc.cpp
     utils/dsp/biquad.cpp
     utils/dsp/hilbert.cpp
-    utils/dsp/polyphase_resampler.cpp
 )
 target_include_directories(rpitx_dsp_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/dsp)
 target_link_libraries(rpitx_dsp_utils PRIVATE m)
@@ -29,21 +18,20 @@ target_link_libraries(rpitx_dsp_utils PRIVATE m)
 # ----------------------------------------------------------
 # Shared audio utility library
 # ----------------------------------------------------------
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
+
 add_library(rpitx_audio_utils STATIC
     utils/audio/audio_pipeline.cpp
     utils/audio/libsndfile_audio_source.cpp
+    utils/audio/polyphase_resampler.cpp
 )
 target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/audio)
-# libsndfile is PUBLIC: as a STATIC archive, rpitx_audio_utils itself does not
-# carry its dependencies, so consumers (pifmrds / piam / pinfm / pissb) need the
-# transitive link line for sndfile symbols to resolve at executable link.
-target_link_libraries(rpitx_audio_utils PUBLIC rpitx_dsp_utils PkgConfig::SNDFILE)
+target_link_libraries(rpitx_audio_utils PRIVATE PkgConfig::SNDFILE)
 
 # ----------------------------------------------------------
-# Shared CLI11 helpers used by migrated rpitx-ui binaries
+# Shared CLI parsing utility library
 # ----------------------------------------------------------
-# Encapsulate common CLI11-related code (validators, helper functions, etc.) in a separate library
-# to avoid code duplication across multiple binaries.
 find_package(CLI11 CONFIG REQUIRED)
 add_library(rpitx_cli_utils STATIC
     utils/cli/cli_common.cpp
