@@ -52,8 +52,8 @@ add_executable(piam
     piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam 
-    PRIVATE 
+target_link_libraries(piam
+    PRIVATE
         rpitx_audio_utils
         rpitx_dsp_utils
         rpitx_cli_utils
@@ -92,8 +92,8 @@ add_executable(pinfm
     pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm 
-    PRIVATE 
+target_link_libraries(pinfm
+    PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
         rpitx_dsp_utils
@@ -124,8 +124,8 @@ add_executable(pissb
     pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb 
-    PRIVATE 
+target_link_libraries(pissb
+    PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
         rpitx_dsp_utils
