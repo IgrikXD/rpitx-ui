@@ -337,17 +337,17 @@ do_freq_setup
     "1 Chirp" "Moving carrier" \
 	"2 Spectrum" "Spectrum painting" \
 	"3 RfMyFace" "Snap with Raspicam and RF paint" \
-	"4 FmRds" "Broadcast modulation with RDS" \
-	"5 NFM" "Narrow band FM" \
-	"6 SSB" "Single Side Band modulation" \
+	"4 WFM" "Wideband Frequency Modulation with RDS" \
+	"5 NFM" "Narrowband Frequency Modulation" \
+	"6 SSB" "Single Sideband modulation" \
 	"7 AM" "Amplitude Modulation" \
 	"8 FreeDV" "Digital voice mode 800XA" \
 	"9 SSTV" "Pattern picture" \
 	"10 Pocsag" "Pager message" \
     "11 Opera" "Like morse but need Opera decoder" \
     "12 RTTY" "Radioteletype" \
-    "13 CW" "Morse code" \
-    "14 RFgen" "Wideband RF generator" \
+    "13 CW" "Continuous Wave (Morse code)" \
+    "14 Generator" "Wideband RF generator" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
