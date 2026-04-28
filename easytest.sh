@@ -390,17 +390,23 @@ do_freq_setup
 			fi
 			;;
 			
-			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
+			6\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testusb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_playback_mode
+				if [ $abort_action -eq 0 ]; then
+					testusb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			
-			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" ".wav"
+			7\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
 			if [ $abort_action -eq 0 ]; then
-				testlsb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_playback_mode
+				if [ $abort_action -eq 0 ]; then
+					testlsb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			

@@ -1,11 +1,17 @@
 /**
  * @file pissb.cpp
- * @brief Streaming SSB modulator implementation.
+ * @brief Single-sideband (SSB) transmitter implementation.
  *
- * Reads 16-bit PCM audio from stdin, applies SSB modulation (USB or LSB),
- * and writes float IQ pairs to stdout for consumption by sendiq.
+ * Reads audio from a file (any format libsndfile supports), downmixes to
+ * mono, resamples to 48 kHz if needed, applies SSB modulation (USB or LSB),
+ * and drives librpitx::iqdmasync directly at the requested carrier frequency.
+ * Transmission runs until the audio ends (or forever when --loop is set), or
+ * until SIGTERM / SIGINT.
  *
- * @note Usage: pissb [--sideband usb|lsb] [-h | --help]
+ * @note Usage: pissb --freq <Hz> --audio <path> [--loop] [--sideband usb|lsb] [-h | --help]
+ *   - --freq      Carrier frequency in Hz
+ *   - --audio     Path to the audio file (libsndfile-supported format)
+ *   - --loop      Loop the audio file (replay from the start on EOF)
  *   - --sideband  Sideband selection: usb (default) | lsb
  *   - -h, --help  Print this help message and exit
  *
@@ -18,20 +24,22 @@
 
 #include "pissb.h"
 
-#include <CLI/CLI.hpp>
-#include <unistd.h>
+#include <librpitx/librpitx.h>
 
+#include <CLI/CLI.hpp>
 #include <atomic>
+#include <complex>
 #include <csignal>
 #include <cstddef>
-#include <cstdint>
-#include <cstdio>
+#include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
+#include "audio_pipeline.h"
 #include "cli_common.h"
-#include "io_utils.h"
-#include "wav_utils.h"
+#include "cli_validators.h"
+#include "libsndfile_audio_source.h"
 
 namespace pissb {
     namespace {
@@ -46,12 +54,29 @@ namespace pissb {
                       "std::atomic<bool> must be lock-free for signal-handler access");
     }  // namespace
 
+    const char* modeName(SsbMode mode) {
+        switch (mode) {
+            case SsbMode::USB:
+                return "usb";
+            case SsbMode::LSB:
+                return "lsb";
+        }
+        return "unknown";
+    }
+
     void handleSignal([[maybe_unused]] int sig) {
         running.store(false, std::memory_order_relaxed);
     }
 
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PissbParameters& params) {
-        CLI::App app{"Streaming SSB modulator (stdin int16 PCM -> stdout float IQ)"};
+        CLI::App app{"SSB transmitter (audio file -> librpitx iqdmasync)"};
+
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
+            ->required()
+            ->check(rpitx::cli::validators::FrequencyHz);
+        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
+        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
         const std::map<std::string, SsbMode> sidebandMap{
             {"usb", SsbMode::USB},
@@ -60,7 +85,11 @@ namespace pissb {
         app.add_option("--sideband", params.mode, "Sideband selection: usb (default) | lsb")
             ->transform(CLI::CheckedTransformer(sidebandMap, CLI::ignore_case));
 
-        return rpitx::cli::parseCliApp(app, argc, argv);
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
+            return result;
+        }
+
+        return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
 
     int run(int argc, char* argv[]) {
@@ -78,63 +107,67 @@ namespace pissb {
         std::signal(SIGTERM, handleSignal);
         // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
-        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
+        // SIGPIPE: keep shutdown behavior explicit when launched from shell wrappers.
         std::signal(SIGPIPE, handleSignal);
 
-        SsbProcessor ssb{params.mode};
-
-        int16_t inbuf[BLOCK_SIZE];
-        float outbuf[BLOCK_SIZE * 2];
-        bool needHeader{true};
-
-        while (running.load(std::memory_order_relaxed)) {
-            // Detect and skip WAV header at stream boundaries
-            if (needHeader) {
-                auto result{skipWavHeader()};
-                if (result.has_value() == false) {
-                    break;
-                }
-                needHeader = false;
-
-                // Process any carry-over samples from header detection
-                for (int i{0}; i < result->count; ++i) {
-                    const float sample{static_cast<float>(result->samples[i]) / PCM16_MAX};
-                    const auto iq{ssb.process(sample)};
-                    outbuf[i * 2]     = iq.i;
-                    outbuf[i * 2 + 1] = iq.q;
-                }
-                if (result->count > 0) {
-                    if (writeAll(STDOUT_FILENO, outbuf,
-                                 static_cast<size_t>(result->count) * 2 * sizeof(float)) == false) {
-                        break;
-                    }
-                }
-            }
-
-            // Read a block of PCM samples
-            const auto n{static_cast<int>(std::fread(inbuf, sizeof(int16_t), BLOCK_SIZE, stdin))};
-            if (n <= 0) {
-                break;
-            }
-
-            // Convert and process each sample
-            for (int i{0}; i < n; ++i) {
-                const float sample{static_cast<float>(inbuf[i]) / PCM16_MAX};
-                const auto iq{ssb.process(sample)};
-                outbuf[i * 2]     = iq.i;
-                outbuf[i * 2 + 1] = iq.q;
-            }
-
-            if (writeAll(STDOUT_FILENO, outbuf, static_cast<size_t>(n) * 2 * sizeof(float)) == false) {
-                break;
-            }
-
-            // Partial read indicates end of WAV data - expect new header
-            if (n < BLOCK_SIZE) {
-                needHeader = true;
-            }
+        auto source{makeFileAudioSource(params.audioPath)};
+        if (source == nullptr) {
+            return 1;
+        }
+        if (validateLoopSupport(*source, params.loop) == false) {
+            return 1;
         }
 
+        const auto fmt{source->format()};
+        if (validateMonoStereoAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
+            return 1;
+        }
+
+        AudioPipeline audio{*source,
+                            {
+                                .loop               = params.loop,
+                                .targetSampleRate   = static_cast<int>(TARGET_SAMPLE_RATE),
+                                .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
+                                .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
+                                .channelMode        = AudioChannelMode::Mono,
+                            }};
+
+        std::cout << "pissb: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+                  << " Hz, iq_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
+                  << ", format=" << source->description() << ", sideband=" << modeName(params.mode)
+                  << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
+
+        SsbProcessor ssb{params.mode};
+        iqdmasync dma{params.transmissionFrequency, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE, MODE_IQ};
+        dma.SetPLLMasterLoop(3, 4, 0);
+
+        // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
+        // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
+        // is converted into one complex IQ sample before being handed to DMA.
+        std::vector<float> audioBuf(audio.outputSamplesPerBlock());
+        std::vector<std::complex<float>> iqBuf(static_cast<std::size_t>(audio.outputFrames()));
+
+        while (running.load(std::memory_order_relaxed)) {
+            const auto status{audio.read(audioBuf)};
+            if (status == AudioPipelineStatus::End) {
+                break;
+            }
+            if (status == AudioPipelineStatus::Error) {
+                std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
+                dma.stop();
+                return 1;
+            }
+
+            for (std::size_t i{0}; i < iqBuf.size(); ++i) {
+                const auto iq{ssb.process(audioBuf[i])};
+                iqBuf[i] = std::complex<float>{iq.i, iq.q};
+            }
+            dma.SetIQSamples(iqBuf.data(), iqBuf.size(), DEFAULT_HARMONIC);
+        }
+
+        dma.stop();
+        std::cout << "pissb: transmission stopped." << std::endl;
         return 0;
     }
 }  // namespace pissb

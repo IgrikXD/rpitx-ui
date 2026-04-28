@@ -31,13 +31,11 @@ target_link_libraries(rpitx_dsp_utils PRIVATE m)
 # ----------------------------------------------------------
 add_library(rpitx_audio_utils STATIC
     utils/audio/audio_pipeline.cpp
-    utils/audio/io_utils.cpp
     utils/audio/libsndfile_audio_source.cpp
-    utils/audio/wav_utils.cpp
 )
 target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/audio)
 # libsndfile is PUBLIC: as a STATIC archive, rpitx_audio_utils itself does not
-# carry its dependencies, so consumers (pifmrds / piam / pinfm) need the
+# carry its dependencies, so consumers (pifmrds / piam / pinfm / pissb) need the
 # transitive link line for sndfile symbols to resolve at executable link.
 target_link_libraries(rpitx_audio_utils PUBLIC rpitx_dsp_utils PkgConfig::SNDFILE)
 
@@ -120,12 +118,12 @@ target_link_libraries(pirfgen PRIVATE rpitx_cli_utils librpitx::librpitx)
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
-# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+# --- pissb (audio file -> librpitx iqdmasync, self-contained) ---
 add_executable(pissb
     pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_audio_utils rpitx_cli_utils)
+target_link_libraries(pissb PRIVATE rpitx_audio_utils rpitx_cli_utils librpitx::librpitx)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)

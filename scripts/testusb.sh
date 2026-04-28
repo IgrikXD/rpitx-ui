@@ -6,8 +6,18 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Pipeline: pissb --sideband usb | sendiq -i /dev/stdin -s 48000 -f <Hz> -t float
-#   Input audio is replayed continuously into pissb, which expects 16-bit
-#   PCM/WAV audio at the 48 kHz SSB processing rate.
-(while true; do cat "$2"; done) | pissb --sideband usb \
-  | sudo sendiq -i /dev/stdin -s 48000 -f "$1" -t float
+# Invokes: pissb --freq <Hz> --audio <path> [--loop] --sideband usb
+#   --audio : any format libsndfile understands; mono/stereo input is
+#             downmixed to mono and resampled to 48 kHz internally.
+#   --loop  : replay the audio file continuously when requested by the UI.
+FREQ="$1"
+AUDIO="$2"
+PLAYBACK="${3:-loop}"
+
+# Check if loop playback mode is requested
+LOOP_FLAG=""
+if [ "$PLAYBACK" = "loop" ]; then
+  LOOP_FLAG="--loop"
+fi
+
+sudo pissb --freq "$FREQ" --audio "$AUDIO" $LOOP_FLAG --sideband usb
