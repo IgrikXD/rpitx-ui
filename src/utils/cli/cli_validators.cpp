@@ -29,21 +29,18 @@ namespace rpitx::cli::validators {
     // validator_desc is used in error diagnostics and richer help displays.
     const CLI::Validator PositiveFiniteFloat{
         [](const std::string& text) -> std::string {
-            double value{};
+            float value{};
             const auto first{text.data()};
-            const auto last{text.data() + text.size()};
-            if (const auto [ptr, ec]{std::from_chars(first, last, value)}; ec != std::errc{} || ptr != last) {
+            const auto last{first + text.size()};
+            if (const auto [ptr, ec]{std::from_chars(first, last, value)};
+                ptr != last || ec == std::errc::invalid_argument) {
                 return "must be a numeric value";
-            }
-            if (std::isfinite(value) == false) {
-                return "must be finite";
-            }
-            if (value <= 0.0) {
-                return "must be > 0";
+            } else if (ec == std::errc::result_out_of_range || std::isfinite(value) == false || value <= 0.0F) {
+                return "must be a positive finite float";
             }
             return {};
         },
-        "Positive finite floating-point value", "POSITIVE_FLOAT"};
+        "Positive finite float value", "POSITIVE_FLOAT"};
 
     const CLI::Validator FrequencyHz{
         [](const std::string& text) -> std::string {

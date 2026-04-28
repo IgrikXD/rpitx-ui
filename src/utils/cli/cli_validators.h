@@ -22,11 +22,12 @@
 
 namespace rpitx::cli::validators {
     /**
-     * @brief Validator that accepts only positive finite floating-point values.
+     * @brief Validator that accepts only positive finite float values.
      *
-     * Rejects zero, negatives, NaN, and +-infinity. Intended for options
-     * such as --bandwidth, --sweep-time, and --wpm where the downstream
-     * algorithm cannot make progress with a non-positive or non-finite value.
+     * Rejects zero, negatives, NaN, +-infinity, and values that cannot be
+     * represented as a positive finite float. Intended for options such as
+     * --bandwidth, --sweep-time, and --wpm where the downstream algorithm
+     * stores the parsed value as float.
      */
     extern const CLI::Validator PositiveFiniteFloat;
 
