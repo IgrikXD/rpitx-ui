@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
 # Date: 28.04.2026
@@ -16,10 +16,10 @@ AUDIO="$2"
 PLAYBACK="${3:-loop}"
 MODE="${4:-wide}"
 
-# POSIX sh has no array support; branch on playback mode so quoting around
-# --audio is preserved while --loop is conditionally appended.
+# Optional fixed flag; keep unquoted in the command so an empty value vanishes.
+LOOP_FLAG=""
 if [ "$PLAYBACK" = "loop" ]; then
-  sudo pinfm --freq "$FREQ" --audio "$AUDIO" --loop --mode "$MODE"
-else
-  sudo pinfm --freq "$FREQ" --audio "$AUDIO" --mode "$MODE"
+  LOOP_FLAG="--loop"
 fi
+
+sudo pinfm --freq "$FREQ" --audio "$AUDIO" $LOOP_FLAG --mode "$MODE"

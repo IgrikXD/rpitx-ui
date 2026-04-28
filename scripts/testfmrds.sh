@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
 # Date: 28.04.2026
@@ -21,12 +21,11 @@ PS="${5:-rpitx-ui}"
 RT="${6:-rpitx-ui Broadcast WFM with RDS}"
 PE="${7:-50}"
 
-# POSIX sh has no array support; branch on playback mode so quoting around
-# --audio / --rds-* is preserved while --loop is conditionally appended.
+# Optional fixed flag; keep unquoted in the command so an empty value vanishes.
+LOOP_FLAG=""
 if [ "$PLAYBACK" = "loop" ]; then
-  sudo pifmrds --freq "$FREQ" --audio "$AUDIO" --loop \
-    --rds-pi "$PI" --rds-ps "$PS" --rds-rt "$RT" --pre-emphasis "$PE"
-else
-  sudo pifmrds --freq "$FREQ" --audio "$AUDIO" \
-    --rds-pi "$PI" --rds-ps "$PS" --rds-rt "$RT" --pre-emphasis "$PE"
+  LOOP_FLAG="--loop"
 fi
+
+sudo pifmrds --freq "$FREQ" --audio "$AUDIO" $LOOP_FLAG \
+  --rds-pi "$PI" --rds-ps "$PS" --rds-rt "$RT" --pre-emphasis "$PE"

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
 # Date: 28.04.2026

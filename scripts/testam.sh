@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
 # Date: 28.04.2026
@@ -14,10 +14,10 @@ FREQ="$1"
 AUDIO="$2"
 PLAYBACK="${3:-loop}"
 
-# POSIX sh has no array support; branch on playback mode so quoting around
-# --audio is preserved while --loop is conditionally appended.
+# Optional fixed flag; keep unquoted in the command so an empty value vanishes.
+LOOP_FLAG=""
 if [ "$PLAYBACK" = "loop" ]; then
-  sudo piam --freq "$FREQ" --audio "$AUDIO" --loop
-else
-  sudo piam --freq "$FREQ" --audio "$AUDIO"
+  LOOP_FLAG="--loop"
 fi
+
+sudo piam --freq "$FREQ" --audio "$AUDIO" $LOOP_FLAG
