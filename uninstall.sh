@@ -75,9 +75,9 @@ SCRIPTS=(
   rpitx-ui
   fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
   sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-  testfreedv.sh testfsq.sh testlsb.sh testmorse.sh testnfm.sh
+  testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
   testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
-  testusb.sh testsstv.sh testvfo.sh transponder.sh
+  testssb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 for SCRIPT in "${SCRIPTS[@]}"; do
