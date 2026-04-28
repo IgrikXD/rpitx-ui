@@ -67,7 +67,7 @@ namespace piam {
         app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
         app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

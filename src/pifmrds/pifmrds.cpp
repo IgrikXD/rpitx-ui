@@ -167,7 +167,7 @@ namespace pifmrds {
         app.add_option("--pre-emphasis", params.preEmph, "FM pre-emphasis in microseconds: 50 (default) | 75")
             ->transform(CLI::CheckedTransformer(preEmphMap));
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

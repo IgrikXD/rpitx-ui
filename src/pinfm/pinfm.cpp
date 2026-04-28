@@ -97,7 +97,7 @@ namespace pinfm {
         app.add_option("--mode", params.mode, "NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)")
             ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case));
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

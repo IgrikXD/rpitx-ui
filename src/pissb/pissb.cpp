@@ -60,7 +60,7 @@ namespace pissb {
         app.add_option("--sideband", params.mode, "Sideband selection: usb (default) | lsb")
             ->transform(CLI::CheckedTransformer(sidebandMap, CLI::ignore_case));
 
-        return rpitx::cli::finalizeParse(app, argc, argv);
+        return rpitx::cli::parseCliApp(app, argc, argv);
     }
 
     int run(int argc, char* argv[]) {

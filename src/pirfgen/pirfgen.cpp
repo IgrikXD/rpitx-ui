@@ -99,7 +99,7 @@ namespace pirfgen {
                        "Number of equidistant tones for --mode multitone (range [2, 1024])")
             ->check(CLI::Range(2, MAX_TONE_COUNT));
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

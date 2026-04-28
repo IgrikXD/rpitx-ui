@@ -51,7 +51,7 @@ namespace pimorse {
                        "Message to encode and transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\")")
             ->required();
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

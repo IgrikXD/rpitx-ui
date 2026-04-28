@@ -57,7 +57,7 @@ namespace rpitx::cli {
         return static_cast<std::uint64_t>(value);
     }
 
-    ParseResult finalizeParse(CLI::App& app, int argc, char* argv[]) {
+    ParseResult parseCliApp(CLI::App& app, int argc, char* argv[]) {
         try {
             app.parse(argc, argv);
         } catch (const CLI::CallForHelp&) {

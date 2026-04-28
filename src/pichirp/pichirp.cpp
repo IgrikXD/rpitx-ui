@@ -68,7 +68,7 @@ namespace pichirp {
             ->required()
             ->check(rpitx::cli::validators::PositiveFiniteFloat);
 
-        if (const auto result{rpitx::cli::finalizeParse(app, argc, argv)};
+        if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }

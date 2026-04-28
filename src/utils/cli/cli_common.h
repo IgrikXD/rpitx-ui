@@ -46,7 +46,7 @@ namespace rpitx::cli {
     [[nodiscard]] std::optional<std::uint64_t> parseFrequencyHz(std::string_view text);
 
     /**
-     * @brief Run CLI11 parsing and translate the outcome into a ParseResult.
+     * @brief Parse a configured CLI11 application and translate the outcome into a ParseResult.
      *
      * Catches CLI::CallForHelp and prints help to stdout (exit cleanly).
      * Catches CLI::ParseError and prints the diagnostic plus help to stderr
@@ -59,7 +59,7 @@ namespace rpitx::cli {
      * @return ParseResult::Ok on success, ::Help if --help was requested,
      *         ::Error on parse failure.
      */
-    [[nodiscard]] ParseResult finalizeParse(CLI::App& app, int argc, char* argv[]);
+    [[nodiscard]] ParseResult parseCliApp(CLI::App& app, int argc, char* argv[]);
 
     /**
      * @brief Convert a captured frequency string into integer Hz.
