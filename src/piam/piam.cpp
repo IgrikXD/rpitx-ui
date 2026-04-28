@@ -108,7 +108,7 @@ namespace piam {
         AudioPipeline audio{*source,
                             {
                                 .loop               = params.loop,
-                                .targetSampleRate   = static_cast<int>(TARGET_SAMPLE_RATE),
+                                .targetSampleRate   = TARGET_SAMPLE_RATE,
                                 .targetOutputFrames = TARGET_OUTPUT_FRAMES,
                                 .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
                                 .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
@@ -120,7 +120,8 @@ namespace piam {
                   << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
-        amdmasync dma{params.transmissionFrequency, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        amdmasync dma{params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH,
+                      DMA_FIFO_SIZE};
 
         // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
         // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused

@@ -126,7 +126,7 @@ namespace pissb {
         AudioPipeline audio{*source,
                             {
                                 .loop               = params.loop,
-                                .targetSampleRate   = static_cast<int>(TARGET_SAMPLE_RATE),
+                                .targetSampleRate   = TARGET_SAMPLE_RATE,
                                 .targetOutputFrames = TARGET_OUTPUT_FRAMES,
                                 .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
                                 .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
@@ -139,7 +139,11 @@ namespace pissb {
                   << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         SsbProcessor ssb{params.mode};
-        iqdmasync dma{params.transmissionFrequency, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE, MODE_IQ};
+        iqdmasync dma{params.transmissionFrequency,
+                      static_cast<uint32_t>(TARGET_SAMPLE_RATE),
+                      DMA_BIT_DEPTH,
+                      DMA_FIFO_SIZE,
+                      MODE_IQ};
         dma.SetPLLMasterLoop(3, 4, 0);
 
         // AudioPipeline owns source-rate input buffers, downmixing, loop-aware

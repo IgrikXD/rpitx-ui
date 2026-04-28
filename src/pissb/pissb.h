@@ -31,7 +31,7 @@ namespace pissb {
     /**
      * @brief Internal SSB audio / IQ sample rate in Hz.
      */
-    inline constexpr uint32_t TARGET_SAMPLE_RATE{48'000};
+    inline constexpr int TARGET_SAMPLE_RATE{48'000};
 
     /**
      * @brief Target output frames per processing block (~21 ms at 48 kHz).
