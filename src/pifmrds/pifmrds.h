@@ -80,8 +80,8 @@ namespace pifmrds {
      * @brief FM-RDS parameters extracted from argv.
      */
     struct FmRdsParameters {
-        uint64_t freq{0};
-        std::string audioPath;
+        uint64_t transmissionFrequency{0};
+        std::string audioPath{""};
         bool loop{false};
         uint16_t pi{DEFAULT_RDS_PI};
         std::string ps{DEFAULT_RDS_PS};

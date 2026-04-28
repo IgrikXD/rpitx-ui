@@ -40,8 +40,8 @@ namespace pimorse {
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params) {
         CLI::App app{"Morse code CW OOK transmitter"};
 
-        std::string freqText;
-        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--wpm", params.wpm, "Speed in words per minute (positive finite)")
@@ -61,7 +61,7 @@ namespace pimorse {
             return rpitx::cli::ParseResult::Error;
         }
 
-        return rpitx::cli::assignFrequencyHz(freqText, params.freq);
+        return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
 
     std::string encodeMessage(std::string_view message) {
@@ -84,13 +84,13 @@ namespace pimorse {
         return encodedMessage;
     }
 
-    void sendCwOok(float freq, float symbolRate, std::string_view cw) {
+    void sendCwOok(float transmissionFrequency, float symbolRate, std::string_view cw) {
         const auto fifoSize{static_cast<int>(cw.size()) - 1};
         if (fifoSize <= 0) {
             return;
         }
 
-        ookburst ook(freq, symbolRate, OOK_DMA_BITS, fifoSize, OOK_UPSAMPLE);
+        ookburst ook(transmissionFrequency, symbolRate, OOK_DMA_BITS, fifoSize, OOK_UPSAMPLE);
 
         std::vector<unsigned char> symbols(fifoSize);
         std::ranges::transform(cw.substr(0, fifoSize), symbols.begin(), [](char c) -> unsigned char {
@@ -121,7 +121,7 @@ namespace pimorse {
         // ookburst takes the carrier frequency as float; --freq is parsed and
         // validated as integer Hz per the CLI v2 contract, then narrowed at the
         // call boundary.
-        sendCwOok(static_cast<float>(params.freq), symbolRate, encodedMessage);
+        sendCwOok(static_cast<float>(params.transmissionFrequency), symbolRate, encodedMessage);
 
         return 0;
     }

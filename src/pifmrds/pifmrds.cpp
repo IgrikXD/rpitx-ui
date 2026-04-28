@@ -120,8 +120,8 @@ namespace pifmrds {
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params) {
         CLI::App app{"FM broadcast transmitter with RDS (audio file -> librpitx ngfmdmasync at 228 kHz)"};
 
-        std::string freqText;
-        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
@@ -172,7 +172,7 @@ namespace pifmrds {
             return result;
         }
 
-        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+        if (const auto result{rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
@@ -232,7 +232,7 @@ namespace pifmrds {
                                 .channelMode        = AudioChannelMode::Preserve,
                             }};
 
-        std::cout << "pifmrds: center=" << params.freq << " Hz, audio_rate=" << audioFormat.sampleRate
+        std::cout << "pifmrds: center=" << params.transmissionFrequency << " Hz, audio_rate=" << audioFormat.sampleRate
                   << " Hz, channels=" << audioFormat.channels << ", mpx_rate=" << MPX_SAMPLE_RATE
                   << " Hz, format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl
                   << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
@@ -249,7 +249,7 @@ namespace pifmrds {
         proc.encoder().setPs(params.ps);
         proc.encoder().setRt(params.rt);
 
-        ngfmdmasync dma{params.freq, MPX_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        ngfmdmasync dma{params.transmissionFrequency, MPX_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
         // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS

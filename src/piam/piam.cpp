@@ -60,8 +60,8 @@ namespace piam {
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], AmParameters& params) {
         CLI::App app{"AM transmitter (audio file -> librpitx amdmasync)"};
 
-        std::string freqText;
-        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
@@ -72,7 +72,7 @@ namespace piam {
             return result;
         }
 
-        return rpitx::cli::assignFrequencyHz(freqText, params.freq);
+        return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
 
     int run(int argc, char* argv[]) {
@@ -117,12 +117,12 @@ namespace piam {
                                 .channelMode        = AudioChannelMode::Mono,
                             }};
 
-        std::cout << "piam: center=" << params.freq << " Hz, src_rate=" << fmt.sampleRate
+        std::cout << "piam: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
                   << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
                   << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
-        amdmasync dma{params.freq, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        amdmasync dma{params.transmissionFrequency, TARGET_SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
         // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused

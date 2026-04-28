@@ -50,7 +50,7 @@ namespace pichirp {
      * @brief Chirp parameters extracted from argv.
      */
     struct ChirpParameters {
-        uint64_t freq{0};
+        uint64_t transmissionFrequency{0};
         float bandwidth{0.0F};
         float sweepTime{0.0F};
         int periodSamples{0};  ///< Derived: sweepTime * SAMPLE_RATE, validated in parseArgs.

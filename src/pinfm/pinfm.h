@@ -69,8 +69,8 @@ namespace pinfm {
      * @brief NFM parameters extracted from argv.
      */
     struct NfmParameters {
-        uint64_t freq{0};
-        std::string audioPath;
+        uint64_t transmissionFrequency{0};
+        std::string audioPath{""};
         bool loop{false};
         NfmMode mode{NfmMode::Wide};  ///< Default to wide (+-5 kHz, amateur VHF/UHF).
     };

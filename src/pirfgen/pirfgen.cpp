@@ -71,8 +71,8 @@ namespace pirfgen {
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], RfGenParameters& params) {
         CLI::App app{"Wideband RF generator (noise / sweep / multitone)"};
 
-        std::string freqText;
-        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--bandwidth", params.bandwidth, "RF bandwidth in Hz (must be below --sample-rate)")
@@ -104,7 +104,7 @@ namespace pirfgen {
             return result;
         }
 
-        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+        if (const auto result{rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
@@ -161,7 +161,7 @@ namespace pirfgen {
         std::signal(SIGTERM, handleSignal);
         std::signal(SIGINT, handleSignal);
 
-        std::cout << "pirfgen: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
+        std::cout << "pirfgen: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, mode=" << modeName(params.mode) << ", rate=" << params.sampleRate << " Hz";
         if (params.mode == RfGenMode::Multitone) {
             std::cout << ", tones=" << params.toneCount.value();
@@ -177,7 +177,7 @@ namespace pirfgen {
             .toneCount = params.toneCount.value_or(0),
         }};
 
-        ngfmdmasync dma{params.freq, params.sampleRate, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        ngfmdmasync dma{params.transmissionFrequency, params.sampleRate, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
         const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /

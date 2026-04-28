@@ -65,8 +65,8 @@ namespace piam {
      * @brief AM parameters extracted from argv.
      */
     struct AmParameters {
-        uint64_t freq{0};
-        std::string audioPath;
+        uint64_t transmissionFrequency{0};
+        std::string audioPath{""};
         bool loop{false};
     };
 

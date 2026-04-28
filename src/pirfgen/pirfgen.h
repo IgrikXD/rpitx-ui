@@ -48,7 +48,7 @@ namespace pirfgen {
      */
     struct RfGenParameters {
         RfGenMode mode{RfGenMode::Noise};
-        uint64_t freq{0};
+        uint64_t transmissionFrequency{0};
         float bandwidth{0.0F};
         uint32_t sampleRate{DEFAULT_SAMPLE_RATE};
         std::optional<int> toneCount;  ///< Engaged iff --tone-count was given on the CLI.

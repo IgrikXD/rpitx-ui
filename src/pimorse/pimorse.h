@@ -37,7 +37,7 @@ namespace pimorse {
      * @brief Morse transmitter parameters extracted from argv.
      */
     struct PimorseParameters {
-        uint64_t freq{0};
+        uint64_t transmissionFrequency{0};
         float wpm{0.0F};
         std::string message;
     };
@@ -55,7 +55,7 @@ namespace pimorse {
     /**
      * @brief Transmit a CW OOK binary string at the given frequency and symbol rate.
      */
-    void sendCwOok(float freq, float symbolRate, std::string_view cw);
+    void sendCwOok(float transmissionFrequency, float symbolRate, std::string_view cw);
 
     /**
      * @brief Run the Morse code CW OOK transmitter.

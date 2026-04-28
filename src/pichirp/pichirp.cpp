@@ -57,8 +57,8 @@ namespace pichirp {
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], ChirpParameters& params) {
         CLI::App app{"Sinusoidal FM chirp transmitter"};
 
-        std::string freqText;
-        app.add_option("--freq", freqText, "Carrier frequency in Hz")
+        std::string transmissionFrequencyText;
+        app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--bandwidth", params.bandwidth, "RF bandwidth in Hz (peak deviation = bandwidth / 2)")
@@ -73,7 +73,7 @@ namespace pichirp {
             return result;
         }
 
-        if (const auto result{rpitx::cli::assignFrequencyHz(freqText, params.freq)};
+        if (const auto result{rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency)};
             result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
@@ -119,10 +119,10 @@ namespace pichirp {
         std::signal(SIGTERM, handleSignal);
         std::signal(SIGINT, handleSignal);
 
-        std::cout << "pichirp: center=" << params.freq << " Hz, bandwidth=" << params.bandwidth
+        std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
 
-        ngfmdmasync dma{params.freq, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
         const float deviation{params.bandwidth * 0.5F};
