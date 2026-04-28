@@ -15,9 +15,14 @@
 #include <chrono>
 #include <ctime>
 
-#include "byte_utils.h"
-
 namespace {
+    /**
+     * @brief Pack two bytes into a 16-bit value, big-endian (MSB first).
+     */
+    [[nodiscard]] constexpr uint16_t packUint16BigEndian(uint8_t high, uint8_t low) {
+        return static_cast<uint16_t>((static_cast<uint16_t>(high) << 8U) | static_cast<uint16_t>(low));
+    }
+
     /**
      * @brief RDS group block indexes.
      */

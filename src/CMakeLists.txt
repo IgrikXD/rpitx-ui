@@ -15,12 +15,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 
 # ----------------------------------------------------------
-# Shared header-only common utilities
-# ----------------------------------------------------------
-add_library(rpitx_common_utils INTERFACE)
-target_include_directories(rpitx_common_utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/utils)
-
-# ----------------------------------------------------------
 # Shared DSP utility library
 # ----------------------------------------------------------
 add_library(rpitx_dsp_utils STATIC
@@ -90,7 +84,6 @@ target_link_libraries(pifmrds
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
-        rpitx_common_utils
         librpitx::librpitx
 )
 
