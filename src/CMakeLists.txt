@@ -15,15 +15,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 
 # ----------------------------------------------------------
-# CLI11 (header-based command-line parser)
-# ----------------------------------------------------------
-# CLI11 ships a CMake config package on every distribution that provides
-# libcli11-dev, so prefer find_package over pkg-config to pick up the
-# imported CLI11::CLI11 target with its include directories and required
-# C++ flags already wired up.
-find_package(CLI11 CONFIG REQUIRED)
-
-# ----------------------------------------------------------
 # Shared DSP and I/O utility library
 # ----------------------------------------------------------
 add_library(rpitx_utils STATIC
@@ -47,9 +38,9 @@ target_link_libraries(rpitx_utils PRIVATE m)
 # ----------------------------------------------------------
 # Shared CLI11 helpers used by migrated rpitx-ui binaries
 # ----------------------------------------------------------
-# Kept separate from rpitx_utils so the CLI11 dependency is isolated to
-# the migrated binaries that opt into it. Non-migrated targets keep their
-# legacy hand-written parsers without picking up CLI11.
+# Encapsulate common CLI11-related code (validators, helper functions, etc.) in a separate library
+# to avoid code duplication across multiple binaries.
+find_package(CLI11 CONFIG REQUIRED)
 add_library(rpitx_cli_utils STATIC
     utils/cli/cli_common.cpp
     utils/cli/cli_validators.cpp
