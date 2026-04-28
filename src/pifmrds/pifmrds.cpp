@@ -201,12 +201,11 @@ namespace pifmrds {
                 return 1;
         }
 
+        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
         std::signal(SIGTERM, handleSignal);
+        // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
-        // pifmrds writes startup/shutdown status to stdout. If stdout is attached
-        // to a pipe whose reader exits (e.g. `pifmrds ... | tee log` where tee is
-        // killed), those writes would raise SIGPIPE and abort us. Handle it as
-        // a graceful shutdown instead.
+        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
         std::signal(SIGPIPE, handleSignal);
 
         auto source{makeFileAudioSource(params.audioPath)};

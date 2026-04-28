@@ -74,8 +74,11 @@ namespace pissb {
                 return 1;
         }
 
+        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
         std::signal(SIGTERM, handleSignal);
+        // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
+        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
         std::signal(SIGPIPE, handleSignal);
 
         SsbProcessor ssb{params.mode};

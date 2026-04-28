@@ -116,7 +116,9 @@ namespace pichirp {
                 return 1;
         }
 
+        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
         std::signal(SIGTERM, handleSignal);
+        // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
 
         std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
