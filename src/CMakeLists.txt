@@ -100,6 +100,7 @@ add_executable(pirfgen
     pirfgen/rfgen_processor.cpp
     pirfgen/generators/multitone_generator.cpp
     pirfgen/generators/noise_generator.cpp
+    pirfgen/generators/sawtooth.cpp
     pirfgen/generators/sweep_generator.cpp
 )
 target_link_libraries(pirfgen PRIVATE rpitx_utils rpitx_cli_utils librpitx::librpitx)
