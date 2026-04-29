@@ -109,11 +109,11 @@ void AudioRateConverter::reset() {
     // inputAccumulator_ deliberately preserved - see header documentation.
 }
 
-std::size_t AudioRateConverter::drain(std::span<float> out) {
+std::optional<std::size_t> AudioRateConverter::drain(std::span<float> out) {
     if (out.empty() || resampler_ == std::nullopt) {
         // Passthrough mode has no internal state to drain - the source
         // exhausting was already reported to the caller as End.
-        return 0;
+        return std::size_t{0};
     }
 
     // 1. Emit any buffered spill samples first - these are real output the
@@ -141,7 +141,11 @@ std::size_t AudioRateConverter::drain(std::span<float> out) {
     // state; reset() must be invoked before resuming normal process() use.
     const auto result{resampler_.value().process(std::span<const float>{}, out.subspan(outIdx))};
     if (result == std::nullopt) {
-        return outIdx;
+        // Surface the libsoxr failure as nullopt so the pipeline reports
+        // Error, not End - silently treating a flush failure as a clean
+        // drain would mask a real fault and lose any spill we already
+        // emitted into out.
+        return std::nullopt;
     }
     outIdx += result.value().outputProduced;
     return outIdx;
@@ -189,11 +193,17 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     }
 
     // 2. Run soxr into the staging buffer. The staging buffer is sized so
-    // soxr always consumes the full input (idone == ilen); we ignore
-    // inputConsumed because it is structurally guaranteed to equal in.size().
+    // soxr stops on input exhaustion rather than the output cap, but verify
+    // that invariant at runtime as a cheap guard against any future libsoxr
+    // version where the bound is no longer tight - silently dropping input
+    // samples here is exactly the failure mode that produced carrier-only
+    // RF in the first iteration of this rewrite.
     const auto result{resampler_.value().process(
         in, std::span<float>{stagingBuffer_.data(), stagingBuffer_.size()})};
     if (result == std::nullopt) {
+        return false;
+    }
+    if (result.value().inputConsumed != in.size()) {
         return false;
     }
     const std::size_t produced{result.value().outputProduced};

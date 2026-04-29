@@ -287,13 +287,17 @@ AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
     std::size_t producedAnyChannel{0};
     for (int c{0}; c < outputChannels_; ++c) {
         auto& channel{channelOutput_[static_cast<std::size_t>(c)]};
-        const std::size_t produced{rateConverters_[static_cast<std::size_t>(c)].drain(
+        const auto produced{rateConverters_[static_cast<std::size_t>(c)].drain(
             std::span<float>{channel.data(), static_cast<std::size_t>(outputFrames_)})};
-        if (produced > producedAnyChannel) {
-            producedAnyChannel = produced;
+        if (produced == std::nullopt) {
+            return AudioPipelineStatus::Error;
         }
-        if (produced < static_cast<std::size_t>(outputFrames_)) {
-            std::fill(channel.begin() + static_cast<std::ptrdiff_t>(produced), channel.end(), 0.0F);
+        const std::size_t produced_n{produced.value()};
+        if (produced_n > producedAnyChannel) {
+            producedAnyChannel = produced_n;
+        }
+        if (produced_n < static_cast<std::size_t>(outputFrames_)) {
+            std::fill(channel.begin() + static_cast<std::ptrdiff_t>(produced_n), channel.end(), 0.0F);
         }
     }
 

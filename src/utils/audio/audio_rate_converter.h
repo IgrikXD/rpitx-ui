@@ -113,17 +113,18 @@ public:
      *
      * Drains spilled output samples first, then feeds soxr the documented
      * end-of-stream flush form (empty input span) to recover any samples
-     * still buffered in the filter delay line. Returns the number of frames
-     * written into out; a return value of 0 means the converter is fully
-     * drained and the pipeline should report End to its caller.
+     * still buffered in the filter delay line.
      *
      * Once drain() has been called, the soxr instance is in libsoxr's
      * post-flush state - call reset() before resuming normal process() use.
      *
      * @param out Output buffer; size must not exceed outputFrames().
-     * @return Number of frames written (0 .. out.size()).
+     * @return Number of frames written (0 .. out.size()) on success; 0 means
+     *         the converter is fully drained. std::nullopt when libsoxr
+     *         reports an error during the flush call - the caller should
+     *         treat this as a hard pipeline failure rather than a clean end.
      */
-    [[nodiscard]] std::size_t drain(std::span<float> out);
+    [[nodiscard]] std::optional<std::size_t> drain(std::span<float> out);
 
 private:
     int outputFrames_;
