@@ -153,9 +153,7 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
 
     rateConverters_.reserve(static_cast<std::size_t>(outputChannels_));
     for (int c{0}; c < outputChannels_; ++c) {
-        rateConverters_.emplace_back(sourceFormat_.sampleRate,
-                                     config_.targetSampleRate,
-                                     config_.targetOutputFrames);
+        rateConverters_.emplace_back(sourceFormat_.sampleRate, config_.targetSampleRate, config_.targetOutputFrames);
     }
 
     // Per-channel converters are configured identically and start their
@@ -168,9 +166,8 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
     // Buffers are sized for the worst-case input block. The actual per-call
     // read uses the converter's peekNextInputFrames(), which never exceeds
     // maxInputFrames_, and the surplus capacity is simply unused that call.
-    interleavedInput_.assign(static_cast<std::size_t>(maxInputFrames_) *
-                                 static_cast<std::size_t>(sourceFormat_.channels),
-                             0.0F);
+    interleavedInput_.assign(
+        static_cast<std::size_t>(maxInputFrames_) * static_cast<std::size_t>(sourceFormat_.channels), 0.0F);
     channelInput_.assign(static_cast<std::size_t>(outputChannels_),
                          std::vector<float>(static_cast<std::size_t>(maxInputFrames_), 0.0F));
     channelOutput_.assign(static_cast<std::size_t>(outputChannels_),
