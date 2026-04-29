@@ -181,11 +181,15 @@ private:
     static constexpr float PILOT_GAIN{0.10F};
 
     /**
-     * @brief RDS subcarrier level, fraction of peak deviation.
+     * @brief RDS subcarrier level applied to the unnormalized RdsModulator output.
      *
-     * 5 % nominal yields ~3.75 kHz peak RDS deviation at a 75 kHz peak
-     * total - the canonical EN 50067 "high pilot level" preset, which is
-     * preferred for noisy reception conditions.
+     * 0.05 matches the canonical PiFmRds upstream value, kept verbatim so
+     * receivers tuned against that reference see identical RDS amplitude
+     * statistics. Not a literal "5 % of peak deviation": RdsModulator emits
+     * samples in the natural domain of the precomputed RDS pulse (per-pulse
+     * peak ~0.54), so the actual RDS contribution lands in the EN 50067
+     * "high pilot level" range (~2-4 kHz peak deviation at 75 kHz peak total)
+     * rather than a clean 3.75 kHz - the preset preferred for noisy reception.
      */
     static constexpr float RDS_GAIN{0.05F};
 
