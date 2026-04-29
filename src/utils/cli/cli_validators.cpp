@@ -19,18 +19,12 @@
 #include "cli_common.h"
 
 namespace rpitx::cli::validators {
-    // The Validator constructor takes a callback returning an empty string on
-    // success and a non-empty diagnostic on failure. CLI11 prepends the option
-    // name automatically when raising the resulting ParseError, so the message
-    // here describes only the constraint that was violated.
-
-    // CLI::Validator constructor arguments are (function, validator_desc, validator_name).
-    // validator_desc is appended after the type tag in help output as ":<desc>";
-    // validator_name is an internal identifier (not shown in help). Both are left
-    // empty here so help reads cleanly as e.g. "--freq TEXT REQUIRED" instead of
-    // "--freq TEXT:Frequency in Hz REQUIRED" - the option's own description
-    // already explains the value, and the validator returns its own diagnostic
-    // string on failure.
+    // CLI::Validator(callback, desc, name): the callback returns "" on success
+    // or a diagnostic on failure (CLI11 prepends the option name when raising
+    // the ParseError, so the message describes only the violated constraint).
+    // desc and name are deliberately empty so help reads "--freq TEXT REQUIRED"
+    // rather than "--freq TEXT:... REQUIRED" - the option's own description
+    // already explains the value.
     const CLI::Validator PositiveFiniteFloat{
         [](const std::string& text) -> std::string {
             float value{};

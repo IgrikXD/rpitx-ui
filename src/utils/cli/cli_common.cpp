@@ -17,14 +17,14 @@
 #include <system_error>
 
 namespace rpitx::cli {
-    std::optional<std::uint64_t> parseFrequencyHz(std::string_view text) {
+    std::optional<std::uint64_t> parseFrequencyHz(std::string_view text) noexcept {
         if (text.empty()) {
             return std::nullopt;
         }
 
-        // Parse via std::from_chars on double so that scientific and decimal
-        // notation are both accepted in a locale-independent, allocation-free
-        // way. The entire input must be consumed - trailing garbage is an error.
+        // std::from_chars on double accepts decimal and scientific notation
+        // in a locale-independent, allocation-free way. The full input must
+        // be consumed; trailing garbage is rejected.
         double value{};
         const auto first{text.data()};
         const auto last{first + text.size()};
@@ -32,11 +32,10 @@ namespace rpitx::cli {
             return std::nullopt;
         }
 
-        // Guard invalid numeric values before the double -> uint64_t conversion.
-        // UINT64_MAX (2^64 - 1) is not exactly representable as double;
-        // std::ldexp(1.0, 64) is exactly 2^64 and is the strict upper bound
-        // any finite double can convert safely from.
-        if (std::isfinite(value) == false || value <= 0.0 || value >= std::ldexp(1.0, 64)) {
+        // UINT64_MAX (2^64 - 1) is not exactly representable in double;
+        // 0x1p64 is exactly 2^64 and is the strict upper bound any finite
+        // double can convert safely to uint64_t from.
+        if (std::isfinite(value) == false || value <= 0.0 || value >= 0x1p64) {
             return std::nullopt;
         }
 

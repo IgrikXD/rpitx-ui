@@ -42,7 +42,7 @@ namespace rpitx::cli {
      * @param text Textual frequency value from the command line.
      * @return Parsed value in Hz on success, std::nullopt on failure.
      */
-    [[nodiscard]] std::optional<std::uint64_t> parseFrequencyHz(std::string_view text);
+    [[nodiscard]] std::optional<std::uint64_t> parseFrequencyHz(std::string_view text) noexcept;
 
     /**
      * @brief Parse a configured CLI11 application and translate the outcome into a ParseResult.
