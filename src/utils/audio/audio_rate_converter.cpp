@@ -27,7 +27,7 @@ namespace {
      */
     constexpr std::size_t STAGING_HEADROOM_SAMPLES{64};
 
-    [[nodiscard]] long long ceilDiv(long long num, long long den) {
+    [[nodiscard]] constexpr long long ceilDiv(long long num, long long den) noexcept {
         return (num + den - 1) / den;
     }
 
@@ -63,8 +63,7 @@ AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, int t
     // ceil(maxInputFrames * tgt / src) is the rate-ratio bound; STAGING_HEADROOM
     // covers libsoxr's per-call jitter so the call is guaranteed to consume
     // every input frame (idone == ilen) instead of stalling at the output cap.
-    const long long maxStagingLL{
-        ceilDiv(static_cast<long long>(maxInputFrames_) * targetRateHz, sourceRateHz)};
+    const long long maxStagingLL{ceilDiv(static_cast<long long>(maxInputFrames_) * targetRateHz, sourceRateHz)};
     if (maxStagingLL > static_cast<long long>(std::numeric_limits<int>::max())) {
         throw std::invalid_argument{"AudioRateConverter staging size overflows int"};
     }
@@ -75,38 +74,6 @@ AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, int t
     spill_.reserve(STAGING_HEADROOM_SAMPLES);
 
     resampler_.emplace(sourceRateHz, targetRateHz);
-}
-
-int AudioRateConverter::outputFrames() const {
-    return outputFrames_;
-}
-
-int AudioRateConverter::maxInputFrames() const {
-    return maxInputFrames_;
-}
-
-int AudioRateConverter::peekNextInputFrames() const {
-    if (resampler_ == std::nullopt) {
-        return outputFrames_;
-    }
-
-    // Bresenham accumulator state invariant:
-    //   inputAccumulator_ == K * outputFrames * sourceRate - sum(n_i) * targetRate
-    // and inputAccumulator_ stays in [0, targetRate) after each process() call.
-    // The next n is the largest integer such that n * targetRate <= total, which
-    // makes the cumulative input track K * outputFrames * sourceRate / targetRate
-    // exactly (rounded to the nearest integer at each step).
-    const long long total{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_};
-    return static_cast<int>(total / targetRate_);
-}
-
-void AudioRateConverter::reset() {
-    spill_.clear();
-    spillReadPos_ = 0;
-    if (resampler_ != std::nullopt) {
-        resampler_.value().clear();
-    }
-    // inputAccumulator_ deliberately preserved - see header documentation.
 }
 
 std::optional<std::size_t> AudioRateConverter::drain(std::span<float> out) {
@@ -123,7 +90,7 @@ std::optional<std::size_t> AudioRateConverter::drain(std::span<float> out) {
     {
         const std::size_t available{spill_.size() - spillReadPos_};
         const std::size_t take{std::min(available, out.size())};
-        std::copy_n(spill_.begin() + static_cast<std::ptrdiff_t>(spillReadPos_), take, out.begin());
+        std::copy_n(spill_.begin() + spillReadPos_, take, out.begin());
         spillReadPos_ += take;
         outIdx += take;
         if (spillReadPos_ >= spill_.size()) {
@@ -183,7 +150,7 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     {
         const std::size_t available{spill_.size() - spillReadPos_};
         const std::size_t take{std::min(available, out.size())};
-        std::copy_n(spill_.begin() + static_cast<std::ptrdiff_t>(spillReadPos_), take, out.begin());
+        std::copy_n(spill_.begin() + spillReadPos_, take, out.begin());
         spillReadPos_ += take;
         outIdx += take;
         if (spillReadPos_ >= spill_.size()) {
@@ -193,13 +160,11 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     }
 
     // 2. Run soxr into the staging buffer. The staging buffer is sized so
-    // soxr stops on input exhaustion rather than the output cap, but verify
+    // soxr stops on input exhaustion rather than the output cap; verify
     // that invariant at runtime as a cheap guard against any future libsoxr
     // version where the bound is no longer tight - silently dropping input
-    // samples here is exactly the failure mode that produced carrier-only
-    // RF in the first iteration of this rewrite.
-    const auto result{resampler_.value().process(
-        in, std::span<float>{stagingBuffer_.data(), stagingBuffer_.size()})};
+    // samples here would degrade the output to carrier-only RF.
+    const auto result{resampler_.value().process(in, std::span<float>{stagingBuffer_})};
     if (result == std::nullopt) {
         return false;
     }
@@ -209,21 +174,19 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     const std::size_t produced{result.value().outputProduced};
 
     // 3. Copy as many staging samples as fit into the remaining out slots;
-    // overflow goes into the spill for next call.
+    // overflow goes into the spill for the next call.
     const std::size_t toOut{std::min(produced, out.size() - outIdx)};
-    std::copy_n(stagingBuffer_.begin(), toOut, out.begin() + static_cast<std::ptrdiff_t>(outIdx));
+    std::copy_n(stagingBuffer_.begin(), toOut, out.begin() + outIdx);
     outIdx += toOut;
 
     if (produced > toOut) {
         // Compact any leftover spill head before appending so spill_.size()
         // stays bounded by per-call jitter rather than growing across calls.
         if (spillReadPos_ > 0) {
-            spill_.erase(spill_.begin(), spill_.begin() + static_cast<std::ptrdiff_t>(spillReadPos_));
+            spill_.erase(spill_.begin(), spill_.begin() + spillReadPos_);
             spillReadPos_ = 0;
         }
-        spill_.insert(spill_.end(),
-                      stagingBuffer_.begin() + static_cast<std::ptrdiff_t>(toOut),
-                      stagingBuffer_.begin() + static_cast<std::ptrdiff_t>(produced));
+        spill_.insert(spill_.end(), stagingBuffer_.begin() + toOut, stagingBuffer_.begin() + produced);
     }
 
     // 4. Filter warmup: on the very first calls soxr has not yet seen
@@ -232,7 +195,7 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     // first call, zero from the second onward). Steady state with Bresenham
     // input sizing always fills out in full.
     if (outIdx < out.size()) {
-        std::fill(out.begin() + static_cast<std::ptrdiff_t>(outIdx), out.end(), 0.0F);
+        std::fill(out.begin() + outIdx, out.end(), 0.0F);
     }
     return true;
 }

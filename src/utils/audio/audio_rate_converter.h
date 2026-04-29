@@ -21,23 +21,22 @@
 /**
  * @brief Single-channel streaming rate converter with a fixed output block contract.
  *
- * Wraps SoxrResampler so callers see a uniform fixed-size output block regardless
- * of the source / target rate ratio. The input block size varies between calls
- * via a Bresenham accumulator so the cumulative input rate matches the target
- * ratio exactly - critical because libsoxr halts soxr_process() as soon as
- * either the input is exhausted OR the output buffer is full, and feeding a
- * constant ceil()-rounded input together with a tight output buffer would
- * either drop input samples or grow an internal spill without bound on long
- * playbacks. With Bresenham input sizing plus an oversized staging buffer for
- * soxr's writes, libsoxr always consumes the full input span and the residual
- * jitter (one or two samples per call) is absorbed by an internal output spill.
+ * Wraps SoxrResampler so callers see a uniform fixed-size output block
+ * regardless of the source / target rate ratio. The input block size varies
+ * between calls via a Bresenham accumulator that tracks the rate ratio
+ * exactly - libsoxr halts soxr_process() on either input exhaustion or
+ * output cap, so a constant ceil()-rounded input with a tight output buffer
+ * would drop samples or grow an internal spill unbounded. With Bresenham
+ * sizing and an oversized staging buffer, libsoxr always consumes the full
+ * input span and the per-call output jitter (one or two samples) is absorbed
+ * by an internal spill.
  *
- * When sourceRateHz == targetRateHz, no soxr instance is created and process()
- * degrades to a memory copy, mirroring the previous polyphase-based behaviour.
+ * When sourceRateHz == targetRateHz no soxr instance is created and process()
+ * degrades to a memory copy.
  *
- * Non-copyable; movable so the converter can be assigned into std::optional
- * members in deferred-construction patterns (e.g. processors that learn the
- * source rate at run time).
+ * Non-copyable; movable so the converter can be deferred-constructed inside
+ * std::optional members (e.g. processors that learn the source rate at run
+ * time).
  */
 class AudioRateConverter {
 public:
@@ -52,7 +51,7 @@ public:
      *                           targetRateHz.
      *
      * @throws std::invalid_argument when any parameter is non-positive.
-     * @throws std::runtime_error when the underlying soxr handle cannot be created.
+     * @throws std::runtime_error    when the underlying soxr handle cannot be created.
      */
     AudioRateConverter(int sourceRateHz, int targetRateHz, int targetOutputFrames);
 
@@ -64,7 +63,9 @@ public:
     /**
      * @brief Output frames produced per process() call (constant).
      */
-    [[nodiscard]] int outputFrames() const;
+    [[nodiscard]] int outputFrames() const noexcept {
+        return outputFrames_;
+    }
 
     /**
      * @brief Maximum input frames any single process() call may demand.
@@ -72,7 +73,9 @@ public:
      * Used by the pipeline to size source-read buffers conservatively.
      * Bresenham accumulator alternates between this value and one less.
      */
-    [[nodiscard]] int maxInputFrames() const;
+    [[nodiscard]] int maxInputFrames() const noexcept {
+        return maxInputFrames_;
+    }
 
     /**
      * @brief Input frames the next process() call expects.
@@ -82,7 +85,17 @@ public:
      * matching process() call. After process(), the accumulator advances
      * and a fresh peek may return a different value.
      */
-    [[nodiscard]] int peekNextInputFrames() const;
+    [[nodiscard]] int peekNextInputFrames() const noexcept {
+        if (resampler_ == std::nullopt) {
+            return outputFrames_;
+        }
+        // Bresenham invariant: inputAccumulator_ stays in [0, targetRate_)
+        // and the cumulative input across K calls equals
+        // K * outputFrames * sourceRate / targetRate, rounded to the
+        // nearest integer at each step.
+        const long long total{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_};
+        return static_cast<int>(total / targetRate_);
+    }
 
     /**
      * @brief Process one block of audio.
@@ -106,7 +119,14 @@ public:
      * matches the input span the caller has already fetched, and longer
      * looped playbacks do not accumulate sample-count drift.
      */
-    void reset();
+    void reset() {
+        spill_.clear();
+        spillReadPos_ = 0;
+        if (resampler_ != std::nullopt) {
+            resampler_.value().clear();
+        }
+        // inputAccumulator_ deliberately preserved across the boundary.
+    }
 
     /**
      * @brief Pull the converter's tail into out at end-of-stream.

@@ -33,7 +33,7 @@ bool validateAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRat
 
 bool validateLoopSupport(const AudioSource& source, bool loopRequested) {
     if (loopRequested && source.seekable() == false) {
-        std::cerr << "[ERROR] Audio source is not seekable; -l (loop) is unsupported on this input." << std::endl;
+        std::cerr << "[ERROR] Audio source is not seekable; Loop is unsupported on this input." << std::endl;
         return false;
     }
     return true;
@@ -122,12 +122,6 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
     return AudioPipelineStatus::Ok;
 }
 
-bool AudioPipeline::AudioBlockReader::consumeLoopBoundary() {
-    const bool result{restartedThisRead_};
-    restartedThisRead_ = false;
-    return result;
-}
-
 namespace {
     void downmixInterleavedToMono(std::span<const float> interleaved, int channels, std::span<float> mono) {
         assert(channels > 0);
@@ -181,18 +175,6 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
                          std::vector<float>(static_cast<std::size_t>(maxInputFrames_), 0.0F));
     channelOutput_.assign(static_cast<std::size_t>(outputChannels_),
                           std::vector<float>(static_cast<std::size_t>(outputFrames_), 0.0F));
-}
-
-int AudioPipeline::outputChannels() const {
-    return outputChannels_;
-}
-
-int AudioPipeline::outputFrames() const {
-    return outputFrames_;
-}
-
-std::size_t AudioPipeline::outputSamplesPerBlock() const {
-    return static_cast<std::size_t>(outputFrames_) * static_cast<std::size_t>(outputChannels_);
 }
 
 AudioPipelineStatus AudioPipeline::read(std::span<float> out) {

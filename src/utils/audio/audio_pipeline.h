@@ -29,11 +29,11 @@ enum class AudioPipelineStatus {
 };
 
 /**
- * @brief Validate that an AudioSource format is mono/stereo and in a sample-rate range.
+ * @brief Validate that an AudioSource format is mono / stereo and in a sample-rate range.
  *
  * Prints a concise diagnostic to stderr on failure.
  *
- * @param format Source format to validate.
+ * @param format        Source format to validate.
  * @param minSampleRate Inclusive minimum sample rate in Hz.
  * @param maxSampleRate Inclusive maximum sample rate in Hz.
  * @return true when the format is usable by the caller.
@@ -45,7 +45,7 @@ enum class AudioPipelineStatus {
  *
  * Prints a concise diagnostic to stderr on failure.
  *
- * @param source Source to inspect.
+ * @param source        Source to inspect.
  * @param loopRequested Whether the caller requested loop playback.
  * @return true when playback can proceed.
  */
@@ -91,9 +91,15 @@ public:
     AudioPipeline(AudioPipeline&&)                 = delete;
     AudioPipeline& operator=(AudioPipeline&&)      = delete;
 
-    [[nodiscard]] int outputChannels() const;
-    [[nodiscard]] int outputFrames() const;
-    [[nodiscard]] std::size_t outputSamplesPerBlock() const;
+    [[nodiscard]] int outputChannels() const noexcept {
+        return outputChannels_;
+    }
+    [[nodiscard]] int outputFrames() const noexcept {
+        return outputFrames_;
+    }
+    [[nodiscard]] std::size_t outputSamplesPerBlock() const noexcept {
+        return static_cast<std::size_t>(outputFrames_) * static_cast<std::size_t>(outputChannels_);
+    }
 
     /**
      * @brief Read and convert one block at the target sample rate.
@@ -143,7 +149,11 @@ private:
          * before processing that block. Subsequent calls return false until
          * another rewind happens.
          */
-        [[nodiscard]] bool consumeLoopBoundary();
+        [[nodiscard]] bool consumeLoopBoundary() noexcept {
+            const bool result{restartedThisRead_};
+            restartedThisRead_ = false;
+            return result;
+        }
 
     private:
         AudioSource& source_;
