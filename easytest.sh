@@ -212,11 +212,15 @@ else
 	return
 fi
 
-# PS name (Programme Service): 1-8 chars
-if RDS_PS=$(whiptail --inputbox "Enter RDS Programme Service name (1-8 chars):" 8 78 "$DEFAULT_RDS_PS" --title "RDS Programme Service (PS)" 3>&1 1>&2 2>&3); then
+# PS name (Programme Service): 1-8 ASCII chars (RDS does not carry non-ASCII text)
+if RDS_PS=$(whiptail --inputbox "Enter RDS Programme Service name (1-8 ASCII chars):" 8 78 "$DEFAULT_RDS_PS" --title "RDS Programme Service (PS)" 3>&1 1>&2 2>&3); then
 	abort_action=0
 	if [ -z "$RDS_PS" ]; then
 		whiptail --title "Error!" --msgbox "PS cannot be empty!" 8 78
+		abort_action=1
+		return
+	elif printf '%s' "$RDS_PS" | LC_ALL=C grep -q '[^ -~]'; then
+		whiptail --title "Error!" --msgbox "PS must contain only printable ASCII (0x20-0x7E); RDS does not carry non-ASCII text!" 8 78
 		abort_action=1
 		return
 	elif [ "${#RDS_PS}" -gt 8 ]; then
@@ -229,11 +233,15 @@ else
 	return
 fi
 
-# RT (RadioText): 1-64 chars
-if RDS_RT=$(whiptail --inputbox "Enter RDS RadioText (1-64 chars):" 8 78 "$DEFAULT_RDS_RT" --title "RDS RadioText (RT)" 3>&1 1>&2 2>&3); then
+# RT (RadioText): 1-64 ASCII chars (RDS does not carry non-ASCII text)
+if RDS_RT=$(whiptail --inputbox "Enter RDS RadioText (1-64 ASCII chars):" 8 78 "$DEFAULT_RDS_RT" --title "RDS RadioText (RT)" 3>&1 1>&2 2>&3); then
 	abort_action=0
 	if [ -z "$RDS_RT" ]; then
 		whiptail --title "Error!" --msgbox "RT cannot be empty!" 8 78
+		abort_action=1
+		return
+	elif printf '%s' "$RDS_RT" | LC_ALL=C grep -q '[^ -~]'; then
+		whiptail --title "Error!" --msgbox "RT must contain only printable ASCII (0x20-0x7E); RDS does not carry non-ASCII text!" 8 78
 		abort_action=1
 		return
 	elif [ "${#RDS_RT}" -gt 64 ]; then

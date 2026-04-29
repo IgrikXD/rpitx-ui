@@ -18,8 +18,8 @@
  *   - --audio         Path to the audio file (libsndfile-supported format)
  *   - --loop          Loop the audio file (replay from the start on EOF)
  *   - --rds-pi        RDS Programme Identification, 1-4 hex digits (default 0x1234)
- *   - --rds-ps        RDS Programme Service name, 1-8 bytes (default "rpitx-ui")
- *   - --rds-rt        RDS RadioText, 1-64 bytes
+ *   - --rds-ps        RDS Programme Service name, 1-8 ASCII chars (default "rpitx-ui")
+ *   - --rds-rt        RDS RadioText, 1-64 ASCII chars
  *   - --pre-emphasis  FM pre-emphasis in microseconds: 50 | 75 (default 50)
  *   - -h, --help      Print this help message and exit
  *
@@ -91,6 +91,38 @@ namespace pifmrds {
             out = value;
             return true;
         }
+
+        /**
+         * @brief Build a CLI11 validator for RDS PS / RT text fields.
+         *
+         * RDS PS/RT use the EN 50067 G0 character set, not UTF-8: bytes
+         * outside printable ASCII (0x20-0x7E) would render as garbage on
+         * receivers and also overflow the fixed-length PS/RT fields when
+         * a multi-byte encoding is used. Validating bytes consistently here
+         * keeps CLI behaviour aligned with the bash UI's character checks
+         * once both sides agree the input is ASCII.
+         */
+        [[nodiscard]] CLI::Validator makeRdsTextValidator(int maxBytes, std::string fieldName) {
+            auto check{[maxBytes](const std::string& text) -> std::string {
+                if (text.empty()) {
+                    return "must not be empty";
+                }
+                if (text.size() > static_cast<std::size_t>(maxBytes)) {
+                    return "must be at most " + std::to_string(maxBytes) + " ASCII characters";
+                }
+                for (const char ch: text) {
+                    const auto byte{static_cast<unsigned char>(ch)};
+                    if (byte < 0x20 || byte > 0x7E) {
+                        return "must contain only printable ASCII (0x20-0x7E); "
+                               "RDS does not carry non-ASCII text";
+                    }
+                }
+                return {};
+            }};
+            auto description{"RDS " + fieldName + ", 1-" + std::to_string(maxBytes) + " ASCII chars"};
+            auto name{std::move(fieldName) + "_ASCII"};
+            return CLI::Validator{std::move(check), std::move(description), std::move(name)};
+        }
     }  // namespace
 
     float preEmphasisTauFor(PreEmphasisMode mode) {
@@ -130,33 +162,11 @@ namespace pifmrds {
         std::string piText;
         app.add_option("--rds-pi", piText, "RDS Programme Identification, 1-4 hex digits (default 1234)");
 
-        // PS / RT use byte-length validation (size() in bytes, not user-perceived
-        // characters): the RDS encoder copies up to PS_LENGTH / RT_LENGTH bytes
-        // into fixed-size arrays, so byte length is the meaningful unit here.
-        app.add_option("--rds-ps", params.ps, "RDS Programme Service name, 1-8 bytes (default \"rpitx-ui\")")
-            ->check(CLI::Validator{[](const std::string& text) -> std::string {
-                                       if (text.empty()) {
-                                           return "must not be empty";
-                                       }
-                                       if (text.size() > RdsEncoder::PS_LENGTH) {
-                                           return "must be at most 8 bytes";
-                                       }
-                                       return {};
-                                   },
-                                   "RDS PS, 1-8 bytes",
-                                   "PS_BYTES"});
-        app.add_option("--rds-rt", params.rt, "RDS RadioText, 1-64 bytes (default \"rpitx-ui Broadcast WFM with RDS\")")
-            ->check(CLI::Validator{[](const std::string& text) -> std::string {
-                                       if (text.empty()) {
-                                           return "must not be empty";
-                                       }
-                                       if (text.size() > RdsEncoder::RT_LENGTH) {
-                                           return "must be at most 64 bytes";
-                                       }
-                                       return {};
-                                   },
-                                   "RDS RT, 1-64 bytes",
-                                   "RT_BYTES"});
+        app.add_option("--rds-ps", params.ps, "RDS Programme Service name, 1-8 ASCII chars (default \"rpitx-ui\")")
+            ->check(makeRdsTextValidator(RdsEncoder::PS_LENGTH, "PS"));
+        app.add_option("--rds-rt", params.rt,
+                       "RDS RadioText, 1-64 ASCII chars (default \"rpitx-ui Broadcast WFM with RDS\")")
+            ->check(makeRdsTextValidator(RdsEncoder::RT_LENGTH, "RT"));
 
         const std::map<std::string, PreEmphasisMode> preEmphMap{
             {"50", PreEmphasisMode::Eu50},

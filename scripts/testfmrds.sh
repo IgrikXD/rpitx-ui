@@ -13,8 +13,8 @@
 #                    resampled to the 228 kHz FM MPX rate internally.
 #   --loop         : replay the audio file continuously when requested by the UI.
 #   --rds-pi       : RDS PI, 1-4 hex digits  (default 1234)
-#   --rds-ps       : RDS PS, 1-8 bytes       (default rpitx-ui)
-#   --rds-rt       : RDS RT, 1-64 bytes      (default rpitx-ui Broadcast WFM with RDS)
+#   --rds-ps       : RDS PS, 1-8 ASCII chars (default rpitx-ui)
+#   --rds-rt       : RDS RT, 1-64 ASCII chars (default rpitx-ui Broadcast WFM with RDS)
 #   --pre-emphasis : FM pre-emphasis in us, 50|75 (default 50)
 FREQ="$1"
 AUDIO="$2"
