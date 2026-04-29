@@ -36,6 +36,7 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
+#include <charconv>
 #include <csignal>
 #include <cstddef>
 #include <iostream>
@@ -65,31 +66,24 @@ namespace pifmrds {
          *
          * Local to pifmrds - the RDS PI code format is unique to this binary
          * and not worth factoring into the shared validator layer.
+         *
+         * @param text Textual PI value from the command line.
+         * @return Parsed PI on success, std::nullopt on failure.
          */
-        [[nodiscard]] bool parseRdsPi(std::string_view text, uint16_t& out) {
-            std::string_view body{text};
-            if (body.size() >= 2 && (body.substr(0, 2) == "0x" || body.substr(0, 2) == "0X")) {
-                body.remove_prefix(2);
+        [[nodiscard]] std::optional<uint16_t> parseRdsPi(std::string_view text) {
+            if (text.starts_with("0x") || text.starts_with("0X")) {
+                text.remove_prefix(2);
             }
-            if (body.empty() || body.size() > 4) {
-                return false;
+            if (text.empty() || text.size() > 4) {
+                return std::nullopt;
             }
             uint16_t value{};
-            for (const char c: body) {
-                int digit{};
-                if (c >= '0' && c <= '9') {
-                    digit = c - '0';
-                } else if (c >= 'a' && c <= 'f') {
-                    digit = 10 + (c - 'a');
-                } else if (c >= 'A' && c <= 'F') {
-                    digit = 10 + (c - 'A');
-                } else {
-                    return false;
-                }
-                value = static_cast<uint16_t>((value << 4) | digit);
+            const auto* end{text.data() + text.size()};
+            const auto result{std::from_chars(text.data(), end, value, 16)};
+            if (result.ec != std::errc{} || result.ptr != end) {
+                return std::nullopt;
             }
-            out = value;
-            return true;
+            return value;
         }
 
         /**
@@ -190,10 +184,12 @@ namespace pifmrds {
         // digit format with a meaningful diagnostic; the default is left in
         // place when the option is not supplied.
         if (piText.empty() == false) {
-            if (parseRdsPi(piText, params.pi) == false) {
+            const auto parsed{parseRdsPi(piText)};
+            if (parsed == std::nullopt) {
                 std::cerr << "[ERROR] Invalid --rds-pi: '" << piText << "' (expected 1-4 hex digits)" << std::endl;
                 return rpitx::cli::ParseResult::Error;
             }
+            params.pi = parsed.value();
         }
 
         return rpitx::cli::ParseResult::Ok;
