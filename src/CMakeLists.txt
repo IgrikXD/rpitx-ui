@@ -5,42 +5,11 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # ----------------------------------------------------------
-# Shared DSP utility library
+# Project-specific shared utility libraries
 # ----------------------------------------------------------
-add_library(rpitx_dsp_utils STATIC
-    utils/dsp/agc.cpp
-    utils/dsp/biquad.cpp
-    utils/dsp/hilbert.cpp
-)
-target_include_directories(rpitx_dsp_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/dsp)
-target_link_libraries(rpitx_dsp_utils PRIVATE m)
-
-# ----------------------------------------------------------
-# Shared audio utility library
-# ----------------------------------------------------------
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
-pkg_check_modules(SOXR REQUIRED IMPORTED_TARGET soxr)
-
-add_library(rpitx_audio_utils STATIC
-    utils/audio/audio_pipeline.cpp
-    utils/audio/audio_rate_converter.cpp
-    utils/audio/libsndfile_audio_source.cpp
-    utils/audio/soxr_resampler.cpp
-)
-target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/audio)
-target_link_libraries(rpitx_audio_utils PRIVATE PkgConfig::SNDFILE PkgConfig::SOXR)
-
-# ----------------------------------------------------------
-# Shared CLI parsing utility library
-# ----------------------------------------------------------
-find_package(CLI11 CONFIG REQUIRED)
-add_library(rpitx_cli_utils STATIC
-    utils/cli/cli_common.cpp
-    utils/cli/cli_validators.cpp
-)
-target_include_directories(rpitx_cli_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/cli)
-target_link_libraries(rpitx_cli_utils PUBLIC CLI11::CLI11)
+add_subdirectory(utils/dsp)
+add_subdirectory(utils/audio)
+add_subdirectory(utils/cli)
 
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
