@@ -25,8 +25,12 @@ namespace rpitx::cli::validators {
     // here describes only the constraint that was violated.
 
     // CLI::Validator constructor arguments are (function, validator_desc, validator_name).
-    // validator_name is the short type tag rendered next to the option in help output;
-    // validator_desc is used in error diagnostics and richer help displays.
+    // validator_desc is appended after the type tag in help output as ":<desc>";
+    // validator_name is an internal identifier (not shown in help). Both are left
+    // empty here so help reads cleanly as e.g. "--freq TEXT REQUIRED" instead of
+    // "--freq TEXT:Frequency in Hz REQUIRED" - the option's own description
+    // already explains the value, and the validator returns its own diagnostic
+    // string on failure.
     const CLI::Validator PositiveFiniteFloat{
         [](const std::string& text) -> std::string {
             float value{};
@@ -40,8 +44,7 @@ namespace rpitx::cli::validators {
             }
             return {};
         },
-        "Positive finite float value",
-        "POSITIVE_FLOAT"};
+        ""};
 
     const CLI::Validator FrequencyHz{
         [](const std::string& text) -> std::string {
@@ -50,6 +53,5 @@ namespace rpitx::cli::validators {
             }
             return {};
         },
-        "Frequency in Hz",
-        "FREQ_HZ"};
+        ""};
 }  // namespace rpitx::cli::validators

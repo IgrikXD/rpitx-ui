@@ -86,8 +86,10 @@ namespace pirfgen {
             {"sweep", RfGenMode::Sweep},
             {"multitone", RfGenMode::Multitone},
         };
+        // Override CheckedTransformer's auto-description: enum class values stream as empty,
+        // which would otherwise render as "ENUM:value in {noise->,sweep->,multitone->} OR {,,}" in --help.
         app.add_option("--mode", params.mode, "RF generator mode: noise (default) | sweep | multitone")
-            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case));
+            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case).description("noise|sweep|multitone"));
 
         // --tone-count is captured into a local optional so that "user did not
         // supply this option" stays distinguishable from "user supplied 0".

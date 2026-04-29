@@ -82,8 +82,10 @@ namespace pissb {
             {"usb", SsbMode::USB},
             {"lsb", SsbMode::LSB},
         };
+        // Override CheckedTransformer's auto-description: enum class values stream as empty,
+        // which would otherwise render as "ENUM:value in {usb->,lsb->} OR {,}" in --help.
         app.add_option("--sideband", params.mode, "Sideband selection: usb (default) | lsb")
-            ->transform(CLI::CheckedTransformer(sidebandMap, CLI::ignore_case));
+            ->transform(CLI::CheckedTransformer(sidebandMap, CLI::ignore_case).description("usb|lsb"));
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;

@@ -94,8 +94,10 @@ namespace pinfm {
             {"narrow", NfmMode::Narrow},
             {"wide", NfmMode::Wide},
         };
+        // Override CheckedTransformer's auto-description: enum class values stream as empty,
+        // which would otherwise render as "ENUM:value in {narrow->,wide->} OR {,}" in --help.
         app.add_option("--mode", params.mode, "NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)")
-            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case));
+            ->transform(CLI::CheckedTransformer(modeMap, CLI::ignore_case).description("narrow|wide"));
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;

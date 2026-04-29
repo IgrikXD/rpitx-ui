@@ -162,8 +162,10 @@ namespace pifmrds {
             {"50", PreEmphasisMode::Eu50},
             {"75", PreEmphasisMode::Us75},
         };
+        // Override CheckedTransformer's auto-description: enum class values stream as empty,
+        // which would otherwise render as "ENUM:value in {50->,75->} OR {,}" in --help.
         app.add_option("--pre-emphasis", params.preEmph, "FM pre-emphasis in microseconds: 50 (default) | 75")
-            ->transform(CLI::CheckedTransformer(preEmphMap));
+            ->transform(CLI::CheckedTransformer(preEmphMap).description("50|75"));
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
