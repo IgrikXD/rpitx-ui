@@ -16,17 +16,16 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 
 #include "audio_source.h"
 
 /**
  * @brief AudioSource backed by a libsndfile SNDFILE handle.
  *
- * Concrete class used by the file factory below. Backing-specific details
- * (seekable flag, description) are captured at construction time while the
- * read / rewind / close path stays shared in one place.
- *
- * Owns the SNDFILE handle and closes it in the destructor. Non-copyable
+ * Owns the SNDFILE handle and closes it in the destructor. Backing-specific
+ * details (seekable flag, description) are captured at construction time
+ * while the read / rewind path stays shared in one place. Non-copyable
  * (handle ownership is unique) and non-movable (matches AudioSource base).
  */
 class LibsndfileAudioSource final : public AudioSource {
@@ -37,21 +36,40 @@ public:
      * Used only by the factory functions below; normal callers should not
      * invoke this directly. Takes ownership of the handle.
      *
-     * @param handle Open SNDFILE handle (must be non-null).
-     * @param info Format information from sf_open / sf_open_virtual.
-     * @param seekable Whether the backing supports rewind.
+     * @param handle      Open SNDFILE handle (must be non-null).
+     * @param info        Format information from sf_open / sf_open_virtual.
+     * @param seekable    Whether the backing supports rewind.
      * @param description Human-readable format description for logging.
      */
     LibsndfileAudioSource(SNDFILE* handle, SF_INFO info, bool seekable, std::string description);
 
-    ~LibsndfileAudioSource() override;
+    ~LibsndfileAudioSource() override {
+        sf_close(handle_);
+    }
 
-    [[nodiscard]] AudioFormat format() const override;
-    [[nodiscard]] std::string description() const override;
+    [[nodiscard]] AudioFormat format() const override {
+        return AudioFormat{.channels = info_.channels, .sampleRate = info_.samplerate};
+    }
+    [[nodiscard]] std::string_view description() const override {
+        return description_;
+    }
     [[nodiscard]] std::size_t read(std::span<float> dst) override;
-    [[nodiscard]] bool rewind() override;
-    [[nodiscard]] bool seekable() const override;
-    [[nodiscard]] bool error() const override;
+    [[nodiscard]] bool rewind() override {
+        if (seekable_ == false) {
+            return false;
+        }
+        if (sf_seek(handle_, 0, SEEK_SET) < 0) {
+            error_ = true;
+            return false;
+        }
+        return true;
+    }
+    [[nodiscard]] bool seekable() const override {
+        return seekable_;
+    }
+    [[nodiscard]] bool error() const override {
+        return error_;
+    }
 
 private:
     SNDFILE* handle_;

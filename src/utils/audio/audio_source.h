@@ -13,18 +13,16 @@
 
 #include <cstddef>
 #include <span>
-#include <string>
+#include <string_view>
 
 /**
  * @brief Audio metadata exposed to consumers of an AudioSource.
  *
- * Only the fields that callers actually act on are surfaced here: channel
- * count drives buffer sizing and mono / stereo branching, sample rate drives
- * resampler configuration. Bit depth and format subtype (PCM_16, PCM_24,
- * FLOAT, etc.) are diagnostic-only and exposed via AudioSource::description()
- * so the structure stays minimal and consumers do not have to switch on
- * concrete encodings - the source guarantees float [-1.0, 1.0] output
- * regardless of on-disk representation.
+ * Only the two fields callers act on are surfaced: channels drives buffer
+ * sizing and mono / stereo branching, sampleRate drives resampler
+ * configuration. Bit depth and subtype (PCM_16, PCM_24, FLOAT, ...) are
+ * diagnostic-only and appear in AudioSource::description() - read() always
+ * yields normalized float in [-1.0, 1.0] regardless of on-disk encoding.
  */
 struct AudioFormat {
     int channels;    ///< Channel count (1 = mono, 2 = stereo, ...).
@@ -35,26 +33,23 @@ struct AudioFormat {
  * @brief Streaming pull-mode audio source producing normalized float samples.
  *
  * Concrete implementations wrap a backing decoder (libsndfile for files).
- * Output is always interleaved float in [-1.0, 1.0] regardless of the
- * on-disk sample format so consumers do not have to know how to convert
- * int16 / int24 / float / etc. into the normalized representation their
- * DSP chain expects.
+ * Output is always interleaved float in [-1.0, 1.0] regardless of on-disk
+ * format so consumers do not have to branch on int16 / int24 / float / etc.
  *
- * Loop semantics live in the consumer, not in the source: when read()
- * returns 0 the caller distinguishes EOF from a fatal source error via
- * error() and decides whether to call rewind() or stop. Sources stay
- * policy-free; rewind() fails (returns false) on non-seekable backings,
- * which the caller can pre-check via seekable() to fail fast on `--loop`
- * over stdin / FIFO-style inputs.
+ * Loop semantics live in the consumer, not in the source: when read() returns
+ * 0 the caller distinguishes EOF from a fatal error via error() and decides
+ * whether to call rewind() or stop. Sources stay policy-free; rewind() returns
+ * false on non-seekable backings, which the caller can pre-check via
+ * seekable() to fail fast on --loop over stdin / FIFO inputs.
  */
 class AudioSource {
 public:
-    virtual ~AudioSource() = default;
-
     AudioSource(const AudioSource&)            = delete;
     AudioSource& operator=(const AudioSource&) = delete;
     AudioSource(AudioSource&&)                 = delete;
     AudioSource& operator=(AudioSource&&)      = delete;
+
+    virtual ~AudioSource() = default;
 
     /**
      * @brief Audio metadata, available immediately after construction.
@@ -70,9 +65,11 @@ public:
      * single-line diagnostic banners (e.g. "WAV / Signed 24 bit PCM").
      * Consumers must not parse this string - it has no stable schema.
      *
+     * The returned view stays valid for the lifetime of the AudioSource.
+     *
      * @return One-line description suitable for console output.
      */
-    [[nodiscard]] virtual std::string description() const = 0;
+    [[nodiscard]] virtual std::string_view description() const = 0;
 
     /**
      * @brief Read up to dst.size() interleaved float samples into dst.

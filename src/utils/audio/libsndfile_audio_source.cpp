@@ -18,7 +18,7 @@
 #include <utility>
 
 namespace {
-    [[nodiscard]] float sanitizeDecodedSample(float sample) {
+    [[nodiscard]] float sanitizeDecodedSample(float sample) noexcept {
         if (std::isfinite(sample) == false) {
             return 0.0F;
         }
@@ -67,21 +67,6 @@ LibsndfileAudioSource::LibsndfileAudioSource(SNDFILE* handle, SF_INFO info, bool
     assert(handle != nullptr);
 }
 
-LibsndfileAudioSource::~LibsndfileAudioSource() {
-    sf_close(handle_);
-}
-
-AudioFormat LibsndfileAudioSource::format() const {
-    return AudioFormat{
-        .channels   = info_.channels,
-        .sampleRate = static_cast<int>(info_.samplerate),
-    };
-}
-
-std::string LibsndfileAudioSource::description() const {
-    return description_;
-}
-
 std::size_t LibsndfileAudioSource::read(std::span<float> dst) {
     if (error_) {
         return 0;
@@ -117,25 +102,6 @@ std::size_t LibsndfileAudioSource::read(std::span<float> dst) {
         sample = sanitizeDecodedSample(sample);
     }
     return samplesRead;
-}
-
-bool LibsndfileAudioSource::rewind() {
-    if (seekable_ == false) {
-        return false;
-    }
-    const bool ok{sf_seek(handle_, 0, SEEK_SET) >= 0};
-    if (ok == false) {
-        error_ = true;
-    }
-    return ok;
-}
-
-bool LibsndfileAudioSource::seekable() const {
-    return seekable_;
-}
-
-bool LibsndfileAudioSource::error() const {
-    return error_;
 }
 
 std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path) {
