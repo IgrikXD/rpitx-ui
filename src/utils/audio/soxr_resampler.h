@@ -33,9 +33,9 @@ struct SoxrProcessResult {
  * destructor; non-copyable, movable so it can live in std::vector or be
  * returned from factories.
  *
- * Quality maps to soxr's published presets - High (~121 dB SNR) is the default
- * because it is plenty for the Pi's RF chain while keeping CPU and memory cost
- * far below the previous polyphase approach for non-rational rate ratios.
+ * Quality maps to soxr's published presets - Medium (~96 dB SNR) is the default
+ * because it already exceeds the SNR of any FM/AM/SSB receiver in this project
+ * while keeping the filter length and per-block CPU cost small enough for a Pi Zero.
  */
 class SoxrResampler {
 public:
@@ -48,8 +48,8 @@ public:
     enum class Quality {
         Quick,     ///< SOXR_QQ - cheapest, ~13 dB SNR (rarely useful).
         Low,       ///< SOXR_LQ - ~67 dB SNR.
-        Medium,    ///< SOXR_MQ - ~96 dB SNR.
-        High,      ///< SOXR_HQ - ~121 dB SNR; default for audio paths.
+        Medium,    ///< SOXR_MQ - ~96 dB SNR; default for audio paths.
+        High,      ///< SOXR_HQ - ~121 dB SNR.
         VeryHigh,  ///< SOXR_VHQ - ~144 dB SNR.
     };
 

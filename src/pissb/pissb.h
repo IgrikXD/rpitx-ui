@@ -21,7 +21,7 @@ namespace pissb {
     /**
      * @brief DMA sample buffer depth.
      */
-    inline constexpr uint32_t DMA_FIFO_SIZE{4096};
+    inline constexpr uint32_t DMA_FIFO_SIZE{8192};
 
     /**
      * @brief DMA time-register precision in bits (matches sendiq / other rpitx modules).
