@@ -11,13 +11,12 @@
 
 #include "soxr_resampler.h"
 
-#include <soxr.h>
-
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace {
-    [[nodiscard]] unsigned long qualityRecipe(SoxrResampler::Quality q) {
+    [[nodiscard]] constexpr unsigned long qualityRecipe(SoxrResampler::Quality q) noexcept {
         switch (q) {
             case SoxrResampler::Quality::Quick:
                 return SOXR_QQ;
@@ -52,41 +51,24 @@ SoxrResampler::SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality
     // sizes its DFT lazily from the actual block size.
 
     soxr_error_t error{nullptr};
-    handle_ = soxr_create(static_cast<double>(sourceRateHz),
-                          static_cast<double>(targetRateHz),
-                          1,
-                          &error,
-                          &ioSpec,
-                          &qualitySpec,
-                          nullptr);
+    handle_ = soxr_create(sourceRateHz, targetRateHz, 1, &error, &ioSpec, &qualitySpec, nullptr);
     if (error != nullptr || handle_ == nullptr) {
         const char* msg{error != nullptr ? error : "unknown error"};
         throw std::runtime_error{std::string{"SoxrResampler: soxr_create failed: "} + msg};
     }
 }
 
-SoxrResampler::~SoxrResampler() {
-    if (handle_ != nullptr) {
-        soxr_delete(static_cast<soxr_t>(handle_));
-    }
-}
-
-SoxrResampler::SoxrResampler(SoxrResampler&& other) noexcept : handle_{other.handle_} {
-    other.handle_ = nullptr;
-}
-
 SoxrResampler& SoxrResampler::operator=(SoxrResampler&& other) noexcept {
     if (this != &other) {
         if (handle_ != nullptr) {
-            soxr_delete(static_cast<soxr_t>(handle_));
+            soxr_delete(handle_);
         }
-        handle_       = other.handle_;
-        other.handle_ = nullptr;
+        handle_ = std::exchange(other.handle_, nullptr);
     }
     return *this;
 }
 
-std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> in, std::span<float> out) {
+std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> in, std::span<float> out) noexcept {
     if (handle_ == nullptr) {
         return std::nullopt;
     }
@@ -94,27 +76,14 @@ std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> i
     std::size_t inputDone{0};
     std::size_t outputDone{0};
 
-    // soxr accepts a null/0-length input as the canonical end-of-stream
-    // flush form. Pass nullptr explicitly when the span is empty so we
-    // never hand soxr a non-null pointer paired with size 0.
+    // Hand soxr nullptr when a span is empty so we never pair a non-null
+    // pointer with size 0; an empty input span is the documented EOS flush.
     const float* inPtr{in.empty() ? nullptr : in.data()};
     float* outPtr{out.empty() ? nullptr : out.data()};
 
-    const soxr_error_t error{soxr_process(static_cast<soxr_t>(handle_),
-                                          inPtr,
-                                          in.size(),
-                                          &inputDone,
-                                          outPtr,
-                                          out.size(),
-                                          &outputDone)};
+    const soxr_error_t error{soxr_process(handle_, inPtr, in.size(), &inputDone, outPtr, out.size(), &outputDone)};
     if (error != nullptr) {
         return std::nullopt;
     }
     return SoxrProcessResult{.inputConsumed = inputDone, .outputProduced = outputDone};
-}
-
-void SoxrResampler::clear() {
-    if (handle_ != nullptr) {
-        soxr_clear(static_cast<soxr_t>(handle_));
-    }
 }

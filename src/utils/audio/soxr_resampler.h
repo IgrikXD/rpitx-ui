@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <soxr.h>
+
 #include <cstddef>
 #include <optional>
 #include <span>
 
 /**
- * @brief Result of a single soxr_process() call.
+ * @brief Result of a single resampling step.
  */
 struct SoxrProcessResult {
     std::size_t inputConsumed;   ///< Frames soxr accepted from the input span.
@@ -26,16 +28,9 @@ struct SoxrProcessResult {
 /**
  * @brief Single-channel float streaming resampler backed by libsoxr.
  *
- * Owns one soxr_t handle and is the only translation unit in the project that
- * pulls in soxr.h - downstream code (AudioRateConverter, AudioPipeline) sees a
- * pure C++ surface with std::span and std::optional. The handle is created in
- * the constructor at the requested rate pair and quality, and destroyed in the
- * destructor; non-copyable, movable so it can live in std::vector or be
- * returned from factories.
- *
- * Quality maps to soxr's published presets - Medium (~96 dB SNR) is the default
- * because it already exceeds the SNR of any FM/AM/SSB receiver in this project
- * while keeping the filter length and per-block CPU cost small enough for a Pi Zero.
+ * Owns one soxr handle and exposes a C++ surface with std::span and
+ * std::optional. Non-copyable, movable so it can live in std::vector or
+ * be returned from factories.
  */
 class SoxrResampler {
 public:
@@ -64,16 +59,22 @@ public:
      *                     CPU cost small enough for a Pi Zero.
      *
      * @throws std::invalid_argument when either rate is non-positive.
-     * @throws std::runtime_error when libsoxr rejects the configuration.
+     * @throws std::runtime_error    when libsoxr rejects the configuration.
      */
     SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality = Quality::Medium);
 
-    ~SoxrResampler();
+    ~SoxrResampler() {
+        if (handle_ != nullptr) {
+            soxr_delete(handle_);
+        }
+    }
 
     SoxrResampler(const SoxrResampler&)            = delete;
     SoxrResampler& operator=(const SoxrResampler&) = delete;
 
-    SoxrResampler(SoxrResampler&& other) noexcept;
+    SoxrResampler(SoxrResampler&& other) noexcept : handle_{other.handle_} {
+        other.handle_ = nullptr;
+    }
     SoxrResampler& operator=(SoxrResampler&& other) noexcept;
 
     /**
@@ -82,23 +83,21 @@ public:
      * libsoxr returns when either the input is exhausted (idone == in.size)
      * or the output buffer is full (odone == out.size). The caller MUST
      * inspect inputConsumed - if it is less than in.size the surplus input
-     * remains the caller's responsibility, and if the staging output buffer
-     * is sized for the maximum output the rate ratio can yield, idone will
-     * always equal in.size so no input is dropped.
+     * remains the caller's responsibility; sizing the staging output buffer
+     * for the maximum output the rate ratio can yield guarantees idone ==
+     * in.size so no input is dropped.
      *
      * Passing an empty input span is libsoxr's documented end-of-stream
      * flush form; do NOT use it mid-stream because subsequent calls with
      * fresh input desynchronise the resampler's filter delay line and
-     * collapse the output toward silence (the carrier-only RF pattern
-     * observed when an earlier draft of this wrapper called the flush form
-     * to top up partial blocks).
+     * collapse the output toward silence.
      *
      * @param in  Input frames (empty only at end-of-stream).
      * @param out Output buffer.
      * @return Frame counts on success; std::nullopt when libsoxr reports
      *         an error.
      */
-    [[nodiscard]] std::optional<SoxrProcessResult> process(std::span<const float> in, std::span<float> out);
+    [[nodiscard]] std::optional<SoxrProcessResult> process(std::span<const float> in, std::span<float> out) noexcept;
 
     /**
      * @brief Reset the internal filter delay line and phase.
@@ -108,8 +107,12 @@ public:
      * boundaries so the filter tail of the previous file iteration does
      * not smear into the start of the next one.
      */
-    void clear();
+    void clear() noexcept {
+        if (handle_ != nullptr) {
+            soxr_clear(handle_);
+        }
+    }
 
 private:
-    void* handle_;  ///< Opaque soxr_t; void* keeps soxr.h out of this header.
+    soxr_t handle_;
 };
