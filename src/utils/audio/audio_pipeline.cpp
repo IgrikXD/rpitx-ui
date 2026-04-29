@@ -138,9 +138,7 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
     for (int c{0}; c < outputChannels_; ++c) {
         rateConverters_.emplace_back(sourceFormat_.sampleRate,
                                      config_.targetSampleRate,
-                                     config_.targetOutputFrames,
-                                     config_.tapsPerPhase,
-                                     config_.maxCutoffHz);
+                                     config_.targetOutputFrames);
     }
 
     inputFrames_  = rateConverters_.front().inputFrames();

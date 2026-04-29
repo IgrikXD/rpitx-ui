@@ -16,8 +16,8 @@
 #include <span>
 #include <vector>
 
+#include "audio_rate_converter.h"
 #include "audio_source.h"
-#include "polyphase_resampler.h"
 
 /**
  * @brief Result of pulling one audio block through a shared pipeline stage.
@@ -66,8 +66,6 @@ struct AudioPipelineConfig {
     bool loop;
     int targetSampleRate;
     int targetOutputFrames;
-    int tapsPerPhase;
-    float maxCutoffHz;
     AudioChannelMode channelMode;
 };
 

@@ -32,7 +32,7 @@ namespace piam {
      *
      * 48 kHz is the rate the AM processor's HPF / LPF / AGC are designed
      * around and the rate at which amdmasync consumes envelope samples.
-     * Source rate matching is handled by the polyphase resampler stage.
+     * Source rate matching is handled by the audio rate converter stage.
      */
     inline constexpr int TARGET_SAMPLE_RATE{48'000};
 
@@ -40,16 +40,6 @@ namespace piam {
      * @brief Target output frames per processing block (~21 ms at 48 kHz).
      */
     inline constexpr int TARGET_OUTPUT_FRAMES{1024};
-
-    /**
-     * @brief Polyphase resampler taps per phase.
-     */
-    inline constexpr int RESAMPLER_TAPS_PER_PHASE{32};
-
-    /**
-     * @brief Polyphase resampler LPF cutoff in Hz.
-     */
-    inline constexpr float RESAMPLER_LPF_CUTOFF{4'500.0F};
 
     /**
      * @brief Minimum accepted input sample rate in Hz.

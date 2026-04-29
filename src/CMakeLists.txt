@@ -20,14 +20,16 @@ target_link_libraries(rpitx_dsp_utils PRIVATE m)
 # ----------------------------------------------------------
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
+pkg_check_modules(SOXR REQUIRED IMPORTED_TARGET soxr)
 
 add_library(rpitx_audio_utils STATIC
     utils/audio/audio_pipeline.cpp
+    utils/audio/audio_rate_converter.cpp
     utils/audio/libsndfile_audio_source.cpp
-    utils/audio/polyphase_resampler.cpp
+    utils/audio/soxr_resampler.cpp
 )
 target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils/audio)
-target_link_libraries(rpitx_audio_utils PRIVATE PkgConfig::SNDFILE)
+target_link_libraries(rpitx_audio_utils PRIVATE PkgConfig::SNDFILE PkgConfig::SOXR)
 
 # ----------------------------------------------------------
 # Shared CLI parsing utility library

@@ -38,16 +38,6 @@ namespace pinfm {
     inline constexpr int TARGET_OUTPUT_FRAMES{1024};
 
     /**
-     * @brief Polyphase resampler taps per phase.
-     */
-    inline constexpr int RESAMPLER_TAPS_PER_PHASE{32};
-
-    /**
-     * @brief Polyphase resampler LPF cutoff in Hz.
-     */
-    inline constexpr float RESAMPLER_LPF_CUTOFF{3'000.0F};
-
-    /**
      * @brief Minimum accepted input sample rate in Hz.
      */
     inline constexpr int MIN_INPUT_RATE{8'000};

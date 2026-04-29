@@ -225,8 +225,6 @@ namespace pifmrds {
                                 .loop               = params.loop,
                                 .targetSampleRate   = MPX_SAMPLE_RATE,
                                 .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
-                                .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
                                 .channelMode        = AudioChannelMode::Preserve,
                             }};
 

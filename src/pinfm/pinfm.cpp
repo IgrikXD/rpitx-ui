@@ -144,8 +144,6 @@ namespace pinfm {
                                 .loop               = params.loop,
                                 .targetSampleRate   = TARGET_SAMPLE_RATE,
                                 .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                .tapsPerPhase       = RESAMPLER_TAPS_PER_PHASE,
-                                .maxCutoffHz        = RESAMPLER_LPF_CUTOFF,
                                 .channelMode        = AudioChannelMode::Mono,
                             }};
 

@@ -39,16 +39,6 @@ namespace pifmrds {
     inline constexpr int TARGET_OUTPUT_FRAMES{4096};
 
     /**
-     * @brief Polyphase resampler taps per phase.
-     */
-    inline constexpr int RESAMPLER_TAPS_PER_PHASE{32};
-
-    /**
-     * @brief Polyphase resampler LPF cutoff in Hz.
-     */
-    inline constexpr float RESAMPLER_LPF_CUTOFF{15'000.0F};
-
-    /**
      * @brief Peak FM deviation in Hz.
      */
     inline constexpr float PEAK_DEVIATION{75'000.0F};

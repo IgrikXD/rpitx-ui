@@ -65,6 +65,7 @@ sudo apt install -y \
   libcli11-dev \
   libfftw3-dev \
   libsndfile1-dev \
+  libsoxr-dev \
   pkg-config \
   rtl-sdr
 print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
