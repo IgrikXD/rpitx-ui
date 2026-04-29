@@ -58,12 +58,15 @@ public:
      *
      * @param sourceRateHz Input sample rate in Hz (> 0).
      * @param targetRateHz Output sample rate in Hz (> 0).
-     * @param quality      Quality preset; defaults to High.
+     * @param quality      Quality preset; defaults to Medium (~96 dB SNR),
+     *                     which exceeds the SNR of any FM/AM/SSB receiver
+     *                     while keeping the filter length and per-block
+     *                     CPU cost small enough for a Pi Zero.
      *
      * @throws std::invalid_argument when either rate is non-positive.
      * @throws std::runtime_error when libsoxr rejects the configuration.
      */
-    SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality = Quality::High);
+    SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality = Quality::Medium);
 
     ~SoxrResampler();
 
@@ -76,19 +79,36 @@ public:
     /**
      * @brief Run one soxr_process() call.
      *
-     * libsoxr consumes input and produces output asynchronously: it always
-     * accepts the entire input span (so the caller never has to retry the
-     * same data), but it caps output at out.size() and may produce fewer
-     * frames than requested when the internal filter has not yet warmed up
-     * or when the input is too small for the rate ratio. Pass an empty
-     * input span to flush samples buffered in the filter delay line.
+     * libsoxr returns when either the input is exhausted (idone == in.size)
+     * or the output buffer is full (odone == out.size). The caller MUST
+     * inspect inputConsumed - if it is less than in.size the surplus input
+     * remains the caller's responsibility, and if the staging output buffer
+     * is sized for the maximum output the rate ratio can yield, idone will
+     * always equal in.size so no input is dropped.
      *
-     * @param in  Input frames (may be empty for a flush call).
+     * Passing an empty input span is libsoxr's documented end-of-stream
+     * flush form; do NOT use it mid-stream because subsequent calls with
+     * fresh input desynchronise the resampler's filter delay line and
+     * collapse the output toward silence (the carrier-only RF pattern
+     * observed when an earlier draft of this wrapper called the flush form
+     * to top up partial blocks).
+     *
+     * @param in  Input frames (empty only at end-of-stream).
      * @param out Output buffer.
      * @return Frame counts on success; std::nullopt when libsoxr reports
      *         an error.
      */
     [[nodiscard]] std::optional<SoxrProcessResult> process(std::span<const float> in, std::span<float> out);
+
+    /**
+     * @brief Reset the internal filter delay line and phase.
+     *
+     * Wraps soxr_clear: leaves the configured rate / quality untouched but
+     * empties any sample buffered inside the resampler. Use this at loop
+     * boundaries so the filter tail of the previous file iteration does
+     * not smear into the start of the next one.
+     */
+    void clear();
 
 private:
     void* handle_;  ///< Opaque soxr_t; void* keeps soxr.h out of this header.

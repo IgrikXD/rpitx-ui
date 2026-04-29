@@ -39,18 +39,13 @@ bool validateLoopSupport(const AudioSource& source, bool loopRequested) {
     return true;
 }
 
-AudioPipeline::AudioBlockReader::AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop)
-    : source_{source}, channels_{channels}, framesPerBlock_{framesPerBlock}, loop_{loop} {
+AudioPipeline::AudioBlockReader::AudioBlockReader(AudioSource& source, int channels, bool loop)
+    : source_{source}, channels_{channels}, loop_{loop} {
     assert(channels > 0);
-    assert(framesPerBlock > 0);
-}
-
-std::size_t AudioPipeline::AudioBlockReader::samplesPerBlock() const {
-    return static_cast<std::size_t>(channels_) * static_cast<std::size_t>(framesPerBlock_);
 }
 
 AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) {
-    if (dst.size() != samplesPerBlock()) {
+    if (dst.empty() || dst.size() % static_cast<std::size_t>(channels_) != 0) {
         return AudioPipelineStatus::Error;
     }
 
@@ -141,13 +136,21 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
                                      config_.targetOutputFrames);
     }
 
-    inputFrames_  = rateConverters_.front().inputFrames();
-    outputFrames_ = rateConverters_.front().outputFrames();
-    reader_.emplace(source, sourceFormat_.channels, inputFrames_, config_.loop);
+    // Per-channel converters are configured identically and start their
+    // Bresenham accumulators from the same value, so any one of them is
+    // representative of the whole channel array.
+    maxInputFrames_ = rateConverters_.front().maxInputFrames();
+    outputFrames_   = rateConverters_.front().outputFrames();
+    reader_.emplace(source, sourceFormat_.channels, config_.loop);
 
-    interleavedInput_.assign(reader_->samplesPerBlock(), 0.0F);
+    // Buffers are sized for the worst-case input block. The actual per-call
+    // read uses the converter's peekNextInputFrames(), which never exceeds
+    // maxInputFrames_, and the surplus capacity is simply unused that call.
+    interleavedInput_.assign(static_cast<std::size_t>(maxInputFrames_) *
+                                 static_cast<std::size_t>(sourceFormat_.channels),
+                             0.0F);
     channelInput_.assign(static_cast<std::size_t>(outputChannels_),
-                         std::vector<float>(static_cast<std::size_t>(inputFrames_), 0.0F));
+                         std::vector<float>(static_cast<std::size_t>(maxInputFrames_), 0.0F));
     channelOutput_.assign(static_cast<std::size_t>(outputChannels_),
                           std::vector<float>(static_cast<std::size_t>(outputFrames_), 0.0F));
 }
@@ -169,17 +172,27 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
         return AudioPipelineStatus::Error;
     }
 
-    const auto status{reader_->read({interleavedInput_.data(), interleavedInput_.size()})};
+    // All converters share the same rate parameters and Bresenham state so
+    // they require the same input frame count on every call; query just one.
+    const int inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
+    const std::size_t interleavedSize{static_cast<std::size_t>(inputFramesThisCall) *
+                                      static_cast<std::size_t>(sourceFormat_.channels)};
+    assert(interleavedSize <= interleavedInput_.size());
+
+    const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};
     if (status != AudioPipelineStatus::Ok) {
         return status;
     }
 
     if (config_.channelMode == AudioChannelMode::Mono) {
-        downmixInterleavedToMono(interleavedInput_, sourceFormat_.channels, channelInput_[0]);
+        downmixInterleavedToMono(
+            std::span<const float>{interleavedInput_.data(), interleavedSize},
+            sourceFormat_.channels,
+            std::span<float>{channelInput_[0].data(), static_cast<std::size_t>(inputFramesThisCall)});
     } else {
         for (int c{0}; c < outputChannels_; ++c) {
             auto& channel{channelInput_[static_cast<std::size_t>(c)]};
-            for (int i{0}; i < inputFrames_; ++i) {
+            for (int i{0}; i < inputFramesThisCall; ++i) {
                 channel[static_cast<std::size_t>(i)] =
                     interleavedInput_[static_cast<std::size_t>(i) * static_cast<std::size_t>(sourceFormat_.channels) +
                                       static_cast<std::size_t>(c)];
@@ -189,7 +202,10 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
 
     for (int c{0}; c < outputChannels_; ++c) {
         const bool converted{rateConverters_[static_cast<std::size_t>(c)].process(
-            channelInput_[static_cast<std::size_t>(c)], channelOutput_[static_cast<std::size_t>(c)])};
+            std::span<const float>{channelInput_[static_cast<std::size_t>(c)].data(),
+                                   static_cast<std::size_t>(inputFramesThisCall)},
+            std::span<float>{channelOutput_[static_cast<std::size_t>(c)].data(),
+                             static_cast<std::size_t>(outputFrames_)})};
         if (converted == false) {
             return AudioPipelineStatus::Error;
         }

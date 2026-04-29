@@ -108,27 +108,36 @@ public:
 private:
     class AudioBlockReader {
     public:
-        AudioBlockReader(AudioSource& source, int channels, int framesPerBlock, bool loop);
+        AudioBlockReader(AudioSource& source, int channels, bool loop);
 
         AudioBlockReader(const AudioBlockReader&)            = delete;
         AudioBlockReader& operator=(const AudioBlockReader&) = delete;
         AudioBlockReader(AudioBlockReader&&)                 = delete;
         AudioBlockReader& operator=(AudioBlockReader&&)      = delete;
 
-        [[nodiscard]] std::size_t samplesPerBlock() const;
+        /**
+         * @brief Read exactly dst.size() samples from the source.
+         *
+         * Block size is decided per-call by the caller (the rate converter's
+         * Bresenham accumulator may demand a different input frame count
+         * between adjacent calls), so this reader is rate-agnostic and only
+         * enforces channel alignment.
+         *
+         * @param dst Destination buffer; size must be a positive multiple
+         *            of the channel count established at construction.
+         */
         [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
 
     private:
         AudioSource& source_;
         int channels_;
-        int framesPerBlock_;
         bool loop_;
     };
 
     AudioFormat sourceFormat_;
     AudioPipelineConfig config_;
     int outputChannels_;
-    int inputFrames_{0};
+    int maxInputFrames_{0};
     int outputFrames_{0};
     std::optional<AudioBlockReader> reader_;
     std::vector<AudioRateConverter> rateConverters_;

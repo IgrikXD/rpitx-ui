@@ -43,10 +43,13 @@ SoxrResampler::SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality
     // planar are bit-identical, so this is the natural single-stream layout.
     const soxr_io_spec_t ioSpec{soxr_io_spec(SOXR_FLOAT32_I, SOXR_FLOAT32_I)};
     const soxr_quality_spec_t qualitySpec{soxr_quality_spec(qualityRecipe(quality), 0)};
-    // Force single-thread mode: the per-channel block sizes used by the audio
-    // pipeline are far below soxr's threading break-even, and skipping the
-    // thread pool keeps pthread out of the binary's runtime cost.
-    const soxr_runtime_spec_t runtimeSpec{soxr_runtime_spec(1)};
+    // Pass nullptr for the runtime spec so libsoxr applies its own defaults.
+    // soxr_runtime_spec(1) hard-codes log2_min_dft_size = 10 (1024-point DFT
+    // floor), which is larger than our per-block input on the 44.1 kHz ->
+    // 48 kHz path (941 samples) and 44.1 kHz -> 228 kHz path (793 samples);
+    // forcing that floor on undersized blocks crashed pinfm/pifmrds during
+    // the very first soxr_process call. The library-default runtime spec
+    // sizes its DFT lazily from the actual block size.
 
     soxr_error_t error{nullptr};
     handle_ = soxr_create(static_cast<double>(sourceRateHz),
@@ -55,7 +58,7 @@ SoxrResampler::SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality
                           &error,
                           &ioSpec,
                           &qualitySpec,
-                          &runtimeSpec);
+                          nullptr);
     if (error != nullptr || handle_ == nullptr) {
         const char* msg{error != nullptr ? error : "unknown error"};
         throw std::runtime_error{std::string{"SoxrResampler: soxr_create failed: "} + msg};
@@ -91,9 +94,9 @@ std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> i
     std::size_t inputDone{0};
     std::size_t outputDone{0};
 
-    // soxr accepts a null/0-length input as the canonical "flush" form -
-    // pass nullptr explicitly when the span is empty so we never hand soxr
-    // a non-null pointer paired with size 0.
+    // soxr accepts a null/0-length input as the canonical end-of-stream
+    // flush form. Pass nullptr explicitly when the span is empty so we
+    // never hand soxr a non-null pointer paired with size 0.
     const float* inPtr{in.empty() ? nullptr : in.data()};
     float* outPtr{out.empty() ? nullptr : out.data()};
 
@@ -108,4 +111,10 @@ std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> i
         return std::nullopt;
     }
     return SoxrProcessResult{.inputConsumed = inputDone, .outputProduced = outputDone};
+}
+
+void SoxrResampler::clear() {
+    if (handle_ != nullptr) {
+        soxr_clear(static_cast<soxr_t>(handle_));
+    }
 }

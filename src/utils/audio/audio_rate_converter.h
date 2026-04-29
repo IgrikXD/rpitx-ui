@@ -14,28 +14,26 @@
 #include <cstddef>
 #include <optional>
 #include <span>
+#include <vector>
 
 #include "soxr_resampler.h"
 
 /**
- * @brief Single-channel streaming rate converter with a fixed block contract.
+ * @brief Single-channel streaming rate converter with a fixed output block contract.
  *
- * Wraps SoxrResampler so that callers see a uniform fixed-size block API
- * regardless of the source/target rate ratio - the input span size and the
- * output span size are both decided at construction time and stay constant
- * across process() calls. When sourceRate == targetRate, no soxr instance
- * is created and process() degrades to a memory copy, matching the previous
- * polyphase-based behaviour.
+ * Wraps SoxrResampler so callers see a uniform fixed-size output block regardless
+ * of the source / target rate ratio. The input block size varies between calls
+ * via a Bresenham accumulator so the cumulative input rate matches the target
+ * ratio exactly - critical because libsoxr halts soxr_process() as soon as
+ * either the input is exhausted OR the output buffer is full, and feeding a
+ * constant ceil()-rounded input together with a tight output buffer would
+ * either drop input samples or grow an internal spill without bound on long
+ * playbacks. With Bresenham input sizing plus an oversized staging buffer for
+ * soxr's writes, libsoxr always consumes the full input span and the residual
+ * jitter (one or two samples per call) is absorbed by an internal output spill.
  *
- * Block-size policy:
- *   - outputFrames_ is exactly the targetOutputFrames requested by the
- *     caller (drives the latency budget at the output rate).
- *   - inputFrames_ is ceil(targetOutputFrames * sourceRate / targetRate)
- *     so each call hands soxr at least as many inputs as it needs to fill
- *     the requested outputs in steady state. soxr buffers any unconsumed
- *     surplus internally, so over-feeding is harmless: the small per-call
- *     surplus shows up as a sub-permille effective rate offset (well
- *     below the Pi DMA clock tolerance and inaudible to listeners).
+ * When sourceRateHz == targetRateHz, no soxr instance is created and process()
+ * degrades to a memory copy, mirroring the previous polyphase-based behaviour.
  *
  * Non-copyable; movable so the converter can be assigned into std::optional
  * members in deferred-construction patterns (e.g. processors that learn the
@@ -64,32 +62,77 @@ public:
     AudioRateConverter& operator=(AudioRateConverter&&)      = default;
 
     /**
-     * @brief Required input frames per process() call.
-     */
-    [[nodiscard]] int inputFrames() const;
-
-    /**
-     * @brief Output frames produced per process() call.
+     * @brief Output frames produced per process() call (constant).
      */
     [[nodiscard]] int outputFrames() const;
 
     /**
+     * @brief Maximum input frames any single process() call may demand.
+     *
+     * Used by the pipeline to size source-read buffers conservatively.
+     * Bresenham accumulator alternates between this value and one less.
+     */
+    [[nodiscard]] int maxInputFrames() const;
+
+    /**
+     * @brief Input frames the next process() call expects.
+     *
+     * Pure: does not advance the Bresenham accumulator. Caller must read
+     * exactly this many input frames from the source and pass them to the
+     * matching process() call. After process(), the accumulator advances
+     * and a fresh peek may return a different value.
+     */
+    [[nodiscard]] int peekNextInputFrames() const;
+
+    /**
      * @brief Process one block of audio.
      *
-     * In resample mode, runs the input through soxr and zero-pads the tail
-     * if soxr underproduces during the very first calls (filter warmup).
-     * Subsequent calls reach steady state and fill out completely. In
-     * passthrough mode, copies in -> out (sizes must match by contract).
-     *
-     * @param in  Input frames; size must equal inputFrames().
+     * @param in  Input frames; size must equal peekNextInputFrames().
      * @param out Output frames; size must equal outputFrames().
      * @return true on success, false when the buffer geometry is invalid
      *         or soxr reports a processing error.
      */
     [[nodiscard]] bool process(std::span<const float> in, std::span<float> out);
 
+    /**
+     * @brief Reset filter state and Bresenham accumulator.
+     *
+     * Empties the soxr filter delay line, drops any spilled output samples,
+     * and rewinds the Bresenham accumulator. Use at loop boundaries so the
+     * filter tail of the previous file iteration does not smear into the
+     * start of the next.
+     */
+    void reset();
+
 private:
-    int inputFrames_;
     int outputFrames_;
+    int sourceRate_;
+    int targetRate_;
+    int maxInputFrames_;
+    long long inputAccumulator_;  ///< Bresenham state in [0, targetRate).
+
     std::optional<SoxrResampler> resampler_;  ///< nullopt = passthrough.
+
+    /**
+     * @brief Staging buffer for soxr's output writes.
+     *
+     * Sized to absorb the maximum number of output samples soxr can produce
+     * from maxInputFrames_ inputs (plus a small safety margin). Letting
+     * soxr fill a generous buffer guarantees idone == ilen on every call,
+     * so no input is silently dropped at the boundary where output would
+     * otherwise have filled first.
+     */
+    std::vector<float> stagingBuffer_;
+
+    /**
+     * @brief Pending output samples not yet returned to the caller.
+     *
+     * soxr's per-call output count jitters by one or two samples around
+     * the rate ratio even with Bresenham input sizing; the surplus is
+     * stashed here and drained at the head of the next process() call.
+     * Stored as a flat vector with a separate read offset so we can
+     * pop from the front in O(1) without a deque's per-element allocation.
+     */
+    std::vector<float> spill_;
+    std::size_t spillReadPos_;
 };
