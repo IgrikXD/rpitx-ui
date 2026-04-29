@@ -49,11 +49,22 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
         return AudioPipelineStatus::Error;
     }
 
+    // Apply a deferred rewind from a previous loop-mode EOF, so the buffer
+    // about to be filled contains only post-rewind audio. The pipeline reads
+    // restartedThisRead_ via consumeLoopBoundary() after this call to decide
+    // whether to reset the rate-converter filter state.
+    restartedThisRead_ = false;
+    if (rewindPending_) {
+        if (source_.rewind() == false) {
+            return AudioPipelineStatus::Error;
+        }
+        rewindPending_     = false;
+        restartedThisRead_ = true;
+    }
+
     std::size_t filledSamples{0};
-    int consecutiveEofWithoutProgress{0};
 
     while (filledSamples < dst.size()) {
-        const std::size_t beforeRead{filledSamples};
         const std::size_t samplesRead{source_.read(dst.subspan(filledSamples))};
 
         if (samplesRead > 0) {
@@ -64,7 +75,6 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             if (source_.error()) {
                 return AudioPipelineStatus::Error;
             }
-            consecutiveEofWithoutProgress = 0;
             continue;
         }
 
@@ -72,6 +82,7 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             return AudioPipelineStatus::Error;
         }
 
+        // EOF reached. In non-loop mode this is the terminal state.
         if (loop_ == false) {
             if (filledSamples == 0) {
                 return AudioPipelineStatus::End;
@@ -80,24 +91,41 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             return AudioPipelineStatus::Ok;
         }
 
-        ++consecutiveEofWithoutProgress;
-        if (source_.rewind() == false) {
-            return AudioPipelineStatus::Error;
-        }
-
-        // Avoid spinning forever on an empty or unreadable-after-rewind source.
-        // Short-but-valid looped files make progress after each rewind, so they
-        // never hit this guard.
-        if (beforeRead == filledSamples && consecutiveEofWithoutProgress > 1) {
-            if (filledSamples == 0) {
-                return AudioPipelineStatus::End;
-            }
+        // Loop mode and EOF: close out this block (zero-padding the tail)
+        // and defer the rewind to the next call so end-of-file and
+        // start-of-file content never coexist in a single input span
+        // passed to the rate converter.
+        if (filledSamples > 0) {
+            rewindPending_ = true;
             std::fill(dst.begin() + static_cast<std::ptrdiff_t>(filledSamples), dst.end(), 0.0F);
             return AudioPipelineStatus::Ok;
         }
+
+        // filledSamples == 0: the source ran out before yielding anything
+        // for this block. If we already rewound at the start of this call
+        // and still got nothing the file is empty - report End so the
+        // pipeline can stop cleanly instead of spinning.
+        if (restartedThisRead_) {
+            return AudioPipelineStatus::End;
+        }
+
+        // Otherwise the previous read happened to align exactly with EOF
+        // (no padding was needed, so no rewind was deferred). Rewind in
+        // place, mark the boundary, and continue the fill loop with fresh
+        // post-rewind data.
+        if (source_.rewind() == false) {
+            return AudioPipelineStatus::Error;
+        }
+        restartedThisRead_ = true;
     }
 
     return AudioPipelineStatus::Ok;
+}
+
+bool AudioPipeline::AudioBlockReader::consumeLoopBoundary() {
+    const bool result{restartedThisRead_};
+    restartedThisRead_ = false;
+    return result;
 }
 
 namespace {
@@ -171,6 +199,12 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     if (out.size() != outputSamplesPerBlock() || reader_ == std::nullopt) {
         return AudioPipelineStatus::Error;
     }
+    if (drained_) {
+        return AudioPipelineStatus::End;
+    }
+    if (draining_) {
+        return drainBlock(out);
+    }
 
     // All converters share the same rate parameters and Bresenham state so
     // they require the same input frame count on every call; query just one.
@@ -180,8 +214,25 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     assert(interleavedSize <= interleavedInput_.size());
 
     const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};
-    if (status != AudioPipelineStatus::Ok) {
-        return status;
+    if (status == AudioPipelineStatus::Error) {
+        return AudioPipelineStatus::Error;
+    }
+    if (status == AudioPipelineStatus::End) {
+        // Source ran out before yielding any new samples. Switch to drain
+        // mode so the converter tails surface in subsequent calls instead
+        // of being discarded together with the input stream.
+        draining_ = true;
+        return drainBlock(out);
+    }
+
+    // The reader may have just performed a deferred rewind to start a fresh
+    // loop iteration. Reset filter state on every converter (preserving the
+    // Bresenham accumulator) so the previous iteration's filter tail does
+    // not smear into the start of this block.
+    if (reader_->consumeLoopBoundary()) {
+        for (auto& converter: rateConverters_) {
+            converter.reset();
+        }
     }
 
     if (config_.channelMode == AudioChannelMode::Mono) {
@@ -209,6 +260,46 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
         if (converted == false) {
             return AudioPipelineStatus::Error;
         }
+    }
+
+    if (outputChannels_ == 1) {
+        std::copy(channelOutput_[0].begin(), channelOutput_[0].end(), out.begin());
+    } else {
+        for (int i{0}; i < outputFrames_; ++i) {
+            for (int c{0}; c < outputChannels_; ++c) {
+                out[static_cast<std::size_t>(i) * static_cast<std::size_t>(outputChannels_) +
+                    static_cast<std::size_t>(c)] =
+                    channelOutput_[static_cast<std::size_t>(c)][static_cast<std::size_t>(i)];
+            }
+        }
+    }
+
+    return AudioPipelineStatus::Ok;
+}
+
+AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
+    // Pull each converter's tail (spilled samples plus libsoxr filter
+    // residue) into its channel buffer and zero-pad the unused slots so
+    // the interleave step below treats every channel uniformly. All
+    // converters share the same filter geometry and processed history, so
+    // they always drain the same per-block sample count - tracking just
+    // one channel's count is sufficient to decide when we are fully done.
+    std::size_t producedAnyChannel{0};
+    for (int c{0}; c < outputChannels_; ++c) {
+        auto& channel{channelOutput_[static_cast<std::size_t>(c)]};
+        const std::size_t produced{rateConverters_[static_cast<std::size_t>(c)].drain(
+            std::span<float>{channel.data(), static_cast<std::size_t>(outputFrames_)})};
+        if (produced > producedAnyChannel) {
+            producedAnyChannel = produced;
+        }
+        if (produced < static_cast<std::size_t>(outputFrames_)) {
+            std::fill(channel.begin() + static_cast<std::ptrdiff_t>(produced), channel.end(), 0.0F);
+        }
+    }
+
+    if (producedAnyChannel == 0) {
+        drained_ = true;
+        return AudioPipelineStatus::End;
     }
 
     if (outputChannels_ == 1) {

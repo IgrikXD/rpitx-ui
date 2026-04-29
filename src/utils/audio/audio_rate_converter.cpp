@@ -101,12 +101,50 @@ int AudioRateConverter::peekNextInputFrames() const {
 }
 
 void AudioRateConverter::reset() {
-    inputAccumulator_ = 0;
     spill_.clear();
     spillReadPos_ = 0;
     if (resampler_ != std::nullopt) {
         resampler_.value().clear();
     }
+    // inputAccumulator_ deliberately preserved - see header documentation.
+}
+
+std::size_t AudioRateConverter::drain(std::span<float> out) {
+    if (out.empty() || resampler_ == std::nullopt) {
+        // Passthrough mode has no internal state to drain - the source
+        // exhausting was already reported to the caller as End.
+        return 0;
+    }
+
+    // 1. Emit any buffered spill samples first - these are real output the
+    // resampler already produced on prior calls but did not yet fit in the
+    // caller's block.
+    std::size_t outIdx{0};
+    {
+        const std::size_t available{spill_.size() - spillReadPos_};
+        const std::size_t take{std::min(available, out.size())};
+        std::copy_n(spill_.begin() + static_cast<std::ptrdiff_t>(spillReadPos_), take, out.begin());
+        spillReadPos_ += take;
+        outIdx += take;
+        if (spillReadPos_ >= spill_.size()) {
+            spill_.clear();
+            spillReadPos_ = 0;
+        }
+    }
+
+    if (outIdx >= out.size()) {
+        return outIdx;
+    }
+
+    // 2. Pull soxr's filter tail with the documented end-of-stream flush
+    // form (empty input span). After this call libsoxr is in its post-flush
+    // state; reset() must be invoked before resuming normal process() use.
+    const auto result{resampler_.value().process(std::span<const float>{}, out.subspan(outIdx))};
+    if (result == std::nullopt) {
+        return outIdx;
+    }
+    outIdx += result.value().outputProduced;
+    return outIdx;
 }
 
 bool AudioRateConverter::process(std::span<const float> in, std::span<float> out) {

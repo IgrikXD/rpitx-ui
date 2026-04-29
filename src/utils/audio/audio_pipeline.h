@@ -123,16 +123,46 @@ private:
          * between adjacent calls), so this reader is rate-agnostic and only
          * enforces channel alignment.
          *
+         * In loop mode the reader never mixes end-of-file and start-of-file
+         * content within a single block: when the source exhausts mid-read,
+         * the unfilled tail is zero-padded and a rewind is deferred to the
+         * next call. The pipeline can then reset the converter filter state
+         * before processing the post-rewind block by checking
+         * consumeLoopBoundary().
+         *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.
          */
         [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
 
+        /**
+         * @brief Whether the most recent read() performed a loop rewind.
+         *
+         * Returns true exactly once after a read that started by rewinding
+         * the source - the caller should reset rate-converter filter state
+         * before processing that block. Subsequent calls return false until
+         * another rewind happens.
+         */
+        [[nodiscard]] bool consumeLoopBoundary();
+
     private:
         AudioSource& source_;
         int channels_;
         bool loop_;
+        bool rewindPending_{false};      ///< Set when EOF was reached mid-read in loop mode.
+        bool restartedThisRead_{false};  ///< Set when read() began with a deferred rewind.
     };
+
+    /**
+     * @brief Drive a draining block: pull each converter's tail into out.
+     *
+     * Called after the block reader has reported End in non-loop mode so
+     * libsoxr's filter delay line is recovered instead of being discarded
+     * with the source. Returns Ok with a partial-then-padded block while
+     * any converter still has tail samples, End once all converters are
+     * fully drained.
+     */
+    [[nodiscard]] AudioPipelineStatus drainBlock(std::span<float> out);
 
     AudioFormat sourceFormat_;
     AudioPipelineConfig config_;
@@ -144,4 +174,6 @@ private:
     std::vector<float> interleavedInput_;
     std::vector<std::vector<float>> channelInput_;
     std::vector<std::vector<float>> channelOutput_;
+    bool draining_{false};  ///< Switched on after the source reports End in non-loop mode.
+    bool drained_{false};   ///< Set once drainBlock() has returned all tail samples.
 };

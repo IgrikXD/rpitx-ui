@@ -95,14 +95,35 @@ public:
     [[nodiscard]] bool process(std::span<const float> in, std::span<float> out);
 
     /**
-     * @brief Reset filter state and Bresenham accumulator.
+     * @brief Reset filter state for a loop boundary.
      *
-     * Empties the soxr filter delay line, drops any spilled output samples,
-     * and rewinds the Bresenham accumulator. Use at loop boundaries so the
-     * filter tail of the previous file iteration does not smear into the
-     * start of the next.
+     * Empties the soxr filter delay line and drops any spilled output samples
+     * so the end-of-file filter tail does not smear into the start of the
+     * next iteration. The Bresenham accumulator is deliberately preserved
+     * across the boundary: the loop wraps the source content but the
+     * cumulative input/output rate ratio must keep tracking the target so
+     * peekNextInputFrames() of the call that triggered this reset still
+     * matches the input span the caller has already fetched, and longer
+     * looped playbacks do not accumulate sample-count drift.
      */
     void reset();
+
+    /**
+     * @brief Pull the converter's tail into out at end-of-stream.
+     *
+     * Drains spilled output samples first, then feeds soxr the documented
+     * end-of-stream flush form (empty input span) to recover any samples
+     * still buffered in the filter delay line. Returns the number of frames
+     * written into out; a return value of 0 means the converter is fully
+     * drained and the pipeline should report End to its caller.
+     *
+     * Once drain() has been called, the soxr instance is in libsoxr's
+     * post-flush state - call reset() before resuming normal process() use.
+     *
+     * @param out Output buffer; size must not exceed outputFrames().
+     * @return Number of frames written (0 .. out.size()).
+     */
+    [[nodiscard]] std::size_t drain(std::span<float> out);
 
 private:
     int outputFrames_;
