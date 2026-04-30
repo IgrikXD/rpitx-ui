@@ -12,14 +12,14 @@
 #   --audio        : any format libsndfile understands; mono/stereo input is
 #                    resampled to the 228 kHz FM MPX rate internally.
 #   --loop         : replay the audio file continuously when requested by the UI.
-#   --rds-pi       : RDS PI, 1-4 hex digits  (default 1234)
+#   --rds-pi       : RDS PI, 1-4 hex digits, optional 0x prefix (default 0x1234)
 #   --rds-ps       : RDS PS, 1-8 ASCII chars (default rpitx-ui)
 #   --rds-rt       : RDS RT, 1-64 ASCII chars (default rpitx-ui Broadcast WFM with RDS)
 #   --pre-emphasis : FM pre-emphasis in us, 50|75 (default 50)
 FREQ="$1"
 AUDIO="$2"
 PLAYBACK="${3:-loop}"
-PI="${4:-1234}"
+PI="${4:-0x1234}"
 PS="${5:-rpitx-ui}"
 RT="${6:-rpitx-ui Broadcast WFM with RDS}"
 PE="${7:-50}"

@@ -14,7 +14,7 @@ DEFAULT_MULTITONE_TONES=8
 DEFAULT_NFM_MODE="Wide"
 DEFAULT_PLAYBACK="loop"
 DEFAULT_SSB_SIDEBAND="USB"
-DEFAULT_RDS_PI="1234"
+DEFAULT_RDS_PI="0x1234"
 DEFAULT_RDS_PS="rpitx-ui"
 DEFAULT_RDS_RT="rpitx-ui Broadcast WFM with RDS"
 DEFAULT_RDS_PE="50"
@@ -206,11 +206,11 @@ do_enter_rds_params()
 
 LAST_ITEM="$menuchoice"
 
-# PI code (Programme Identification): 1-4 hex digits
-if RDS_PI=$(whiptail --inputbox "Enter RDS Programme Identification (1-4 hex digits):" 8 78 "$DEFAULT_RDS_PI" --title "RDS Programme Identification (PI)" 3>&1 1>&2 2>&3); then
+# PI code (Programme Identification): 1-4 hex digits, optional 0x prefix
+if RDS_PI=$(whiptail --inputbox "Enter RDS Programme Identification (1-4 hex digits, optional 0x prefix):" 8 78 "$DEFAULT_RDS_PI" --title "RDS Programme Identification (PI)" 3>&1 1>&2 2>&3); then
 	abort_action=0
-	if [ -z "$RDS_PI" ] || ! [[ "$RDS_PI" =~ ^[0-9a-fA-F]{1,4}$ ]]; then
-		whiptail --title "Error!" --msgbox "PI must be 1-4 hex digits (0-9, a-f, A-F)!" 8 78
+	if [ -z "$RDS_PI" ] || ! [[ "$RDS_PI" =~ ^(0[xX])?[0-9a-fA-F]{1,4}$ ]]; then
+		whiptail --title "Error!" --msgbox "PI must be 1-4 hex digits, optionally prefixed with 0x/0X!" 8 78
 		abort_action=1
 		return
 	fi

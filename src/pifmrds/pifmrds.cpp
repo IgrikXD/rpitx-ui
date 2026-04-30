@@ -17,7 +17,7 @@
  *   - --freq          Carrier frequency in Hz
  *   - --audio         Path to the audio file (libsndfile-supported format)
  *   - --loop          Loop the audio file (replay from the start on EOF)
- *   - --rds-pi        RDS Programme Identification, 1-4 hex digits (default 0x1234)
+ *   - --rds-pi        RDS Programme Identification, 1-4 hex digits with optional 0x prefix (default 0x1234)
  *   - --rds-ps        RDS Programme Service name, 1-8 ASCII chars (default "rpitx-ui")
  *   - --rds-rt        RDS RadioText, 1-64 ASCII chars
  *   - --pre-emphasis  FM pre-emphasis in microseconds: 50 | 75 (default 50)
@@ -154,7 +154,9 @@ namespace pifmrds {
         app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
 
         std::string piText;
-        app.add_option("--rds-pi", piText, "RDS Programme Identification, 1-4 hex digits (default 1234)");
+        app.add_option("--rds-pi",
+                       piText,
+                       "RDS Programme Identification, 1-4 hex digits with optional 0x prefix (default 0x1234)");
 
         app.add_option("--rds-ps", params.ps, "RDS Programme Service name, 1-8 ASCII chars (default \"rpitx-ui\")")
             ->check(makeRdsTextValidator(RdsEncoder::PS_LENGTH, "PS"));
@@ -180,13 +182,14 @@ namespace pifmrds {
             return result;
         }
 
-        // --rds-pi was captured as a string so we can validate the 1-4 hex
-        // digit format with a meaningful diagnostic; the default is left in
-        // place when the option is not supplied.
+        // --rds-pi was captured as a string so we can validate the hex format
+        // with a meaningful diagnostic; the default is left in place when the
+        // option is not supplied.
         if (piText.empty() == false) {
             const auto parsed{parseRdsPi(piText)};
             if (parsed == std::nullopt) {
-                std::cerr << "[ERROR] Invalid --rds-pi: '" << piText << "' (expected 1-4 hex digits)" << std::endl;
+                std::cerr << "[ERROR] Invalid --rds-pi: '" << piText
+                          << "' (expected 1-4 hex digits with optional 0x prefix)" << std::endl;
                 return rpitx::cli::ParseResult::Error;
             }
             params.pi = parsed.value();
