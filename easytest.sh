@@ -19,6 +19,7 @@ DEFAULT_RDS_PS="rpitx-ui"
 DEFAULT_RDS_RT="rpitx-ui Broadcast WFM with RDS"
 DEFAULT_RDS_PE="50"
 LAST_ITEM="0 Tune"
+AUDIO_FILE_PATTERN='\.(aif|aiff|caf|flac|mp3|wav)$'
 
 do_check_file_existance() 
 {
@@ -44,11 +45,11 @@ fi
 do_file_choose() {
 	local file_type_info="$1"
 	local directory="$2"
-    local extension="$3"
-    files=$(ls $directory 2> /dev/null | grep $extension)
+    local file_pattern="$3"
+    files=$(ls "$directory" 2> /dev/null | grep -Ei "$file_pattern")
 	
 	if [ -z "$files" ]; then
-		whiptail --title "No Files Found" --msgbox "No files with the extension $extension were found in $directory" 8 78
+		whiptail --title "No Files Found" --msgbox "No $file_type_info files were found in $directory" 8 78
 		abort_action=1
 		return
 	fi
@@ -386,7 +387,7 @@ do_freq_setup
 			do_status
 			;;
 			
-			4\ *) do_file_choose ".wav (libsndfile-supported, mono or stereo)" "$RESOURCES_LOCATION" ".wav"
+			4\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -399,7 +400,7 @@ do_freq_setup
 			fi
 			;;
 
-			5\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
+			5\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -412,7 +413,7 @@ do_freq_setup
 			fi
 			;;
 			
-			6\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
+			6\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -425,7 +426,7 @@ do_freq_setup
 			fi
 			;;
 			
-			7\ *) do_file_choose ".wav (libsndfile-supported, any rate / channels)" "$RESOURCES_LOCATION" ".wav"
+			7\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
