@@ -167,8 +167,8 @@ std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path) {
         return nullptr;
     }
 
-    auto impl{std::make_unique<LibsndfileAudioSource::Impl>(handle.get(), info, info.seekable != 0,
-                                                            formatDescription(info))};
+    auto impl{
+        std::make_unique<LibsndfileAudioSource::Impl>(handle.get(), info, info.seekable != 0, formatDescription(info))};
     handle.release();
     return std::unique_ptr<AudioSource>{new LibsndfileAudioSource{std::move(impl)}};
 }
