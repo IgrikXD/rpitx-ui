@@ -9,6 +9,9 @@
 # rpitx-ui package version
 PACKAGE_VERSION='1.11'
 
+# Installed resource directory
+RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
+
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
@@ -86,6 +89,11 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   make -j"$(nproc)" && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
+
+if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
+  sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  echo "${INFO} Cleared existing resources from ${RESOURCE_INSTALL_DIR}"
+fi
 
 # rpitx-ui build and installation with CMake
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."

@@ -9,6 +9,9 @@
 # rpitx-ui package version
 PACKAGE_VERSION='1.11'
 
+# Installed resource directory
+RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
+
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
@@ -90,11 +93,10 @@ echo "${INFO} Shell scripts removed!"
 
 # Remove rpitx-ui resource files from /usr/share/rpitx-ui
 print_banner "$COLOR_YELLOW" 'Removing rpitx-ui resources...'
-if [ -d /usr/share/rpitx-ui ]; then
-  sudo rm -rf /usr/share/rpitx-ui
-  echo "${INFO} Removed /usr/share/rpitx-ui"
+if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
+  sudo rm -rf "${RESOURCE_INSTALL_DIR}"
+  echo "${INFO} Resources removed from ${RESOURCE_INSTALL_DIR}"
 fi
-echo "${INFO} Resources removed!"
 
 # Remove runtime dependencies only when --purge-deps is specified
 if [ "$PURGE_DEPS" = true ]; then
