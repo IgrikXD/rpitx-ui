@@ -48,6 +48,8 @@ do_file_choose() {
 	local file_pattern="$3"
 	local file
 	local file_name
+	local displayed_info
+	local selected_file
 	local file_list=()
 
 	while IFS= read -r -d '' file; do
