@@ -180,8 +180,8 @@ namespace pirfgen {
             .toneCount = params.toneCount.value_or(0),
         }};
 
-        ngfmdmasync dma{params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH,
-                        DMA_FIFO_SIZE};
+        ngfmdmasync dma{
+            params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
         const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /

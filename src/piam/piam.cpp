@@ -118,8 +118,8 @@ namespace piam {
                   << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
-        amdmasync dma{params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH,
-                      DMA_FIFO_SIZE};
+        amdmasync dma{
+            params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
         // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused

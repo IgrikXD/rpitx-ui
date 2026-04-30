@@ -158,8 +158,8 @@ namespace pifmrds {
 
         app.add_option("--rds-ps", params.ps, "RDS Programme Service name, 1-8 ASCII chars (default \"rpitx-ui\")")
             ->check(makeRdsTextValidator(RdsEncoder::PS_LENGTH, "PS"));
-        app.add_option("--rds-rt", params.rt,
-                       "RDS RadioText, 1-64 ASCII chars (default \"rpitx-ui Broadcast WFM with RDS\")")
+        app.add_option(
+               "--rds-rt", params.rt, "RDS RadioText, 1-64 ASCII chars (default \"rpitx-ui Broadcast WFM with RDS\")")
             ->check(makeRdsTextValidator(RdsEncoder::RT_LENGTH, "RT"));
 
         const std::map<std::string, PreEmphasisMode> preEmphMap{
@@ -251,8 +251,8 @@ namespace pifmrds {
         proc.encoder().setPs(params.ps);
         proc.encoder().setRt(params.rt);
 
-        ngfmdmasync dma{params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_BIT_DEPTH,
-                        DMA_FIFO_SIZE};
+        ngfmdmasync dma{
+            params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
         // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
         // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
