@@ -10,7 +10,7 @@
 # Provides the command-line front-end shared by every migrated transmitter
 # binary: a thin CLI11 wrapper that routes help to stdout and parse errors
 # to stderr, a frequency parser that accepts decimal and scientific notation
-# resolving to integer Hz, and reusable CLI11 validators bound to a uniform 
+# resolving to integer Hz, and reusable CLI11 validators bound to a uniform
 # ParseResult outcome enum.
 # ----------------------------------------------------------
 find_package(CLI11 CONFIG REQUIRED)
