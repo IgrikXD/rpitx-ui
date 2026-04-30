@@ -24,8 +24,8 @@
  * Wraps SoxrResampler so callers see a uniform fixed-size output block
  * regardless of the source / target rate ratio. The input block size varies
  * between calls via a Bresenham accumulator that tracks the rate ratio
- * exactly - libsoxr halts soxr_process() on either input exhaustion or
- * output cap, so a constant ceil()-rounded input with a tight output buffer
+ * exactly - the backend halts on either input exhaustion or output cap, so a
+ * constant ceil()-rounded input with a tight output buffer
  * would drop samples or grow an internal spill unbounded. With Bresenham
  * sizing and an oversized staging buffer, libsoxr always consumes the full
  * input span and the per-call output jitter (one or two samples) is absorbed

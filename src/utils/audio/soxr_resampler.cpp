@@ -11,9 +11,11 @@
 
 #include "soxr_resampler.h"
 
+#include <soxr.h>
+
+#include <memory>
 #include <stdexcept>
 #include <string>
-#include <utility>
 
 namespace {
     [[nodiscard]] constexpr unsigned long qualityRecipe(SoxrResampler::Quality q) noexcept {
@@ -33,43 +35,60 @@ namespace {
     }
 }  // namespace
 
-SoxrResampler::SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality) : handle_{nullptr} {
-    if (sourceRateHz <= 0 || targetRateHz <= 0) {
-        throw std::invalid_argument{"SoxrResampler: rates must be positive"};
-    }
+struct SoxrResampler::Impl {
+    soxr_t handle{nullptr};
 
-    // Float32 interleaved both ways. With num_channels=1 interleaved and
-    // planar are bit-identical, so this is the natural single-stream layout.
-    const soxr_io_spec_t ioSpec{soxr_io_spec(SOXR_FLOAT32_I, SOXR_FLOAT32_I)};
-    const soxr_quality_spec_t qualitySpec{soxr_quality_spec(qualityRecipe(quality), 0)};
-    // Pass nullptr for the runtime spec so libsoxr applies its own defaults.
-    // soxr_runtime_spec(1) hard-codes log2_min_dft_size = 10 (1024-point DFT
-    // floor), which is larger than our per-block input on the 44.1 kHz ->
-    // 48 kHz path (941 samples) and 44.1 kHz -> 228 kHz path (793 samples);
-    // forcing that floor on undersized blocks crashed pinfm/pifmrds during
-    // the very first soxr_process call. The library-default runtime spec
-    // sizes its DFT lazily from the actual block size.
-
-    soxr_error_t error{nullptr};
-    handle_ = soxr_create(sourceRateHz, targetRateHz, 1, &error, &ioSpec, &qualitySpec, nullptr);
-    if (error != nullptr || handle_ == nullptr) {
-        const char* msg{error != nullptr ? error : "unknown error"};
-        throw std::runtime_error{std::string{"SoxrResampler: soxr_create failed: "} + msg};
-    }
-}
-
-SoxrResampler& SoxrResampler::operator=(SoxrResampler&& other) noexcept {
-    if (this != &other) {
-        if (handle_ != nullptr) {
-            soxr_delete(handle_);
+    Impl(int sourceRateHz, int targetRateHz, Quality quality) {
+        if (sourceRateHz <= 0 || targetRateHz <= 0) {
+            throw std::invalid_argument{"SoxrResampler: rates must be positive"};
         }
-        handle_ = std::exchange(other.handle_, nullptr);
+
+        // Float32 interleaved both ways. With num_channels=1 interleaved and
+        // planar are bit-identical, so this is the natural single-stream layout.
+        const soxr_io_spec_t ioSpec{soxr_io_spec(SOXR_FLOAT32_I, SOXR_FLOAT32_I)};
+        const soxr_quality_spec_t qualitySpec{soxr_quality_spec(qualityRecipe(quality), 0)};
+        // Pass nullptr for the runtime spec so libsoxr applies its own defaults.
+        // soxr_runtime_spec(1) hard-codes log2_min_dft_size = 10 (1024-point DFT
+        // floor), which is larger than our per-block input on the 44.1 kHz ->
+        // 48 kHz path (941 samples) and 44.1 kHz -> 228 kHz path (793 samples);
+        // forcing that floor on undersized blocks crashed pinfm/pifmrds during
+        // the very first soxr_process call. The library-default runtime spec
+        // sizes its DFT lazily from the actual block size.
+
+        soxr_error_t error{nullptr};
+        soxr_t createdHandle{soxr_create(sourceRateHz, targetRateHz, 1, &error, &ioSpec, &qualitySpec, nullptr)};
+        if (error != nullptr || createdHandle == nullptr) {
+            if (createdHandle != nullptr) {
+                soxr_delete(createdHandle);
+            }
+            const char* msg{error != nullptr ? error : "unknown error"};
+            throw std::runtime_error{std::string{"SoxrResampler: soxr_create failed: "} + msg};
+        }
+        handle = createdHandle;
     }
-    return *this;
+
+    ~Impl() {
+        if (handle != nullptr) {
+            soxr_delete(handle);
+        }
+    }
+
+    Impl(const Impl&)            = delete;
+    Impl& operator=(const Impl&) = delete;
+};
+
+SoxrResampler::SoxrResampler(int sourceRateHz, int targetRateHz, Quality quality)
+    : impl_{std::make_unique<Impl>(sourceRateHz, targetRateHz, quality)} {
 }
+
+SoxrResampler::~SoxrResampler() = default;
+
+SoxrResampler::SoxrResampler(SoxrResampler&&) noexcept = default;
+
+SoxrResampler& SoxrResampler::operator=(SoxrResampler&&) noexcept = default;
 
 std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> in, std::span<float> out) noexcept {
-    if (handle_ == nullptr) {
+    if (impl_ == nullptr || impl_->handle == nullptr) {
         return std::nullopt;
     }
 
@@ -81,9 +100,16 @@ std::optional<SoxrProcessResult> SoxrResampler::process(std::span<const float> i
     const float* inPtr{in.empty() ? nullptr : in.data()};
     float* outPtr{out.empty() ? nullptr : out.data()};
 
-    const soxr_error_t error{soxr_process(handle_, inPtr, in.size(), &inputDone, outPtr, out.size(), &outputDone)};
+    const soxr_error_t error{
+        soxr_process(impl_->handle, inPtr, in.size(), &inputDone, outPtr, out.size(), &outputDone)};
     if (error != nullptr) {
         return std::nullopt;
     }
     return SoxrProcessResult{.inputConsumed = inputDone, .outputProduced = outputDone};
+}
+
+void SoxrResampler::clear() noexcept {
+    if (impl_ != nullptr && impl_->handle != nullptr) {
+        soxr_clear(impl_->handle);
+    }
 }
