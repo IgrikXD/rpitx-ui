@@ -11,8 +11,6 @@
 
 #pragma once
 
-#include <sndfile.h>
-
 #include <memory>
 #include <span>
 #include <string>
@@ -21,62 +19,65 @@
 #include "audio_source.h"
 
 /**
- * @brief AudioSource backed by a libsndfile SNDFILE handle.
+ * @brief AudioSource backed by libsndfile.
  *
- * Owns the SNDFILE handle and closes it in the destructor. Backing-specific
- * details (seekable flag, description) are captured at construction time
- * while the read / rewind path stays shared in one place. Non-copyable
- * (handle ownership is unique) and non-movable (matches AudioSource base).
+ * Owns the backend decoder handle and closes it in the destructor.
+ * Backing-specific details stay hidden behind PIMPL while the read / rewind
+ * path stays shared in one place. Non-copyable and non-movable (matches
+ * AudioSource base).
  */
 class LibsndfileAudioSource final : public AudioSource {
 public:
+    ~LibsndfileAudioSource() override;
+
     /**
-     * @brief Construct from an open libsndfile handle.
-     *
-     * Used only by the factory functions below; normal callers should not
-     * invoke this directly. Takes ownership of the handle.
-     *
-     * @param handle      Open SNDFILE handle (must be non-null).
-     * @param info        Format information from sf_open / sf_open_virtual.
-     * @param seekable    Whether the backing supports rewind.
-     * @param description Human-readable format description for logging.
+     * @brief Return channel count and sample rate captured when the file was opened.
      */
-    LibsndfileAudioSource(SNDFILE* handle, SF_INFO info, bool seekable, std::string description);
+    [[nodiscard]] AudioFormat format() const override;
 
-    ~LibsndfileAudioSource() override {
-        sf_close(handle_);
-    }
+    /**
+     * @brief Return the human-readable format description captured at open time.
+     */
+    [[nodiscard]] std::string_view description() const override;
 
-    [[nodiscard]] AudioFormat format() const override {
-        return AudioFormat{.channels = info_.channels, .sampleRate = info_.samplerate};
-    }
-    [[nodiscard]] std::string_view description() const override {
-        return description_;
-    }
+    /**
+     * @brief Read interleaved float samples into dst.
+     *
+     * dst.size() must be a multiple of format().channels. Samples returned by
+     * the backend are clamped to [-1, 1], and non-finite samples are replaced
+     * with silence. A fatal read or decoder error makes error() sticky.
+     *
+     * @param dst Destination sample buffer.
+     * @return Number of float samples written; 0 on EOF, prior error, or
+     *         immediate read failure. A backend error after a partial read may
+     *         return a positive count and set error().
+     */
     [[nodiscard]] std::size_t read(std::span<float> dst) override;
-    [[nodiscard]] bool rewind() override {
-        if (seekable_ == false) {
-            return false;
-        }
-        if (sf_seek(handle_, 0, SEEK_SET) < 0) {
-            error_ = true;
-            return false;
-        }
-        return true;
-    }
-    [[nodiscard]] bool seekable() const override {
-        return seekable_;
-    }
-    [[nodiscard]] bool error() const override {
-        return error_;
-    }
+
+    /**
+     * @brief Seek back to the start of the stream.
+     *
+     * @return false if the source is not seekable or the backend seek fails.
+     */
+    [[nodiscard]] bool rewind() override;
+
+    /**
+     * @brief Report whether the backend marked this source as seekable at open time.
+     */
+    [[nodiscard]] bool seekable() const override;
+
+    /**
+     * @brief Report whether a fatal read or seek error has occurred.
+     */
+    [[nodiscard]] bool error() const override;
 
 private:
-    SNDFILE* handle_;
-    SF_INFO info_;
-    bool seekable_;
-    bool error_{false};
-    std::string description_;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+
+    explicit LibsndfileAudioSource(std::unique_ptr<Impl> impl);
+
+    friend std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path);
 };
 
 /**
