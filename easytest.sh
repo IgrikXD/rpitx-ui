@@ -45,20 +45,24 @@ fi
 do_file_choose() {
 	local file_type_info="$1"
 	local directory="$2"
-    local file_pattern="$3"
-    files=$(ls "$directory" 2> /dev/null | grep -Ei "$file_pattern")
+	local file_pattern="$3"
+	local file
+	local file_name
+	local file_list=()
+
+	while IFS= read -r -d '' file; do
+		file_name="${file##*/}"
+		if [[ "${file_name,,}" =~ ${file_pattern,,} ]]; then
+			file_list+=("$file_name" "")
+		fi
+	done < <(find "$directory" -maxdepth 1 -type f -print0 2> /dev/null | sort -z)
 	
-	if [ -z "$files" ]; then
+	if [ ${#file_list[@]} -eq 0 ]; then
 		whiptail --title "No Files Found" --msgbox "No $file_type_info files were found in $directory" 8 78
 		abort_action=1
 		return
 	fi
 
-	file_list=()
-	for file in $files; do
-		file_list+=("$file" "")
-	done
-    
 	displayed_info="Choose $file_type_info file \nlocated in $directory:"
 	if selected_file=$(whiptail --noitem --title "Select a file to transmit" --menu "$displayed_info" 21 82 12 "${file_list[@]}" 3>&1 1>&2 2>&3); then
         FILE_LOC="$directory/$selected_file"
