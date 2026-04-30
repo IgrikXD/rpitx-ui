@@ -387,7 +387,7 @@ do_freq_setup
 			do_status
 			;;
 			
-			4\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			4\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -400,7 +400,7 @@ do_freq_setup
 			fi
 			;;
 
-			5\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			5\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -413,7 +413,7 @@ do_freq_setup
 			fi
 			;;
 			
-			6\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			6\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
@@ -426,7 +426,7 @@ do_freq_setup
 			fi
 			;;
 			
-			7\ *) do_file_choose "libsndfile-supported audio (any rate / channels)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			7\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_playback_mode
 				if [ $abort_action -eq 0 ]; then
