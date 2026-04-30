@@ -17,6 +17,10 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <memory>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -62,102 +66,145 @@ namespace {
         }
         return result;
     }
-}  // namespace
 
-struct LibsndfileAudioSource::Impl {
-    SNDFILE* handle{nullptr};
-    AudioFormat format{};
-    bool seekable{false};
-    bool error{false};
-    std::string description;
-
-    Impl(SNDFILE* sourceHandle, const SF_INFO& sourceInfo, bool sourceSeekable, std::string sourceDescription)
-        : handle{sourceHandle},
-          format{.channels = sourceInfo.channels, .sampleRate = sourceInfo.samplerate},
-          seekable{sourceSeekable},
-          description{std::move(sourceDescription)} {
-        assert(handle != nullptr);
-    }
-
-    ~Impl() {
-        if (handle != nullptr) {
-            sf_close(handle);
+    /**
+     * @brief AudioSource backed by libsndfile.
+     *
+     * Hidden implementation returned through the AudioSource interface by
+     * makeFileAudioSource().
+     */
+    class LibsndfileAudioSource final : public AudioSource {
+    public:
+        /**
+         * @brief Construct from an open backend handle.
+         *
+         * Takes ownership of handle. The format, seekable flag, and
+         * description are captured at construction time.
+         *
+         * @param handle      Open backend handle (must be non-null).
+         * @param info        Format metadata populated by the backend.
+         * @param seekable    Whether the source can seek back to the start.
+         * @param description Human-readable format description.
+         */
+        LibsndfileAudioSource(SNDFILE* handle, const SF_INFO& info, bool seekable, std::string description)
+            : handle_{handle},
+              format_{.channels = info.channels, .sampleRate = info.samplerate},
+              seekable_{seekable},
+              description_{std::move(description)} {
+            assert(handle_ != nullptr);
         }
-    }
 
-    Impl(const Impl&)            = delete;
-    Impl& operator=(const Impl&) = delete;
-};
+        /**
+         * @brief Close the owned backend handle.
+         */
+        ~LibsndfileAudioSource() override {
+            if (handle_ != nullptr) {
+                sf_close(handle_);
+            }
+        }
 
-LibsndfileAudioSource::LibsndfileAudioSource(std::unique_ptr<Impl> impl) : impl_{std::move(impl)} {
-    assert(impl_ != nullptr);
-}
+        /**
+         * @brief Return channel count and sample rate captured at open time.
+         */
+        [[nodiscard]] AudioFormat format() const override {
+            return format_;
+        }
 
-LibsndfileAudioSource::~LibsndfileAudioSource() = default;
+        /**
+         * @brief Return the human-readable format description captured at open time.
+         */
+        [[nodiscard]] std::string_view description() const override {
+            return description_;
+        }
 
-AudioFormat LibsndfileAudioSource::format() const {
-    return impl_->format;
-}
+        /**
+         * @brief Read interleaved float samples into dst.
+         *
+         * dst.size() must be a multiple of format().channels. Samples returned
+         * by the backend are clamped to [-1, 1], and non-finite samples are
+         * replaced with silence. A fatal read or decoder error makes error()
+         * sticky.
+         *
+         * @param dst Destination sample buffer.
+         * @return Number of float samples written; 0 on EOF, prior error, or
+         *         immediate read failure. A backend error after a partial read
+         *         may return a positive count and set error().
+         */
+        [[nodiscard]] std::size_t read(std::span<float> dst) override {
+            if (error_) {
+                return 0;
+            }
 
-std::string_view LibsndfileAudioSource::description() const {
-    return impl_->description;
-}
+            const auto channels{static_cast<std::size_t>(format_.channels)};
+            // Caller is contractually responsible for sizing dst as a multiple of
+            // channels; assert in debug builds so a stereo / mono mix-up is caught
+            // immediately rather than after producing a half-frame at the tail.
+            assert(channels > 0);
+            assert(dst.size() % channels == 0);
+            if (channels == 0 || dst.size() % channels != 0) {
+                error_ = true;
+                return 0;
+            }
 
-std::size_t LibsndfileAudioSource::read(std::span<float> dst) {
-    if (impl_->error) {
-        return 0;
-    }
+            const auto framesRequested{static_cast<sf_count_t>(dst.size() / channels)};
+            const sf_count_t framesRead{sf_readf_float(handle_, dst.data(), framesRequested)};
+            if (framesRead < 0) {
+                error_ = true;
+                return 0;
+            }
 
-    const auto channels{static_cast<std::size_t>(impl_->format.channels)};
-    // Caller is contractually responsible for sizing dst as a multiple of
-    // channels; assert in debug builds so a stereo / mono mix-up is caught
-    // immediately rather than after producing a half-frame at the tail.
-    assert(channels > 0);
-    assert(dst.size() % channels == 0);
-    if (channels == 0 || dst.size() % channels != 0) {
-        impl_->error = true;
-        return 0;
-    }
+            // Short read at clean EOF is normal; only flag I/O errors. sf_error
+            // returns SF_ERR_NO_ERROR (0) on a clean end-of-stream, non-zero on
+            // an actual decoder / read failure.
+            if (framesRead < framesRequested && sf_error(handle_) != SF_ERR_NO_ERROR) {
+                error_ = true;
+            }
 
-    const auto framesRequested{static_cast<sf_count_t>(dst.size() / channels)};
-    const sf_count_t framesRead{sf_readf_float(impl_->handle, dst.data(), framesRequested)};
-    if (framesRead < 0) {
-        impl_->error = true;
-        return 0;
-    }
+            const std::size_t samplesRead{static_cast<std::size_t>(framesRead) * channels};
+            for (float& sample: dst.first(samplesRead)) {
+                sample = sanitizeDecodedSample(sample);
+            }
+            return samplesRead;
+        }
 
-    // Short read at clean EOF is normal; only flag I/O errors. sf_error
-    // returns SF_ERR_NO_ERROR (0) on a clean end-of-stream, non-zero on
-    // an actual decoder / read failure.
-    if (framesRead < framesRequested && sf_error(impl_->handle) != SF_ERR_NO_ERROR) {
-        impl_->error = true;
-    }
+        /**
+         * @brief Seek back to the start of the stream.
+         *
+         * @return false if the source is not seekable or the backend seek fails.
+         */
+        [[nodiscard]] bool rewind() override {
+            if (seekable_ == false) {
+                return false;
+            }
+            if (sf_seek(handle_, 0, SEEK_SET) < 0) {
+                error_ = true;
+                return false;
+            }
+            return true;
+        }
 
-    const std::size_t samplesRead{static_cast<std::size_t>(framesRead) * channels};
-    for (float& sample: dst.first(samplesRead)) {
-        sample = sanitizeDecodedSample(sample);
-    }
-    return samplesRead;
-}
+        /**
+         * @brief Report whether the backend marked this source as seekable at open time.
+         */
+        [[nodiscard]] bool seekable() const override {
+            return seekable_;
+        }
 
-bool LibsndfileAudioSource::rewind() {
-    if (impl_->seekable == false) {
-        return false;
-    }
-    if (sf_seek(impl_->handle, 0, SEEK_SET) < 0) {
-        impl_->error = true;
-        return false;
-    }
-    return true;
-}
+        /**
+         * @brief Report whether a fatal read or seek error has occurred.
+         */
+        [[nodiscard]] bool error() const override {
+            return error_;
+        }
 
-bool LibsndfileAudioSource::seekable() const {
-    return impl_->seekable;
-}
-
-bool LibsndfileAudioSource::error() const {
-    return impl_->error;
-}
+    private:
+        SNDFILE* handle_;
+        AudioFormat format_;
+        bool seekable_;
+        bool error_{false};
+        std::string description_;
+    };
+}  // namespace
 
 std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path) {
     SF_INFO info{};
@@ -167,8 +214,8 @@ std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path) {
         return nullptr;
     }
 
-    auto impl{
-        std::make_unique<LibsndfileAudioSource::Impl>(handle.get(), info, info.seekable != 0, formatDescription(info))};
+    auto source{
+        std::make_unique<LibsndfileAudioSource>(handle.get(), info, info.seekable != 0, formatDescription(info))};
     handle.release();
-    return std::unique_ptr<AudioSource>{new LibsndfileAudioSource{std::move(impl)}};
+    return source;
 }
