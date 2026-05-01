@@ -360,7 +360,7 @@ do_freq_setup
     "11 Opera" "Like morse but need Opera decoder" \
     "12 RTTY" "Radioteletype" \
     "13 CW" "Continuous Wave (Morse code)" \
-    "14 Generator" "Wideband RF generator" \
+    "14 RFgen" "Wideband RF generator" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
