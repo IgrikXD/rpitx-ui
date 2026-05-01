@@ -24,8 +24,7 @@ AUDIO_FILE_PATTERN='\.(aif|aiff|caf|flac|mp3|wav)$'
 do_check_file_existance() 
 {
 
-	readlink -e $1 > /dev/null
-	if [ $? -eq 1 ]; then
+	if ! readlink -e "$1" > /dev/null; then
     	whiptail --title "Error!" --msgbox "The file does not exist!" 8 78
 		return 1
 	fi
@@ -45,27 +44,32 @@ fi
 do_file_choose() {
 	local file_type_info="$1"
 	local directory="$2"
-    local file_pattern="$3"
-    files=$(ls "$directory" 2> /dev/null | grep -Ei "$file_pattern")
-	
-	if [ -z "$files" ]; then
+	local file_pattern="${3,,}"
+	local path file displayed_info selected_file
+	local file_list=()
+
+	for path in "$directory"/*; do
+		[[ -f "$path" ]] || continue
+
+		file=${path##*/}
+		if [[ "${file,,}" =~ $file_pattern ]]; then
+			file_list+=("$file" "")
+		fi
+	done
+
+	if (( ${#file_list[@]} == 0 )); then
 		whiptail --title "No Files Found" --msgbox "No $file_type_info files were found in $directory" 8 78
 		abort_action=1
 		return
 	fi
 
-	file_list=()
-	for file in $files; do
-		file_list+=("$file" "")
-	done
-
 	displayed_info="Choose $file_type_info file \nlocated in $directory:"
 	if selected_file=$(whiptail --noitem --title "Select a file to transmit" --menu "$displayed_info" 21 82 12 "${file_list[@]}" 3>&1 1>&2 2>&3); then
-        FILE_LOC="$directory/$selected_file"
+		FILE_LOC="${directory%/}/$selected_file"
 		abort_action=0
-    else
-        abort_action=1
-    fi
+	else
+		abort_action=1
+	fi
 }
 
 do_enter_message()
@@ -376,7 +380,7 @@ do_freq_setup
 			do_status
 			;;
 			
-			2\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
+			2\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
 			if [ $abort_action -eq 0 ]; then
 				testspectrum.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
@@ -436,14 +440,14 @@ do_freq_setup
 			fi
 			;;
 			
-			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" ".rf"
+			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" '\.rf$'
 			if [ $abort_action -eq 0 ]; then
 				testfreedv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" ".jpg"
+			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
 			if [ $abort_action -eq 0 ]; then
 				testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
