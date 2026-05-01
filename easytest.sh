@@ -393,9 +393,9 @@ do_freq_setup
 			
 			4\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
-				do_enter_playback_mode
+				do_enter_rds_params
 				if [ $abort_action -eq 0 ]; then
-					do_enter_rds_params
+					do_enter_playback_mode
 					if [ $abort_action -eq 0 ]; then
 						testfmrds.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "$RDS_PI" "$RDS_PS" "$RDS_RT" "$RDS_PE" >/dev/null 2>/dev/null &
 						do_status
@@ -406,9 +406,9 @@ do_freq_setup
 
 			5\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
-				do_enter_playback_mode
+				do_enter_nfm_mode
 				if [ $abort_action -eq 0 ]; then
-					do_enter_nfm_mode
+					do_enter_playback_mode
 					if [ $abort_action -eq 0 ]; then
 						testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
 						do_status
@@ -419,9 +419,9 @@ do_freq_setup
 			
 			6\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
-				do_enter_playback_mode
+				do_enter_ssb_sideband
 				if [ $abort_action -eq 0 ]; then
-					do_enter_ssb_sideband
+					do_enter_playback_mode
 					if [ $abort_action -eq 0 ]; then
 						testssb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${SSB_SIDEBAND,,}" >/dev/null 2>/dev/null &
 						do_status
