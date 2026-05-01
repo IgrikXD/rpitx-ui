@@ -61,7 +61,7 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transmitting. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files with the extension required for a specific operating mode: for example, for the "_**FmRds**_" mode you will be asked to select only `.wav` files, and for the "_**SSTV**_" mode you will be asked to select a file with the `.jpg` extension.  
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file you want to use when transmitting. You will have access to a menu for selecting a specific file when working with the "_**Spectrum**_", "_**FmRds**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. [`easytest.sh`](./easytest.sh) selects files with the extension required for a specific operating mode: for example, for the "_**FmRds**_" mode you will be asked to select only audio files, and for the "_**SSTV**_" mode you will be asked to select a file with the `.jpg` extension.  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message when working in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes. If you enter an empty message, an error message will be displayed and the transfer will not start, and you will be returned to the main menu.  
@@ -76,10 +76,10 @@ Added "_**CW**_" mode for Morse code transmission. You can enter a custom messag
 Added "_**RFgen**_" mode for wideband RF signal generation. You can select one of three generator types: "_**Noise**_" (_uniform pseudo-random noise across the bandwidth_), "_**Sweep**_" (_fast sawtooth sweep across the bandwidth_), or "_**Multitone**_" (_random fast-hopping across equidistant tones_). After selecting the generator type, you will be asked to enter the bandwidth in Hz. If "_**Multitone**_" is selected, you will also be asked to specify the number of tones. If you enter an empty or invalid value for bandwidth or tone count, an error message will be displayed and the transmission will not start.  
 ![rpitx-ui-rfgen-mode](./doc/rpitx-ui-rfgen-mode.gif)
 
-Added NFM deviation-mode selection for the "_**NFM**_" transmitter. After choosing a `.wav` file, you can now select either "_**Wide**_" (_+-5 kHz deviation for 25 kHz amateur VHF/UHF channels_) or "_**Narrow**_" (_+-2.5 kHz deviation for 12.5 kHz PMR/DMR-style channels_) before transmission starts.
+Added NFM deviation-mode selection for the "_**NFM**_" transmitter. After choosing a audio file, you can now select either "_**Wide**_" (_+-5 kHz deviation for 25 kHz amateur VHF/UHF channels_) or "_**Narrow**_" (_+-2.5 kHz deviation for 12.5 kHz PMR/DMR-style channels_) before transmission starts.
 ![rpitx-ui-nfm-mode](./doc/rpitx-ui-nfm-mode.gif)
 
-Added RDS parameter setup for the "_**FmRds**_" transmitter. After choosing a `.wav` file, you can now enter the RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and select either 50 us or 75 us FM pre-emphasis before transmission starts. Empty or invalid PI / PS / RT values are rejected and the transmission is not started.
+Added RDS parameter setup for the "_**FmRds**_" transmitter. After choosing a audio file, you can now enter the RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and select either 50 us or 75 us FM pre-emphasis before transmission starts. Empty or invalid PI / PS / RT values are rejected and the transmission is not started.
 ![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
 
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
