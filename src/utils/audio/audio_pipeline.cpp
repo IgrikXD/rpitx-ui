@@ -104,6 +104,12 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             if (filledSamples == 0) {
                 return AudioPipelineStatus::End;
             }
+            // Tail of the block holds pre-rewind data plus a zero pad.
+            // Defer the boundary signal so the next read() resets the
+            // converter before processing post-rewind data: signalling
+            // it now would discard the pre-rewind tail still queued in
+            // the converter's filter state.
+            pendingLoopBoundary_ = true;
             std::fill(dst.begin() + static_cast<std::ptrdiff_t>(filledSamples), dst.end(), 0.0F);
             return AudioPipelineStatus::Ok;
         }

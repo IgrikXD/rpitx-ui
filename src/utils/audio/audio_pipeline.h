@@ -159,12 +159,18 @@ private:
          * @brief Whether the most recent read() began at a clean loop boundary.
          *
          * Returns true exactly once after a read whose first samples came
-         * from a rewind (no pre-rewind tail in the block). The caller
-         * should reset rate-converter filter state for such a block.
+         * from a rewind (no pre-rewind tail in the block). Also returns
+         * true once when a previous read() rewound the source but had to
+         * exit before any post-rewind samples were available - in that
+         * case the signal is deferred to the next call so the caller
+         * resets the converter before processing fresh-loop data, not
+         * before the trailing pre-rewind tail still queued in the
+         * converter's filter state.
          */
         [[nodiscard]] bool consumeLoopBoundary() noexcept {
-            const bool result{restartedThisRead_};
-            restartedThisRead_ = false;
+            const bool result{restartedThisRead_ || pendingLoopBoundary_};
+            restartedThisRead_   = false;
+            pendingLoopBoundary_ = false;
             return result;
         }
 
@@ -179,6 +185,7 @@ private:
         int channels_;
         bool loop_;
         bool restartedThisRead_{false};       ///< Set when read() filled the block starting from a rewind.
+        bool pendingLoopBoundary_{false};     ///< Carries an unsignalled rewind from one read() into the next.
         std::vector<float> crossfadeBuffer_;  ///< Scratch for post-rewind head samples (loop mode only).
     };
 
