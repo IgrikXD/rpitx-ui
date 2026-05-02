@@ -281,7 +281,14 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     // localUtcOffsetHalfHours() helper.
     const auto utc{currentUtcMinuteTime()};
 
-    if (lastCtUtcMinute_.has_value() && lastCtUtcMinute_ == utc.minutePoint) {
+    // Skip the very first CT emission: receivers benefit from seeing PS as
+    // soon as possible, so we anchor lastCtUtcMinute_ to the current minute
+    // and let the next minute boundary trigger the first 4A group.
+    if (lastCtUtcMinute_.has_value() == false) {
+        lastCtUtcMinute_ = utc.minutePoint;
+        return false;
+    }
+    if (lastCtUtcMinute_ == utc.minutePoint) {
         return false;
     }
     lastCtUtcMinute_ = utc.minutePoint;
