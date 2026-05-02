@@ -51,8 +51,13 @@ AudioPipeline::AudioBlockReader::AudioBlockReader(AudioSource& source, int chann
 }
 
 AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) {
+    // Caller contract: dst must be a non-empty whole number of frames.
+    // Surface as throw (consistent with downmixInterleavedToMono and the
+    // ctors below) so a programmer error never silently degrades to a
+    // runtime status code.
     if (dst.empty() || dst.size() % static_cast<std::size_t>(channels_) != 0) {
-        return AudioPipelineStatus::Error;
+        throw std::invalid_argument{"AudioBlockReader::read: dst must be a non-empty whole number of frames (size " +
+                                    std::to_string(dst.size()) + ", channels " + std::to_string(channels_) + ")"};
     }
 
     restartedThisRead_ = false;
@@ -65,7 +70,9 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
 
         if (samplesRead > 0) {
             if (samplesRead % static_cast<std::size_t>(channels_) != 0) {
-                return AudioPipelineStatus::Error;
+                throw std::logic_error{"AudioBlockReader::read: source returned a partial frame (" +
+                                       std::to_string(samplesRead) + " samples, channels " + std::to_string(channels_) +
+                                       ")"};
             }
             filledSamples += samplesRead;
             rewoundSinceProgress = false;
@@ -130,7 +137,8 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
                 break;
             }
             if (got % chCount != 0) {
-                return AudioPipelineStatus::Error;
+                throw std::logic_error{"AudioBlockReader::read: source returned a partial frame during crossfade (" +
+                                       std::to_string(got) + " samples, channels " + std::to_string(channels_) + ")"};
             }
             headFilled += got;
         }
@@ -238,8 +246,15 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
 }
 
 AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
-    if (out.size() != outputSamplesPerBlock() || reader_ == std::nullopt) {
-        return AudioPipelineStatus::Error;
+    // Caller contract: output buffer must match the block size declared at
+    // construction, and the pipeline must have been fully initialised.
+    if (reader_ == std::nullopt) {
+        throw std::logic_error{"AudioPipeline::read: pipeline is not initialised"};
+    }
+    if (out.size() != outputSamplesPerBlock()) {
+        throw std::invalid_argument{"AudioPipeline::read: out.size() (" + std::to_string(out.size()) +
+                                    ") must equal outputSamplesPerBlock() (" + std::to_string(outputSamplesPerBlock()) +
+                                    ")"};
     }
     if (drained_) {
         return AudioPipelineStatus::End;
@@ -253,12 +268,14 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     const int inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
     const std::size_t interleavedSize{static_cast<std::size_t>(inputFramesThisCall) *
                                       static_cast<std::size_t>(sourceFormat_.channels)};
-    // Defend against a future contract drift in AudioRateConverter: the
-    // interleavedInput_ buffer is sized for maxInputFrames_, and writing
-    // past it in reader_->read() would be a buffer overflow. Surface the
-    // violation as Error rather than UB.
+    // Internal invariant: AudioRateConverter must never request more than
+    // maxInputFrames_ per call, which is exactly what interleavedInput_ is
+    // sized for. A future contract drift would be a logic bug, not a
+    // runtime IO failure - surface it as such.
     if (interleavedSize > interleavedInput_.size()) {
-        return AudioPipelineStatus::Error;
+        throw std::logic_error{"AudioPipeline::read: rate converter requested " + std::to_string(interleavedSize) +
+                               " interleaved samples, exceeding buffer capacity " +
+                               std::to_string(interleavedInput_.size())};
     }
 
     const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};

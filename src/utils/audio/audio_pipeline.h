@@ -111,14 +111,16 @@ public:
     /**
      * @brief Read and convert one block at the target sample rate.
      *
-     * Returns Error when out.size() does not equal outputSamplesPerBlock().
-     *
      * @param out Destination block, interleaved by outputChannels().
-     * @return Ok, End, or Error.
+     * @return Ok on a normal block, End once the source and converter
+     *         tails are exhausted, or Error on an underlying source / rate
+     *         converter runtime failure.
      *
-     * @throws std::invalid_argument when an internal invariant is violated
-     *         (e.g. mono downmix called with mismatched span sizes); these
-     *         indicate a programming error rather than a stream condition.
+     * @throws std::invalid_argument if out.size() does not equal
+     *         outputSamplesPerBlock() (caller contract violation).
+     * @throws std::logic_error on an internal invariant violation
+     *         (e.g. converter requesting more input than the buffer can
+     *         hold, source returning a partial frame).
      */
     [[nodiscard]] AudioPipelineStatus read(std::span<float> out);
 
@@ -146,6 +148,10 @@ private:
          *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.
+         *
+         * @throws std::invalid_argument if dst is empty or its size is not
+         *         a multiple of the channel count.
+         * @throws std::logic_error if the source returns a partial frame.
          */
         [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
 
