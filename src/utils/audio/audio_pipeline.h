@@ -139,11 +139,13 @@ private:
          * rate-agnostic and only enforces channel alignment.
          *
          * In loop mode reads are gap-free: on EOF the source is rewound
-         * in place and the same block keeps filling. A block may thus
-         * mix pre-rewind tail and post-rewind head samples;
-         * consumeLoopBoundary() reports true only when the rewind
-         * aligned with the block start (so the converter can be reset
-         * safely).
+         * in place and the same block keeps filling. To suppress the
+         * filter discontinuity that would otherwise occur where end-of-
+         * file meets start-of-file inside the same input block, a short
+         * linear crossfade (kCrossfadeFrames) is applied across the seam.
+         * On a block-aligned EOF (no pre-rewind tail in the buffer) no
+         * crossfade is needed and consumeLoopBoundary() reports true so
+         * the converter filter state can be reset cleanly.
          *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.
@@ -154,8 +156,9 @@ private:
          * @brief Whether the most recent read() began at a clean loop boundary.
          *
          * Returns true exactly once after a read whose first samples came
-         * from a rewind. The caller should reset rate-converter filter
-         * state before processing such a block.
+         * from a rewind (no pre-rewind tail was present in the block).
+         * The caller should reset rate-converter filter state before
+         * processing such a block.
          */
         [[nodiscard]] bool consumeLoopBoundary() noexcept {
             const bool result{restartedThisRead_};
@@ -164,10 +167,17 @@ private:
         }
 
     private:
+        /// Crossfade window (in frames) used to smooth mid-block loop seams.
+        /// 32 frames maps to ~0.17 ms @ 192 kHz and ~4 ms @ 8 kHz - long
+        /// enough to mask the filter discontinuity, short enough to be
+        /// inaudible relative to the surrounding signal.
+        static constexpr std::size_t kCrossfadeFrames{32};
+
         AudioSource& source_;
         int channels_;
         bool loop_;
-        bool restartedThisRead_{false};  ///< Set when read() filled the block starting from a rewind.
+        bool restartedThisRead_{false};      ///< Set when read() filled the block starting from a rewind.
+        std::vector<float> crossfadeBuffer_;  ///< Scratch space for post-rewind head samples (loop mode only).
     };
 
     /**
