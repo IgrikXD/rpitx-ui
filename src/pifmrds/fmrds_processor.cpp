@@ -59,17 +59,9 @@ void FmRdsProcessor::validateConfig(const FmRdsConfig& config) {
     if (config.channels != 1 && config.channels != 2) {
         throw std::invalid_argument{"FmRdsProcessor: channels must be 1 or 2, got " + std::to_string(config.channels)};
     }
-    if (config.audioSampleRate <= 0) {
-        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate must be positive, got " +
-                                    std::to_string(config.audioSampleRate)};
-    }
     if (config.mpxSampleRate <= 0) {
         throw std::invalid_argument{"FmRdsProcessor: mpxSampleRate must be positive, got " +
                                     std::to_string(config.mpxSampleRate)};
-    }
-    if (config.audioSampleRate != config.mpxSampleRate) {
-        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate (" + std::to_string(config.audioSampleRate) +
-                                    ") must equal mpxSampleRate (" + std::to_string(config.mpxSampleRate) + ")"};
     }
 }
 
@@ -78,7 +70,7 @@ FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsCon
     // validateConfig(). The single entry point that invokes this method
     // is makeFilters() below, which validates exactly once before fanning
     // out to per-channel construction.
-    const auto fs{static_cast<float>(config.audioSampleRate)};
+    const auto fs{static_cast<float>(config.mpxSampleRate)};
     return ChannelFilters{
         .hpf         = Biquad::highPass(HPF_CUTOFF, fs),
         .preEmphasis = Biquad::preEmphasis(config.preEmphasisTau, fs),

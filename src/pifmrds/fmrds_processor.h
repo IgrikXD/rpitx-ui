@@ -26,9 +26,9 @@
  * @attention All fields must be set explicitly - no in-class initializers.
  */
 struct FmRdsConfig {
-    int audioSampleRate;   ///< Processor input sample rate in Hz (normally == mpxSampleRate).
     int channels;          ///< Channel count: 1 (mono) or 2 (stereo).
-    int mpxSampleRate;     ///< MPX/DMA sample rate in Hz (228000 - locked to 4 x 57 kHz).
+    int mpxSampleRate;     ///< MPX/DMA sample rate in Hz (228000 - locked to 4 x 57 kHz). Audio fed to
+                           ///< process() must already be at this rate (AudioPipeline handles conversion).
     float peakDeviation;   ///< FM peak deviation in Hz (75000 for FM broadcast).
     float preEmphasisTau;  ///< Pre-emphasis time constant in seconds (50e-6 or 75e-6).
 };
@@ -70,7 +70,6 @@ struct FmRdsConfig {
  *
  * @code
  * FmRdsProcessor proc{{
- *     .audioSampleRate = 228000,
  *     .channels        = 2,
  *     .mpxSampleRate   = 228000,
  *     .peakDeviation   = 75000.0F,
@@ -90,8 +89,7 @@ public:
      * @param config Processor configuration; see FmRdsConfig.
      *
      * @throws std::invalid_argument when config violates a contract:
-     *         channels not in {1, 2}, non-positive sample rate, or
-     *         audioSampleRate != mpxSampleRate.
+     *         channels not in {1, 2}, or non-positive mpxSampleRate.
      */
     explicit FmRdsProcessor(const FmRdsConfig& config);
 
@@ -243,15 +241,14 @@ private:
      * Invoked from makeFilters() so it runs in the constructor's init
      * list before any Biquad is built against config. Putting the checks
      * in the constructor body would be too late: a non-positive
-     * audioSampleRate would already have produced NaN/Inf filter
+     * mpxSampleRate would already have produced NaN/Inf filter
      * coefficients (division by sample rate) before control reached the
      * body. Keeping it as a separate static method also makes the
      * preconditions reusable and unit-testable in isolation.
      *
      * @param config Source FmRdsConfig.
      * @throws std::invalid_argument when config violates a contract:
-     *         channels not in {1, 2}, non-positive sample rate, or
-     *         audioSampleRate != mpxSampleRate.
+     *         channels not in {1, 2}, or non-positive mpxSampleRate.
      */
     static void validateConfig(const FmRdsConfig& config);
 

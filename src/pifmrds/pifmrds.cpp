@@ -262,11 +262,10 @@ namespace pifmrds {
                       << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
             FmRdsProcessor proc{{
-                .audioSampleRate = MPX_SAMPLE_RATE,
-                .channels        = audio.outputChannels(),
-                .mpxSampleRate   = MPX_SAMPLE_RATE,
-                .peakDeviation   = PEAK_DEVIATION,
-                .preEmphasisTau  = preEmphasisTauFor(params.preEmph),
+                .channels       = audio.outputChannels(),
+                .mpxSampleRate  = MPX_SAMPLE_RATE,
+                .peakDeviation  = PEAK_DEVIATION,
+                .preEmphasisTau = preEmphasisTauFor(params.preEmph),
             }};
             proc.encoder().setPi(params.pi);
             proc.encoder().setPs(params.ps);
