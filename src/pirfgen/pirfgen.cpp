@@ -32,6 +32,7 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <csignal>
+#include <exception>
 #include <iostream>
 #include <map>
 #include <string>
@@ -171,34 +172,44 @@ namespace pirfgen {
         }
         std::cout << std::endl;
 
-        RfGenProcessor rfgen{{
-            .mode       = params.mode,
-            .bandwidth  = params.bandwidth,
-            .sampleRate = params.sampleRate,
-            // RfGenConfig::toneCount is ignored outside Multitone (see rfgen_processor.h),
-            // so the 0 fallback is inert there; Multitone guarantees the optional is engaged.
-            .toneCount = params.toneCount.value_or(0),
-        }};
+        // Wrap RfGenProcessor and DMA construction plus the streaming loop in
+        // a try / catch: RfGenProcessor validates its config (and inner
+        // generators may throw on bad parameters), and ngfmdmasync surfaces
+        // DMA setup failures as exceptions. A stray throw escaping main would
+        // terminate via std::terminate without flushing the stderr diagnostic.
+        try {
+            RfGenProcessor rfgen{{
+                .mode       = params.mode,
+                .bandwidth  = params.bandwidth,
+                .sampleRate = params.sampleRate,
+                // RfGenConfig::toneCount is ignored outside Multitone (see rfgen_processor.h),
+                // so the 0 fallback is inert there; Multitone guarantees the optional is engaged.
+                .toneCount = params.toneCount.value_or(0),
+            }};
 
-        ngfmdmasync dma{
-            params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+            ngfmdmasync dma{
+                params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-        // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
-        const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
-                                                   static_cast<float>(params.sampleRate))};
+            // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
+            const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
+                                                       static_cast<float>(params.sampleRate))};
 
-        while (running.load(std::memory_order_relaxed)) {
-            usleep(sleepUs);
+            while (running.load(std::memory_order_relaxed)) {
+                usleep(sleepUs);
 
-            if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-                const int index{dma.GetUserMemIndex()};
-                for (int j{0}; j < available; ++j) {
-                    dma.SetFrequencySample(index + j, rfgen.nextSample());
+                if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
+                    const int index{dma.GetUserMemIndex()};
+                    for (int j{0}; j < available; ++j) {
+                        dma.SetFrequencySample(index + j, rfgen.nextSample());
+                    }
                 }
             }
-        }
 
-        dma.stop();
+            dma.stop();
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] pirfgen: " << e.what() << std::endl;
+            return 1;
+        }
         std::cout << "pirfgen: transmission stopped." << std::endl;
         return 0;
     }

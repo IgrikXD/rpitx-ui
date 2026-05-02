@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -120,8 +121,14 @@ namespace pimorse {
 
         // ookburst takes the carrier frequency as float; --freq is parsed and
         // validated as integer Hz per the CLI v2 contract, then narrowed at the
-        // call boundary.
-        sendCwOok(static_cast<float>(params.transmissionFrequency), symbolRate, encodedMessage);
+        // call boundary. Any librpitx-side failure during DMA / OOK setup is
+        // surfaced to the user via the catch handler instead of std::terminate.
+        try {
+            sendCwOok(static_cast<float>(params.transmissionFrequency), symbolRate, encodedMessage);
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;
+            return 1;
+        }
 
         return 0;
     }

@@ -30,6 +30,7 @@
 #include <atomic>
 #include <cmath>
 #include <csignal>
+#include <exception>
 #include <iostream>
 #include <numbers>
 #include <string>
@@ -123,33 +124,41 @@ namespace pichirp {
         std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
 
-        ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+        // Wrap DMA construction and the streaming loop in a try / catch so
+        // that any librpitx-side failure (DMA setup, register access, ...)
+        // surfaces on stderr and main returns 1 instead of std::terminate.
+        try {
+            ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-        // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
-        const float deviation{params.bandwidth * 0.5F};
-        // Phase math stays in double so that count -> angle retains full precision even for
-        // long sweeps (float loses integer precision above 2^24 ~= 16.8 M).
-        const double phaseStep{2.0 * std::numbers::pi_v<double> / static_cast<double>(params.periodSamples)};
+            // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
+            const float deviation{params.bandwidth * 0.5F};
+            // Phase math stays in double so that count -> angle retains full precision even for
+            // long sweeps (float loses integer precision above 2^24 ~= 16.8 M).
+            const double phaseStep{2.0 * std::numbers::pi_v<double> / static_cast<double>(params.periodSamples)};
 
-        const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
-                                                   static_cast<float>(SAMPLE_RATE))};
+            const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
+                                                       static_cast<float>(SAMPLE_RATE))};
 
-        int count{0};
-        while (running.load(std::memory_order_relaxed)) {
-            usleep(sleepUs);
+            int count{0};
+            while (running.load(std::memory_order_relaxed)) {
+                usleep(sleepUs);
 
-            if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-                const int index{dma.GetUserMemIndex()};
-                for (int j{0}; j < available; ++j) {
-                    dma.SetFrequencySample(index + j, static_cast<float>(deviation * std::sin(phaseStep * count)));
-                    if (++count >= params.periodSamples) {
-                        count = 0;
+                if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
+                    const int index{dma.GetUserMemIndex()};
+                    for (int j{0}; j < available; ++j) {
+                        dma.SetFrequencySample(index + j, static_cast<float>(deviation * std::sin(phaseStep * count)));
+                        if (++count >= params.periodSamples) {
+                            count = 0;
+                        }
                     }
                 }
             }
-        }
 
-        dma.stop();
+            dma.stop();
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] pichirp: " << e.what() << std::endl;
+            return 1;
+        }
         std::cout << "pichirp: transmission stopped." << std::endl;
         return 0;
     }

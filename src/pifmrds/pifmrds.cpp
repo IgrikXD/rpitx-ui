@@ -39,6 +39,7 @@
 #include <charconv>
 #include <csignal>
 #include <cstddef>
+#include <exception>
 #include <iostream>
 #include <map>
 #include <string>
@@ -229,55 +230,67 @@ namespace pifmrds {
             return 1;
         }
 
-        AudioPipeline audio{*source,
-                            {
-                                .loop               = params.loop,
-                                .targetSampleRate   = MPX_SAMPLE_RATE,
-                                .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                .channelMode        = AudioChannelMode::Preserve,
-                            }};
+        // Wrap resource construction and the streaming loop in a try / catch:
+        // AudioPipeline (libsoxr handle creation), FmRdsProcessor (config
+        // contract checks) and ngfmdmasync (DMA setup) all surface fatal
+        // failures as exceptions, and a stray throw escaping main would
+        // terminate via std::terminate without flushing the diagnostic the
+        // user expects on stderr.
+        try {
+            AudioPipeline audio{*source,
+                                {
+                                    .loop               = params.loop,
+                                    .targetSampleRate   = MPX_SAMPLE_RATE,
+                                    .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                    .channelMode        = AudioChannelMode::Preserve,
+                                }};
 
-        std::cout << "pifmrds: center=" << params.transmissionFrequency << " Hz, audio_rate=" << audioFormat.sampleRate
-                  << " Hz, channels=" << audioFormat.channels << ", mpx_rate=" << MPX_SAMPLE_RATE
-                  << " Hz, format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl
-                  << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
-                  << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
+            std::cout << "pifmrds: center=" << params.transmissionFrequency
+                      << " Hz, audio_rate=" << audioFormat.sampleRate << " Hz, channels=" << audioFormat.channels
+                      << ", mpx_rate=" << MPX_SAMPLE_RATE << " Hz, format=" << source->description()
+                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl
+                      << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
+                      << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
-        FmRdsProcessor proc{{
-            .audioSampleRate = MPX_SAMPLE_RATE,
-            .channels        = audio.outputChannels(),
-            .mpxSampleRate   = MPX_SAMPLE_RATE,
-            .peakDeviation   = PEAK_DEVIATION,
-            .preEmphasisTau  = preEmphasisTauFor(params.preEmph),
-        }};
-        proc.encoder().setPi(params.pi);
-        proc.encoder().setPs(params.ps);
-        proc.encoder().setRt(params.rt);
+            FmRdsProcessor proc{{
+                .audioSampleRate = MPX_SAMPLE_RATE,
+                .channels        = audio.outputChannels(),
+                .mpxSampleRate   = MPX_SAMPLE_RATE,
+                .peakDeviation   = PEAK_DEVIATION,
+                .preEmphasisTau  = preEmphasisTauFor(params.preEmph),
+            }};
+            proc.encoder().setPi(params.pi);
+            proc.encoder().setPs(params.ps);
+            proc.encoder().setRt(params.rt);
 
-        ngfmdmasync dma{
-            params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+            ngfmdmasync dma{
+                params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-        // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
-        // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
-        // processor receives one already-rate-matched audio frame per MPX sample.
-        std::vector<float> audioBuf(audio.outputSamplesPerBlock());
-        std::vector<float> mpxBuf(static_cast<std::size_t>(audio.outputFrames()));
+            // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
+            // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
+            // processor receives one already-rate-matched audio frame per MPX sample.
+            std::vector<float> audioBuf(audio.outputSamplesPerBlock());
+            std::vector<float> mpxBuf(static_cast<std::size_t>(audio.outputFrames()));
 
-        while (running.load(std::memory_order_relaxed)) {
-            const auto status{audio.read(audioBuf)};
-            if (status == AudioPipelineStatus::End) {
-                break;
+            while (running.load(std::memory_order_relaxed)) {
+                const auto status{audio.read(audioBuf)};
+                if (status == AudioPipelineStatus::End) {
+                    break;
+                }
+                if (status == AudioPipelineStatus::Error) {
+                    std::cerr << "[ERROR] pifmrds: failed to read audio block; aborting." << std::endl;
+                    dma.stop();
+                    return 1;
+                }
+                proc.process({audioBuf.data(), audioBuf.size()}, {mpxBuf.data(), mpxBuf.size()});
+                dma.SetFrequencySamples(mpxBuf.data(), mpxBuf.size());
             }
-            if (status == AudioPipelineStatus::Error) {
-                std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
-                dma.stop();
-                return 1;
-            }
-            proc.process({audioBuf.data(), audioBuf.size()}, {mpxBuf.data(), mpxBuf.size()});
-            dma.SetFrequencySamples(mpxBuf.data(), mpxBuf.size());
+
+            dma.stop();
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] pifmrds: " << e.what() << std::endl;
+            return 1;
         }
-
-        dma.stop();
         std::cout << "pifmrds: transmission stopped." << std::endl;
         return 0;
     }

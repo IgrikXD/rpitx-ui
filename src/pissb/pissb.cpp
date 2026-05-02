@@ -31,6 +31,7 @@
 #include <complex>
 #include <csignal>
 #include <cstddef>
+#include <exception>
 #include <iostream>
 #include <map>
 #include <string>
@@ -125,52 +126,62 @@ namespace pissb {
             return 1;
         }
 
-        AudioPipeline audio{*source,
-                            {
-                                .loop               = params.loop,
-                                .targetSampleRate   = TARGET_SAMPLE_RATE,
-                                .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                .channelMode        = AudioChannelMode::Mono,
-                            }};
+        // Wrap resource construction and the streaming loop in a try / catch:
+        // AudioPipeline (libsoxr handle creation), SsbProcessor (filter setup)
+        // and iqdmasync (DMA setup) all surface fatal failures as exceptions,
+        // and a stray throw escaping main would terminate via std::terminate
+        // without flushing the diagnostic the user expects on stderr.
+        try {
+            AudioPipeline audio{*source,
+                                {
+                                    .loop               = params.loop,
+                                    .targetSampleRate   = TARGET_SAMPLE_RATE,
+                                    .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                    .channelMode        = AudioChannelMode::Mono,
+                                }};
 
-        std::cout << "pissb: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
-                  << " Hz, iq_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
-                  << ", format=" << source->description() << ", sideband=" << modeName(params.mode)
-                  << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
+            std::cout << "pissb: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+                      << " Hz, iq_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
+                      << ", format=" << source->description() << ", sideband=" << modeName(params.mode)
+                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
-        SsbProcessor ssb{params.mode};
-        iqdmasync dma{params.transmissionFrequency,
-                      static_cast<uint32_t>(TARGET_SAMPLE_RATE),
-                      DMA_BIT_DEPTH,
-                      DMA_FIFO_SIZE,
-                      MODE_IQ};
-        dma.SetPLLMasterLoop(3, 4, 0);
+            SsbProcessor ssb{params.mode};
+            iqdmasync dma{params.transmissionFrequency,
+                          static_cast<uint32_t>(TARGET_SAMPLE_RATE),
+                          DMA_BIT_DEPTH,
+                          DMA_FIFO_SIZE,
+                          MODE_IQ};
+            dma.SetPLLMasterLoop(3, 4, 0);
 
-        // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
-        // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
-        // is converted into one complex IQ sample before being handed to DMA.
-        std::vector<float> audioBuf(audio.outputSamplesPerBlock());
-        std::vector<std::complex<float>> iqBuf(static_cast<std::size_t>(audio.outputFrames()));
+            // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
+            // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
+            // is converted into one complex IQ sample before being handed to DMA.
+            std::vector<float> audioBuf(audio.outputSamplesPerBlock());
+            std::vector<std::complex<float>> iqBuf(static_cast<std::size_t>(audio.outputFrames()));
 
-        while (running.load(std::memory_order_relaxed)) {
-            const auto status{audio.read(audioBuf)};
-            if (status == AudioPipelineStatus::End) {
-                break;
+            while (running.load(std::memory_order_relaxed)) {
+                const auto status{audio.read(audioBuf)};
+                if (status == AudioPipelineStatus::End) {
+                    break;
+                }
+                if (status == AudioPipelineStatus::Error) {
+                    std::cerr << "[ERROR] pissb: failed to read audio block; aborting." << std::endl;
+                    dma.stop();
+                    return 1;
+                }
+
+                for (std::size_t i{0}; i < iqBuf.size(); ++i) {
+                    const auto iq{ssb.process(audioBuf[i])};
+                    iqBuf[i] = std::complex<float>{iq.i, iq.q};
+                }
+                dma.SetIQSamples(iqBuf.data(), iqBuf.size(), DEFAULT_HARMONIC);
             }
-            if (status == AudioPipelineStatus::Error) {
-                std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
-                dma.stop();
-                return 1;
-            }
 
-            for (std::size_t i{0}; i < iqBuf.size(); ++i) {
-                const auto iq{ssb.process(audioBuf[i])};
-                iqBuf[i] = std::complex<float>{iq.i, iq.q};
-            }
-            dma.SetIQSamples(iqBuf.data(), iqBuf.size(), DEFAULT_HARMONIC);
+            dma.stop();
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] pissb: " << e.what() << std::endl;
+            return 1;
         }
-
-        dma.stop();
         std::cout << "pissb: transmission stopped." << std::endl;
         return 0;
     }

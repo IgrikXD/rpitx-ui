@@ -30,6 +30,7 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <csignal>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -105,45 +106,55 @@ namespace piam {
             return 1;
         }
 
-        AudioPipeline audio{*source,
-                            {
-                                .loop               = params.loop,
-                                .targetSampleRate   = TARGET_SAMPLE_RATE,
-                                .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                .channelMode        = AudioChannelMode::Mono,
-                            }};
+        // Wrap resource construction and the streaming loop in a try / catch:
+        // AudioPipeline (libsoxr handle creation), AmProcessor (Biquad design)
+        // and amdmasync (DMA setup) all surface fatal failures as exceptions,
+        // and a stray throw escaping main would terminate via std::terminate
+        // without flushing the diagnostic the user expects on stderr.
+        try {
+            AudioPipeline audio{*source,
+                                {
+                                    .loop               = params.loop,
+                                    .targetSampleRate   = TARGET_SAMPLE_RATE,
+                                    .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                    .channelMode        = AudioChannelMode::Mono,
+                                }};
 
-        std::cout << "piam: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
-                  << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
-                  << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
+            std::cout << "piam: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+                      << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
+                      << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
-        AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
-        amdmasync dma{
-            params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+            AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
+            amdmasync dma{
+                params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-        // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
-        // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused
-        // for the AM envelope in place before handing the block to DMA.
-        std::vector<float> outputBuf(audio.outputSamplesPerBlock());
+            // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
+            // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused
+            // for the AM envelope in place before handing the block to DMA.
+            std::vector<float> outputBuf(audio.outputSamplesPerBlock());
 
-        while (running.load(std::memory_order_relaxed)) {
-            const auto status{audio.read(outputBuf)};
-            if (status == AudioPipelineStatus::End) {
-                break;
+            while (running.load(std::memory_order_relaxed)) {
+                const auto status{audio.read(outputBuf)};
+                if (status == AudioPipelineStatus::End) {
+                    break;
+                }
+                if (status == AudioPipelineStatus::Error) {
+                    std::cerr << "[ERROR] piam: failed to read audio block; aborting." << std::endl;
+                    dma.stop();
+                    return 1;
+                }
+
+                for (float& sample: outputBuf) {
+                    sample = am.process(sample);
+                }
+                dma.SetAmSamples(outputBuf.data(), outputBuf.size());
             }
-            if (status == AudioPipelineStatus::Error) {
-                std::cerr << "[ERROR] Failed to read audio block; aborting." << std::endl;
-                dma.stop();
-                return 1;
-            }
 
-            for (float& sample: outputBuf) {
-                sample = am.process(sample);
-            }
-            dma.SetAmSamples(outputBuf.data(), outputBuf.size());
+            dma.stop();
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] piam: " << e.what() << std::endl;
+            return 1;
         }
-
-        dma.stop();
         std::cout << "piam: transmission stopped." << std::endl;
         return 0;
     }
