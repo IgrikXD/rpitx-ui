@@ -76,10 +76,19 @@ public:
         return sample * updateGain(std::abs(sample));
     }
 
-private:
     /**
-     * @brief Update the envelope estimate with the given magnitude and return the gain to apply.
-     * @param mag Current sample magnitude (|i+jq| for IQ, |x| for scalar).
+     * @brief Advance the envelope estimate from an externally-computed
+     *        magnitude and return the gain to apply.
+     *
+     * Use this when a single shared gain must be applied to several
+     * correlated channels (e.g. stereo L / R driven from max(|L|, |R|)
+     * so the inter-channel level relationship is preserved). Each call
+     * advances the envelope state exactly as the process() overloads do,
+     * so do not mix updateGain() and process() calls on the same instance
+     * within one sample step.
+     *
+     * @param mag Current sample magnitude (|i+jq| for IQ, |x| for scalar,
+     *            max(|L|, |R|) for shared-gain stereo). Must be >= 0.
      * @return Gain factor target / env, clamped to 1.0 when env is near zero.
      */
     [[nodiscard]] float updateGain(float mag) noexcept {
@@ -96,6 +105,7 @@ private:
         return 1.0f;
     }
 
+private:
     float target_;  ///< Target output amplitude.
     float attack_;  ///< Envelope attack coefficient.
     float decay_;   ///< Envelope decay coefficient.

@@ -47,10 +47,11 @@ struct FmRdsConfig {
  *                    receivers; even mono receivers benefit from the
  *                    out-of-band suppression.
  *
- * Mono path uses the scalar AGC overload directly. Stereo uses the
- * IqSample overload (L as I, R as Q), which tracks sqrt(L^2 + R^2) and
- * applies the same gain to both channels - the stereo image stays intact
- * because L and R never see independent gain trajectories.
+ * Mono path uses the scalar AGC overload directly. Stereo computes a
+ * single shared gain from max(|L|, |R|) and applies it to both channels,
+ * which preserves the stereo image (no per-channel gain warping) while
+ * giving correlated mono-on-stereo material the same level as the mono
+ * path - the older hypot(L, R) formulation cost ~3 dB on such material.
  *
  * Audio file decoding, loop handling, channel preservation, and source-rate
  * conversion are handled upstream by AudioPipeline. This processor receives
@@ -286,12 +287,12 @@ private:
     /**
      * @brief Process one audio frame through the channel filters and AGC.
      *
-     * Mono branches into the scalar Agc::process(float); stereo uses the
-     * IqSample overload to apply a single envelope-tracking gain to both
-     * channels. Returns the filtered, gain-adjusted, clamped audio for
-     * both channels - the .q field always carries a valid value (set to
-     * the L sample in mono) so the downstream stereo MPX path can read
-     * both buffers without a special case.
+     * Mono branches into the scalar Agc::process(float); stereo derives a
+     * single shared gain from max(|L|, |R|) via Agc::updateGain() and
+     * applies it to both channels. Returns the filtered, gain-adjusted,
+     * clamped audio for both channels - the .q field always carries a
+     * valid value (set to the L sample in mono) so the downstream stereo
+     * MPX path can read both buffers without a special case.
      *
      * @param l Left-channel input sample.
      * @param r Right-channel input sample (ignored when channels == 1).
@@ -327,9 +328,12 @@ private:
     /**
      * @brief Audio AGC. Used in two modes:
      *   - Mono: scalar overload Agc::process(float) on the single channel.
-     *   - Stereo: IqSample overload (L as I, R as Q), which tracks
-     *     sqrt(L^2 + R^2) and applies the same gain to both components,
-     *     preserving the stereo image while normalising joint loudness.
+     *   - Stereo: Agc::updateGain(max(|L|, |R|)) - a single shared gain
+     *     applied to both channels. Driving the envelope from the per-frame
+     *     peak (not hypot(L, R)) avoids the ~3 dB attenuation that
+     *     joint-magnitude tracking imposes on correlated mono-on-stereo
+     *     material, and the shared gain keeps the L / R amplitude
+     *     relationship intact so the stereo image is preserved.
      */
     Agc agc_{FMRDS_AGC_CONFIG};
 

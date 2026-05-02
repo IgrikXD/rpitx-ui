@@ -137,11 +137,11 @@ RdsEncoder& FmRdsProcessor::encoder() {
 IqSample FmRdsProcessor::preprocessFrame(float l, float r) {
     const float lf{filters_[0].process(l)};
 
-    // Mono path uses the scalar AGC overload directly. Feeding (lf, lf) into
-    // the IqSample form would track sqrt(lf^2 + lf^2) = sqrt(2) * |lf|, which
-    // drives the per-channel level to target / sqrt(2) ~= 0.566 instead of
-    // target = 0.8 - an unintended ~3 dB attenuation that costs the mono
-    // mode roughly 20 % of its deviation budget for no benefit.
+    // Mono path uses the scalar AGC overload directly. The hypot-based
+    // IqSample overload would track sqrt(2) * |lf| for the duplicated
+    // (lf, lf) input and drive each channel to target / sqrt(2) ~= 0.566
+    // instead of target = 0.8 - an unintended ~3 dB attenuation that
+    // would cost ~20 % of the deviation budget for no benefit.
     if (channels_ == 1) {
         const float agcd{agc_.process(lf)};
         const float clamped{std::clamp(agcd, -1.0F, 1.0F)};
@@ -151,10 +151,15 @@ IqSample FmRdsProcessor::preprocessFrame(float l, float r) {
     }
 
     const float rf{filters_[1].process(r)};
-    const auto agcd{agc_.process(IqSample{.i = lf, .q = rf})};
+    // Stereo: drive a single shared gain from max(|L|, |R|) so correlated
+    // mono-on-stereo material reaches the same level as the mono path
+    // (no sqrt(2) penalty), while uncorrelated material still tracks the
+    // louder channel. A shared gain preserves the L/R amplitude
+    // relationship - per-channel scalar AGCs would warp the stereo image.
+    const float gain{agc_.updateGain(std::max(std::abs(lf), std::abs(rf)))};
     return {
-        .i = std::clamp(agcd.i, -1.0F, 1.0F),
-        .q = std::clamp(agcd.q, -1.0F, 1.0F),
+        .i = std::clamp(lf * gain, -1.0F, 1.0F),
+        .q = std::clamp(rf * gain, -1.0F, 1.0F),
     };
 }
 
