@@ -2,19 +2,20 @@
  * @file pinfm.cpp
  * @brief Narrow-band FM (NBFM) transmitter implementation.
  *
- * Reads audio from a file (any format libsndfile supports), downmixes to
- * mono, resamples to 48 kHz if needed, produces a per-sample frequency-
- * deviation stream (+-2.5 kHz narrow or +-5 kHz wide peak), and drives
- * librpitx::ngfmdmasync directly at the requested carrier frequency.
+ * Reads audio from a file (any format libsndfile supports) or from stdin,
+ * downmixes to mono, resamples to 48 kHz if needed, produces a per-sample
+ * frequency-deviation stream (+-2.5 kHz narrow or +-5 kHz wide peak), and
+ * drives librpitx::ngfmdmasync directly at the requested carrier frequency.
  * Replaces the legacy csdr-based testnfm.sh pipeline, which routed audio
  * through an IQ pipe and gave no bandwidth containment or level control.
  * Transmission runs until the audio ends (or forever when --loop is set),
  * or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
  * centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pinfm --freq <Hz> --audio <path> [--loop] [--mode narrow|wide] [-h | --help]
+ * @note Usage: pinfm --freq <Hz> (--audio <path> | --stdin) [--loop] [--mode narrow|wide] [-h | --help]
  *   - --freq      Carrier frequency in Hz
  *   - --audio     Path to the audio file (libsndfile-supported format)
+ *   - --stdin     Read audio from stdin (pipe-friendly; --loop unsupported)
  *   - --loop      Loop the audio file (replay from the start on EOF)
  *   - --mode      NBFM deviation mode: narrow (+-2.5 kHz) | wide (+-5 kHz, default)
  *   - -h, --help  Print this help message and exit
@@ -88,8 +89,17 @@ namespace pinfm {
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
-        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
-        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
+        // --audio and --stdin are mutually exclusive and exactly one is
+        // required: an option group with require_option(1) lets CLI11 enforce
+        // both invariants in one place and surfaces a clean diagnostic in
+        // --help, instead of a manual post-parse check that would silently
+        // accept neither or both.
+        auto* inputGroup{app.add_option_group("input", "Audio input source (exactly one is required)")};
+        inputGroup
+            ->add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)");
+        inputGroup->add_flag("--stdin", params.useStdin, "Read audio from stdin (pipe-friendly; --loop unsupported)");
+        inputGroup->require_option(1);
+        app.add_flag("--loop", params.loop, "Loop the input on EOF (requires --audio)");
 
         const std::map<std::string, NfmMode> modeMap{
             {"narrow", NfmMode::Narrow},
@@ -125,7 +135,7 @@ namespace pinfm {
         // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
         std::signal(SIGPIPE, handleSignal);
 
-        auto source{makeFileAudioSource(params.audioPath)};
+        auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
             return 1;
         }

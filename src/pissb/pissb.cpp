@@ -2,15 +2,16 @@
  * @file pissb.cpp
  * @brief Single-sideband (SSB) transmitter implementation.
  *
- * Reads audio from a file (any format libsndfile supports), downmixes to
- * mono, resamples to 48 kHz if needed, applies SSB modulation (USB or LSB),
- * and drives librpitx::iqdmasync directly at the requested carrier frequency.
- * Transmission runs until the audio ends (or forever when --loop is set), or
- * until SIGTERM / SIGINT.
+ * Reads audio from a file (any format libsndfile supports) or from stdin,
+ * downmixes to mono, resamples to 48 kHz if needed, applies SSB modulation
+ * (USB or LSB), and drives librpitx::iqdmasync directly at the requested
+ * carrier frequency. Transmission runs until the audio ends (or forever when
+ * --loop is set), or until SIGTERM / SIGINT.
  *
- * @note Usage: pissb --freq <Hz> --audio <path> [--loop] [--sideband usb|lsb] [-h | --help]
+ * @note Usage: pissb --freq <Hz> (--audio <path> | --stdin) [--loop] [--sideband usb|lsb] [-h | --help]
  *   - --freq      Carrier frequency in Hz
  *   - --audio     Path to the audio file (libsndfile-supported format)
+ *   - --stdin     Read audio from stdin (pipe-friendly; --loop unsupported)
  *   - --loop      Loop the audio file (replay from the start on EOF)
  *   - --sideband  Sideband selection: usb (default) | lsb
  *   - -h, --help  Print this help message and exit
@@ -76,8 +77,17 @@ namespace pissb {
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
-        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
-        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
+        // --audio and --stdin are mutually exclusive and exactly one is
+        // required: an option group with require_option(1) lets CLI11 enforce
+        // both invariants in one place and surfaces a clean diagnostic in
+        // --help, instead of a manual post-parse check that would silently
+        // accept neither or both.
+        auto* inputGroup{app.add_option_group("input", "Audio input source (exactly one is required)")};
+        inputGroup
+            ->add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)");
+        inputGroup->add_flag("--stdin", params.useStdin, "Read audio from stdin (pipe-friendly; --loop unsupported)");
+        inputGroup->require_option(1);
+        app.add_flag("--loop", params.loop, "Loop the input on EOF (requires --audio)");
 
         const std::map<std::string, SsbMode> sidebandMap{
             {"usb", SsbMode::USB},
@@ -113,7 +123,7 @@ namespace pissb {
         // SIGPIPE: keep shutdown behavior explicit when launched from shell wrappers.
         std::signal(SIGPIPE, handleSignal);
 
-        auto source{makeFileAudioSource(params.audioPath)};
+        auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
             return 1;
         }

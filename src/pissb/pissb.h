@@ -59,6 +59,7 @@ namespace pissb {
     struct PissbParameters {
         uint64_t transmissionFrequency{0};
         std::string audioPath{""};
+        bool useStdin{false};
         bool loop{false};
         SsbMode mode{SsbMode::USB};
     };

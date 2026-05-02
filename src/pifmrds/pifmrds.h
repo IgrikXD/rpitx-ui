@@ -82,6 +82,7 @@ namespace pifmrds {
     struct FmRdsParameters {
         uint64_t transmissionFrequency{0};
         std::string audioPath{""};
+        bool useStdin{false};
         bool loop{false};
         uint16_t pi{DEFAULT_RDS_PI};
         std::string ps{DEFAULT_RDS_PS};

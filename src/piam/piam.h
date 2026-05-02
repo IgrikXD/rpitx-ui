@@ -57,6 +57,7 @@ namespace piam {
     struct AmParameters {
         uint64_t transmissionFrequency{0};
         std::string audioPath{""};
+        bool useStdin{false};
         bool loop{false};
     };
 

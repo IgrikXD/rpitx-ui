@@ -3,19 +3,20 @@
  * @brief Wide-band FM with RDS broadcast transmitter implementation.
  *
  * Reads audio (mono or stereo, any rate / bit-depth supported by libsndfile)
- * from a file specified via --audio, builds the FM broadcast MPX (audio +
- * 19 kHz pilot + 38 kHz suppressed-carrier (L-R) subcarrier when stereo +
- * 57 kHz RDS subcarrier with EN 50067 PI / PS / RT / CT data), and drives
- * librpitx::ngfmdmasync at 228 kHz to produce the on-air signal.
- * Transmission runs until the audio ends (or forever when --loop is set),
- * or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
+ * from a file specified via --audio or from stdin via --stdin, builds the FM
+ * broadcast MPX (audio + 19 kHz pilot + 38 kHz suppressed-carrier (L-R)
+ * subcarrier when stereo + 57 kHz RDS subcarrier with EN 50067 PI / PS / RT /
+ * CT data), and drives librpitx::ngfmdmasync at 228 kHz to produce the on-air
+ * signal. Transmission runs until the audio ends (or forever when --loop is
+ * set), or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
  * centrally via killall when the user dismisses the dialog).
  *
- * @note Usage: pifmrds --freq <Hz> --audio <path> [--loop]
+ * @note Usage: pifmrds --freq <Hz> (--audio <path> | --stdin) [--loop]
  *               [--rds-pi <hex>] [--rds-ps <text>] [--rds-rt <text>]
  *               [--pre-emphasis 50|75] [-h | --help]
  *   - --freq          Carrier frequency in Hz
  *   - --audio         Path to the audio file (libsndfile-supported format)
+ *   - --stdin         Read audio from stdin (pipe-friendly; --loop unsupported)
  *   - --loop          Loop the audio file (replay from the start on EOF)
  *   - --rds-pi        RDS Programme Identification, 1-4 hex digits with optional 0x prefix (default 0x1234)
  *   - --rds-ps        RDS Programme Service name, 1-8 ASCII chars (default "rpitx-ui")
@@ -151,8 +152,17 @@ namespace pifmrds {
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
-        app.add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)")->required();
-        app.add_flag("--loop", params.loop, "Loop the audio file (replay on EOF)");
+        // --audio and --stdin are mutually exclusive and exactly one is
+        // required: an option group with require_option(1) lets CLI11 enforce
+        // both invariants in one place and surfaces a clean diagnostic in
+        // --help, instead of a manual post-parse check that would silently
+        // accept neither or both.
+        auto* inputGroup{app.add_option_group("input", "Audio input source (exactly one is required)")};
+        inputGroup
+            ->add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)");
+        inputGroup->add_flag("--stdin", params.useStdin, "Read audio from stdin (pipe-friendly; --loop unsupported)");
+        inputGroup->require_option(1);
+        app.add_flag("--loop", params.loop, "Loop the input on EOF (requires --audio)");
 
         std::string piText;
         app.add_option("--rds-pi",
@@ -217,7 +227,7 @@ namespace pifmrds {
         // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
         std::signal(SIGPIPE, handleSignal);
 
-        auto source{makeFileAudioSource(params.audioPath)};
+        auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
             return 1;
         }
