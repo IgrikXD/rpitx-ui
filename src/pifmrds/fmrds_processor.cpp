@@ -101,9 +101,7 @@ std::array<FmRdsProcessor::ChannelFilters, 2> FmRdsProcessor::makeFilters(const 
 }
 
 FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
-    : channels_{config.channels},
-      peakDeviation_{config.peakDeviation},
-      filters_{makeFilters(config)} {
+    : channels_{config.channels}, peakDeviation_{config.peakDeviation}, filters_{makeFilters(config)} {
     // Runtime config validation runs inside makeFilters() above (exactly
     // once for the whole filters_ array), so by the time we get here
     // filters_ is guaranteed to have been built against a vetted config
