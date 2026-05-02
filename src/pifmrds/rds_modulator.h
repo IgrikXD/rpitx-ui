@@ -65,11 +65,12 @@ public:
      * @brief Generate one 228 kHz baseband sample of the RDS subcarrier.
      *
      * Internally advances the bit / pulse / subcarrier-phase state machine.
-     * The output amplitude is in the natural domain of the precomputed RDS
-     * pulse (peak ~0.54), suitable for direct scaling to the desired RDS
-     * deviation contribution by the caller.
+     * The output is normalised to [-1, +1] (worst-case 3-pulse overlap-add
+     * peak divided out via rdsBiphasePulseOverlapPeak()), so callers can
+     * scale by an absolute deviation budget and read the result as a literal
+     * peak deviation contribution in the same units as that budget.
      *
-     * @return RDS baseband sample at 228 kHz.
+     * @return RDS baseband sample at 228 kHz, in [-1, +1].
      */
     [[nodiscard]] float nextSample();
 

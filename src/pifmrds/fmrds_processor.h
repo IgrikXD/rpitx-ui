@@ -170,16 +170,16 @@ private:
      * @brief Per-channel audio gain into the L+R sum and L-R difference.
      *
      * Worked through the AGC target (0.8) the gain budget breaks down to:
-     *   - mono:                   2 * 0.45 * 0.8 + 0.027 (RDS) ~= 0.75
-     *                                                 -> ~56 kHz peak deviation
-     *   - stereo (any L/R mix):   0.45 * 1.132 + 0.10 (pilot) + 0.027 (RDS) ~= 0.64
-     *                                                 -> ~48 kHz peak deviation
+     *   - mono:                   2 * 0.45 * 0.8 + 0.05 (RDS) ~= 0.77
+     *                                                 -> ~58 kHz peak deviation
+     *   - stereo (any L/R mix):   0.45 * 1.132 + 0.10 (pilot) + 0.05 (RDS) ~= 0.66
+     *                                                 -> ~50 kHz peak deviation
      * Both stay comfortably below the 75 kHz EN 50067 cap, leaving headroom
      * for AGC overshoot transients without driving the hard +-1 clamp.
      * Stereo lands quieter than mono by design - the deviation budget split
-     * with the pilot and the L-R subcarrier mirrors what PiFmRds upstream
-     * does, so receivers tuned against that reference see comparable level
-     * statistics.
+     * with the pilot and the L-R subcarrier follows EN 50067 / ITU-R BS.450
+     * convention so receivers tuned against any compliant FM-broadcast
+     * source see comparable level statistics.
      */
     static constexpr float AUDIO_SUM_GAIN{0.45F};
 
@@ -193,15 +193,13 @@ private:
     static constexpr float PILOT_GAIN{0.10F};
 
     /**
-     * @brief RDS subcarrier level applied to the unnormalized RdsModulator output.
+     * @brief RDS subcarrier level, fraction of peak deviation.
      *
-     * 0.05 matches the canonical PiFmRds upstream value, kept verbatim so
-     * receivers tuned against that reference see identical RDS amplitude
-     * statistics. Not a literal "5 % of peak deviation": RdsModulator emits
-     * samples in the natural domain of the precomputed RDS pulse (per-pulse
-     * peak ~0.54), so the actual RDS contribution lands in the EN 50067
-     * "high pilot level" range (~2-4 kHz peak deviation at 75 kHz peak total)
-     * rather than a clean 3.75 kHz - the preset preferred for noisy reception.
+     * RdsModulator emits samples normalised to [-1, +1] (the worst-case
+     * 3-pulse overlap-add peak is divided out internally), so this gain has
+     * the literal physical meaning "peak RDS contribution as a fraction of
+     * peakDeviation". 0.05 -> 5 % of 75 kHz = 3.75 kHz peak deviation, the
+     * EN 50067 "high pilot level" preset preferred for noisy reception.
      */
     static constexpr float RDS_GAIN{0.05F};
 

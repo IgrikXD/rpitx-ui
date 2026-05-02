@@ -23,6 +23,16 @@ namespace {
      * @brief 57 kHz sine subcarrier sampled at 228 kHz: [0, +1, 0, -1].
      */
     constexpr std::array<float, 4> SUBCARRIER_GAIN{0.0F, 1.0F, 0.0F, -1.0F};
+
+    /**
+     * @brief Reciprocal of the worst-case overlap-add peak, cached once.
+     *
+     * nextSample() runs at 228 kHz, so we precompute 1/peak at first use
+     * and multiply on the hot path - one fewer function call and one fewer
+     * division per sample versus calling rdsBiphasePulseOverlapPeak()
+     * directly.
+     */
+    const float INV_RDS_BIPHASE_PULSE_OVERLAP_PEAK{1.0F / rdsBiphasePulseOverlapPeak()};
 }  // namespace
 
 int RdsModulator::nextBit() {
@@ -74,8 +84,16 @@ float RdsModulator::nextSample() {
     // cosine) is the canonical EN 50067 phase: starts at zero with a rising
     // slope, so the subcarrier is phase-locked to the 19 kHz pilot's rising
     // zero crossing (which is itself sine-form here).
+    //
+    // Multiply by the cached 1/peak so the output is normalised to [-1, +1]:
+    // the worst-case 3-pulse overlap-add hits exactly that peak, and the
+    // {0, +/-1} subcarrier multiplier preserves it. With a normalised output
+    // the caller's gain scalar (RDS_GAIN in fmrds_processor) carries the
+    // literal physical meaning "fraction of peak deviation" rather than an
+    // empirical PiFmRds-tuned coefficient.
     const auto bufferIndex{static_cast<std::size_t>(readIndex_)};
-    const float sample{overlapBuffer_[bufferIndex] * SUBCARRIER_GAIN[static_cast<std::size_t>(subcarrierPhase_)]};
+    const float sample{overlapBuffer_[bufferIndex] * INV_RDS_BIPHASE_PULSE_OVERLAP_PEAK *
+                       SUBCARRIER_GAIN[static_cast<std::size_t>(subcarrierPhase_)]};
     overlapBuffer_[bufferIndex] = 0.0F;
 
     // The read head stays one bit period behind the write head.
