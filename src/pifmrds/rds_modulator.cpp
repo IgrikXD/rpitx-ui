@@ -53,9 +53,8 @@ void RdsModulator::prime() {
         stampPulse(differentialEncode(nextBit()) == 1);
     }
 
-    // One slot before writeIndex_ (which will be 2 * RDS_SAMPLES_PER_BIT after
-    // the third stamp), so the first read sees all three pulses summed.
-    readIndex_ = 2 * static_cast<int>(RDS_SAMPLES_PER_BIT) - 1;
+    // First slot of the 3-pulse overlap region.
+    readIndex_ = 2 * static_cast<int>(RDS_SAMPLES_PER_BIT);
 }
 
 void RdsModulator::stampPulse(bool invert) {

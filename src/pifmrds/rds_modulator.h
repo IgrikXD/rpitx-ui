@@ -93,6 +93,12 @@ private:
      * up-front and place the read head where the third pulse (stamped by
      * the first nextSample() call) will complete the 3-pulse overlap.
      *
+     * The 3-pulse overlap region spans samples
+     * [2 * RDS_SAMPLES_PER_BIT, 3 * RDS_SAMPLES_PER_BIT - 1] - the only
+     * slots where pulse1 [0, 3*BIT-1], pulse2 [BIT, 4*BIT-1] and pulse3
+     * [2*BIT, 5*BIT-1] all contribute simultaneously. readIndex_ is anchored
+     * at the first such slot (2 * RDS_SAMPLES_PER_BIT).
+     *
      * Called lazily from nextSample() rather than from the constructor so
      * priming consumes bits from the encoder configured by main()
      * (PI / PS / RT / TA), not the default-constructed encoder state.
@@ -160,8 +166,8 @@ private:
     /**
      * @brief Read head into overlapBuffer_, advanced by 1 each nextSample().
      *
-     * Set by prime() on the first nextSample() call to 2 * RDS_SAMPLES_PER_BIT
-     * - 1, the slot that holds the full 3-pulse overlap once that same call
+     * Set by prime() on the first nextSample() call to 2 * RDS_SAMPLES_PER_BIT,
+     * the first slot that holds the full 3-pulse overlap once that same call
      * stamps the third pulse.
      */
     int readIndex_{0};
