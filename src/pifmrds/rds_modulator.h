@@ -83,6 +83,23 @@ private:
     int nextBit();
 
     /**
+     * @brief Pre-fill the overlap-add buffer so the first emitted sample
+     *        already sees the steady-state 3-pulse overlap.
+     *
+     * Without priming, the cold-start modulator would emit one bit period
+     * of single-pulse output followed by one of two-pulse overlap before
+     * reaching the proper three-pulse overlap-add state - an audible RRC
+     * edge transient on the subcarrier. We stamp the first two pulses
+     * up-front and place the read head where the third pulse (stamped by
+     * the first nextSample() call) will complete the 3-pulse overlap.
+     *
+     * Called lazily from nextSample() rather than from the constructor so
+     * priming consumes bits from the encoder configured by main()
+     * (PI / PS / RT / TA), not the default-constructed encoder state.
+     */
+    void prime();
+
+    /**
      * @brief Apply differential encoding to a raw RDS bit.
      *
      * EN 50067 3.2.1.6: differential encoding XORs the current bit with
@@ -143,23 +160,22 @@ private:
     /**
      * @brief Read head into overlapBuffer_, advanced by 1 each nextSample().
      *
-     * Initialised to RDS_PULSE_SAMPLES - 1 so the first read happens at the
-     * sample slot that the first stamped pulse will reach last - i.e. the
-     * read head is one full pulse-length ahead of the first write, which
-     * makes the overlap-add buffer fill up with the right number of pulses
-     * before any sample is read. (Without this primer the first samples
-     * out would be a single pulse instead of three overlapped ones.)
+     * Set by prime() on the first nextSample() call to 2 * RDS_SAMPLES_PER_BIT
+     * - 1, the slot that holds the full 3-pulse overlap once that same call
+     * stamps the third pulse.
      */
-    int readIndex_{static_cast<int>(RDS_PULSE_SAMPLES) - 1};
+    int readIndex_{0};
 
     /**
-     * @brief Sample countdown to the next bit boundary.
-     *
-     * Initialised to RDS_SAMPLES_PER_BIT so the very first nextSample()
-     * call fetches a bit (otherwise the buffer would emit zeros for one
-     * full bit period before the first pulse).
+     * @brief Sample countdown to the next bit boundary; the first nextSample()
+     *        call (after priming) fetches a bit and stamps the third pulse.
      */
     int samplesToNextBit_{static_cast<int>(RDS_SAMPLES_PER_BIT)};
+
+    /**
+     * @brief Gates the one-shot prime() call from nextSample().
+     */
+    bool primed_{false};
 
     /**
      * @brief 57 kHz subcarrier phase index in [0, 4).

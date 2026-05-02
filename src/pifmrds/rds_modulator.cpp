@@ -44,6 +44,20 @@ int RdsModulator::nextBit() {
     return bitBuffer_[static_cast<std::size_t>(bitPos_++)];
 }
 
+void RdsModulator::prime() {
+    // Stamp the first two pulses without emitting output. Together with the
+    // third pulse stamped by the upcoming nextSample() call, this puts the
+    // buffer into the steady-state 3-pulse overlap before the first read,
+    // eliminating the cold-start RRC edge transient.
+    for (int i{0}; i < 2; ++i) {
+        stampPulse(differentialEncode(nextBit()) == 1);
+    }
+
+    // One slot before writeIndex_ (which will be 2 * RDS_SAMPLES_PER_BIT after
+    // the third stamp), so the first read sees all three pulses summed.
+    readIndex_ = 2 * static_cast<int>(RDS_SAMPLES_PER_BIT) - 1;
+}
+
 void RdsModulator::stampPulse(bool invert) {
     const auto pulse{rdsPulse()};
     int idx{writeIndex_};
@@ -67,6 +81,11 @@ void RdsModulator::stampPulse(bool invert) {
 }
 
 float RdsModulator::nextSample() {
+    if (primed_ == false) {
+        prime();
+        primed_ = true;
+    }
+
     if (samplesToNextBit_ >= static_cast<int>(RDS_SAMPLES_PER_BIT)) {
         // At each RDS bit boundary, fetch and differentially encode one bit,
         // then stamp its shaped pulse one bit period ahead of the read head.
