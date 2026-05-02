@@ -158,8 +158,7 @@ namespace pifmrds {
         // --help, instead of a manual post-parse check that would silently
         // accept neither or both.
         auto* inputGroup{app.add_option_group("input", "Audio input source (exactly one is required)")};
-        inputGroup
-            ->add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)");
+        inputGroup->add_option("--audio", params.audioPath, "Input audio file path (libsndfile-supported format)");
         inputGroup->add_flag("--stdin", params.useStdin, "Read audio from stdin (pipe-friendly; --loop unsupported)");
         inputGroup->require_option(1);
         app.add_flag("--loop", params.loop, "Loop the input on EOF (requires --audio)");
