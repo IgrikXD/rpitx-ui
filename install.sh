@@ -60,8 +60,8 @@ print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 
 # System dependency installation via package manager
 print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
-sudo apt update
-sudo apt install -y \
+sudo apt-get update
+sudo apt-get install -y \
   buffer \
   cmake \
   imagemagick \
