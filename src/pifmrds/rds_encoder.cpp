@@ -194,21 +194,23 @@ namespace {
     /**
      * @brief Get the local UTC offset in RDS CT half-hour units.
      *
-     * tm_gmtoff is a glibc/BSD extension (POSIX after 2024). We keep this
-     * narrow C API bridge because std::chrono time-zone support is not
-     * consistently available in the libstdc++ versions used on Debian/RPi.
+     * Uses localtime_r (POSIX) instead of std::localtime to avoid the
+     * static-storage tm buffer; tm_gmtoff is a glibc/BSD extension (POSIX
+     * after 2024) and is the most reliable way to obtain the local offset
+     * because std::chrono time-zone support is not consistently available
+     * in the libstdc++ versions shipped on Debian/RPi.
      *
      * @param now Current system-clock time point.
-     * @return Local UTC offset in 30-minute steps, or 0 if localtime fails.
+     * @return Local UTC offset in 30-minute steps, or 0 if localtime_r fails.
      */
     [[nodiscard]] int localUtcOffsetHalfHours(std::chrono::system_clock::time_point now) {
         const std::time_t localTime{std::chrono::system_clock::to_time_t(now)};
-        const std::tm* local{std::localtime(&localTime)};
-        if (local == nullptr) {
+        std::tm local{};
+        if (localtime_r(&localTime, &local) == nullptr) {
             return 0;
         }
 
-        return static_cast<int>(local->tm_gmtoff / CT_LOCAL_OFFSET_UNIT_SECONDS);
+        return static_cast<int>(local.tm_gmtoff / CT_LOCAL_OFFSET_UNIT_SECONDS);
     }
 
     /**
