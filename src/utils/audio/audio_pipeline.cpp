@@ -52,20 +52,10 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
         return AudioPipelineStatus::Error;
     }
 
-    // Apply a deferred rewind from a previous loop-mode EOF, so the buffer
-    // about to be filled contains only post-rewind audio. The pipeline reads
-    // restartedThisRead_ via consumeLoopBoundary() after this call to decide
-    // whether to reset the rate-converter filter state.
     restartedThisRead_ = false;
-    if (rewindPending_) {
-        if (source_.rewind() == false) {
-            return AudioPipelineStatus::Error;
-        }
-        rewindPending_     = false;
-        restartedThisRead_ = true;
-    }
 
     std::size_t filledSamples{0};
+    bool rewoundSinceProgress{false};
 
     while (filledSamples < dst.size()) {
         const std::size_t samplesRead{source_.read(dst.subspan(filledSamples))};
@@ -75,6 +65,7 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
                 return AudioPipelineStatus::Error;
             }
             filledSamples += samplesRead;
+            rewoundSinceProgress = false;
             if (source_.error()) {
                 return AudioPipelineStatus::Error;
             }
@@ -85,7 +76,7 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             return AudioPipelineStatus::Error;
         }
 
-        // EOF reached. In non-loop mode this is the terminal state.
+        // EOF in non-loop mode is terminal.
         if (loop_ == false) {
             if (filledSamples == 0) {
                 return AudioPipelineStatus::End;
@@ -94,32 +85,27 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             return AudioPipelineStatus::Ok;
         }
 
-        // Loop mode and EOF: close out this block (zero-padding the tail)
-        // and defer the rewind to the next call so end-of-file and
-        // start-of-file content never coexist in a single input span
-        // passed to the rate converter.
-        if (filledSamples > 0) {
-            rewindPending_ = true;
+        // Loop mode: rewind in place and keep filling the same block to
+        // avoid a silence gap at every loop boundary. Signal a clean
+        // boundary only when the rewind aligns with the block start; on
+        // a mid-block rewind the converter must keep its filter history
+        // for the pre-rewind samples already in the buffer.
+        if (rewoundSinceProgress) {
+            // No samples produced after a rewind: source is empty.
+            if (filledSamples == 0) {
+                return AudioPipelineStatus::End;
+            }
             std::fill(dst.begin() + static_cast<std::ptrdiff_t>(filledSamples), dst.end(), 0.0F);
             return AudioPipelineStatus::Ok;
         }
 
-        // filledSamples == 0: the source ran out before yielding anything
-        // for this block. If we already rewound at the start of this call
-        // and still got nothing the file is empty - report End so the
-        // pipeline can stop cleanly instead of spinning.
-        if (restartedThisRead_) {
-            return AudioPipelineStatus::End;
-        }
-
-        // Otherwise the previous read happened to align exactly with EOF
-        // (no padding was needed, so no rewind was deferred). Rewind in
-        // place, mark the boundary, and continue the fill loop with fresh
-        // post-rewind data.
         if (source_.rewind() == false) {
             return AudioPipelineStatus::Error;
         }
-        restartedThisRead_ = true;
+        rewoundSinceProgress = true;
+        if (filledSamples == 0) {
+            restartedThisRead_ = true;
+        }
     }
 
     return AudioPipelineStatus::Ok;

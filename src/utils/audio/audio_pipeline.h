@@ -135,17 +135,15 @@ private:
         /**
          * @brief Read exactly dst.size() samples from the source.
          *
-         * Block size is decided per-call by the caller (the rate converter's
-         * Bresenham accumulator may demand a different input frame count
-         * between adjacent calls), so this reader is rate-agnostic and only
-         * enforces channel alignment.
+         * Block size is chosen per-call by the caller, so the reader is
+         * rate-agnostic and only enforces channel alignment.
          *
-         * In loop mode the reader never mixes end-of-file and start-of-file
-         * content within a single block: when the source exhausts mid-read,
-         * the unfilled tail is zero-padded and a rewind is deferred to the
-         * next call. The pipeline can then reset the converter filter state
-         * before processing the post-rewind block by checking
-         * consumeLoopBoundary().
+         * In loop mode reads are gap-free: on EOF the source is rewound
+         * in place and the same block keeps filling. A block may thus
+         * mix pre-rewind tail and post-rewind head samples;
+         * consumeLoopBoundary() reports true only when the rewind
+         * aligned with the block start (so the converter can be reset
+         * safely).
          *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.
@@ -153,12 +151,11 @@ private:
         [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
 
         /**
-         * @brief Whether the most recent read() performed a loop rewind.
+         * @brief Whether the most recent read() began at a clean loop boundary.
          *
-         * Returns true exactly once after a read that started by rewinding
-         * the source - the caller should reset rate-converter filter state
-         * before processing that block. Subsequent calls return false until
-         * another rewind happens.
+         * Returns true exactly once after a read whose first samples came
+         * from a rewind. The caller should reset rate-converter filter
+         * state before processing such a block.
          */
         [[nodiscard]] bool consumeLoopBoundary() noexcept {
             const bool result{restartedThisRead_};
@@ -170,8 +167,7 @@ private:
         AudioSource& source_;
         int channels_;
         bool loop_;
-        bool rewindPending_{false};      ///< Set when EOF was reached mid-read in loop mode.
-        bool restartedThisRead_{false};  ///< Set when read() began with a deferred rewind.
+        bool restartedThisRead_{false};  ///< Set when read() filled the block starting from a rewind.
     };
 
     /**
