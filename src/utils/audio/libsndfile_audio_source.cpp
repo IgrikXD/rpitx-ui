@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <span>
@@ -217,4 +218,35 @@ std::unique_ptr<AudioSource> makeFileAudioSource(const std::string& path) {
         std::make_unique<LibsndfileAudioSource>(handle.get(), info, info.seekable != 0, formatDescription(info))};
     handle.release();
     return source;
+}
+
+std::unique_ptr<AudioSource> makeStdinAudioSource() {
+    SF_INFO info{};
+    // close_desc = SF_FALSE: stdin is owned by the runtime, libsndfile must
+    // not close fd 0 on sf_close. The factory still owns the SNDFILE handle
+    // itself and releases it through sf_close as usual on destruction.
+    std::unique_ptr<SNDFILE, decltype(&sf_close)> handle{sf_open_fd(fileno(stdin), SFM_READ, &info, SF_FALSE),
+                                                         sf_close};
+    if (handle == nullptr) {
+        std::cerr << "[ERROR] Failed to open stdin as audio source: " << sf_strerror(nullptr) << std::endl;
+        return nullptr;
+    }
+
+    // Force seekable=false even when libsndfile reports otherwise (e.g. when
+    // stdin happens to be a redirected regular file). Pipe / FIFO inputs are
+    // the common case for --stdin, and treating the source uniformly as a
+    // stream lets validateLoopSupport() reject --loop with a single,
+    // consistent diagnostic instead of one that depends on how stdin was
+    // wired up at the shell.
+    auto source{
+        std::make_unique<LibsndfileAudioSource>(handle.get(), info, false, "stdin / " + formatDescription(info))};
+    handle.release();
+    return source;
+}
+
+std::unique_ptr<AudioSource> makeAudioSource(bool useStdin, const std::string& path) {
+    if (useStdin) {
+        return makeStdinAudioSource();
+    }
+    return makeFileAudioSource(path);
 }
