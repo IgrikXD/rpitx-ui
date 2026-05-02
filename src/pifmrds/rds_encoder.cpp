@@ -97,6 +97,17 @@ namespace {
     constexpr uint16_t TA_BIT{0x0010};
 
     /**
+     * @brief RadioText end-of-message marker (EN 50067 3.1.5.3).
+     *
+     * When the RT string is shorter than the 64-character buffer, a 0x0D
+     * carriage-return byte is inserted right after the last character so
+     * receivers can detect end-of-text instead of treating trailing spaces
+     * as part of the message (which can leave stale glyphs from a previous
+     * RT update on the receiver display).
+     */
+    constexpr char RT_END_MARKER{0x0D};
+
+    /**
      * @brief Number of group-cycle steps before a 2A (RT) group is emitted.
      *
      * The classical 0A/2A mix: four 0A groups in a row, then one 2A. At
@@ -239,6 +250,9 @@ void RdsEncoder::setRt(std::string_view rt) {
     rt_.fill(' ');
     const auto charsToCopy{std::min(rt.size(), static_cast<std::size_t>(RT_LENGTH))};
     std::copy_n(rt.begin(), charsToCopy, rt_.begin());
+    if (charsToCopy < static_cast<std::size_t>(RT_LENGTH)) {
+        rt_[charsToCopy] = RT_END_MARKER;
+    }
 }
 
 uint16_t RdsEncoder::crc(uint16_t block) {
