@@ -48,7 +48,33 @@ float FmRdsProcessor::ChannelFilters::process(float x) {
     return s;
 }
 
+void FmRdsProcessor::validateConfig(const FmRdsConfig& config) {
+    // Throw on broken contracts instead of asserting: this processor is
+    // intended to be reusable, so critical invariants must surface as
+    // runtime errors in release builds rather than vanish in NDEBUG.
+    // Called from makeChannelFilters() so validation runs before any
+    // Biquad is constructed against config (a non-positive sample rate
+    // would otherwise produce NaN coefficients before the constructor
+    // body got a chance to throw).
+    if (config.channels != 1 && config.channels != 2) {
+        throw std::invalid_argument{"FmRdsProcessor: channels must be 1 or 2, got " + std::to_string(config.channels)};
+    }
+    if (config.audioSampleRate <= 0) {
+        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate must be positive, got " +
+                                    std::to_string(config.audioSampleRate)};
+    }
+    if (config.mpxSampleRate <= 0) {
+        throw std::invalid_argument{"FmRdsProcessor: mpxSampleRate must be positive, got " +
+                                    std::to_string(config.mpxSampleRate)};
+    }
+    if (config.audioSampleRate != config.mpxSampleRate) {
+        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate (" + std::to_string(config.audioSampleRate) +
+                                    ") must equal mpxSampleRate (" + std::to_string(config.mpxSampleRate) + ")"};
+    }
+}
+
 FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsConfig& config) {
+    validateConfig(config);
     const auto fs{static_cast<float>(config.audioSampleRate)};
     return ChannelFilters{
         .hpf         = Biquad::highPass(HPF_CUTOFF, fs),
@@ -65,24 +91,10 @@ FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     : channels_{config.channels},
       peakDeviation_{config.peakDeviation},
       filters_{makeChannelFilters(config), makeChannelFilters(config)} {
-    // Throw on broken contracts instead of asserting: this processor is
-    // intended to be reusable, so critical invariants must surface as
-    // runtime errors in release builds rather than vanish in NDEBUG.
-    if (config.channels != 1 && config.channels != 2) {
-        throw std::invalid_argument{"FmRdsProcessor: channels must be 1 or 2, got " + std::to_string(config.channels)};
-    }
-    if (config.audioSampleRate <= 0) {
-        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate must be positive, got " +
-                                    std::to_string(config.audioSampleRate)};
-    }
-    if (config.mpxSampleRate <= 0) {
-        throw std::invalid_argument{"FmRdsProcessor: mpxSampleRate must be positive, got " +
-                                    std::to_string(config.mpxSampleRate)};
-    }
-    if (config.audioSampleRate != config.mpxSampleRate) {
-        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate (" + std::to_string(config.audioSampleRate) +
-                                    ") must equal mpxSampleRate (" + std::to_string(config.mpxSampleRate) + ")"};
-    }
+    // Runtime config validation runs inside makeChannelFilters() above, so
+    // by the time we get here filters_ is guaranteed to have been built
+    // against a vetted config (and any contract violation has already
+    // surfaced as std::invalid_argument before any Biquad was touched).
 
     // Silent failure mode: extra slots in std::array<Biquad, LPF_ORDER / 2>
     // would value-init to zero-coefficient biquads (inaudible output), not

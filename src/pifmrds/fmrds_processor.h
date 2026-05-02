@@ -238,10 +238,30 @@ private:
     };
 
     /**
+     * @brief Validate FmRdsConfig contract; throw on violation.
+     *
+     * Invoked from makeChannelFilters() so it runs in the constructor's
+     * init list before any Biquad is built against config. Putting the
+     * checks in the constructor body would be too late: a non-positive
+     * audioSampleRate would already have produced NaN/Inf filter
+     * coefficients (division by sample rate) before control reached the
+     * body. Keeping it as a separate static method also makes the
+     * preconditions reusable and unit-testable in isolation.
+     *
+     * @param config Source FmRdsConfig.
+     * @throws std::invalid_argument when config violates a contract:
+     *         channels not in {1, 2}, non-positive sample rate, or
+     *         audioSampleRate != mpxSampleRate.
+     */
+    static void validateConfig(const FmRdsConfig& config);
+
+    /**
      * @brief Build one configured ChannelFilters instance.
      *
      * Used by the constructor's init list to populate two channels without
-     * repeating the same Biquad factory calls per channel.
+     * repeating the same Biquad factory calls per channel. Calls
+     * validateConfig() before constructing any Biquad so a malformed
+     * config fails loudly rather than producing NaN coefficients.
      *
      * @param config Source FmRdsConfig.
      * @return Channel filter bundle initialised against the config's audio
