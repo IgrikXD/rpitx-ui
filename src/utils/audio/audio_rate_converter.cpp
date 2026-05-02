@@ -138,12 +138,14 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
         return true;
     }
 
-    // Advance Bresenham accumulator now that we know how much input we are
-    // about to consume. Net effect: accumulator stays in [0, targetRate_),
-    // and over K calls the cumulative input matches K * outputFrames *
+    // Compute the next Bresenham accumulator locally; commit only after the
+    // soxr call below succeeds so a mid-process failure leaves the converter
+    // in its prior state and a retry would request the same expectedIn.
+    // Net effect once committed: accumulator stays in [0, targetRate_), and
+    // over K calls the cumulative input matches K * outputFrames *
     // sourceRate / targetRate exactly.
-    inputAccumulator_ += static_cast<long long>(outputFrames_) * sourceRate_;
-    inputAccumulator_ -= static_cast<long long>(expectedIn) * targetRate_;
+    const long long nextAccumulator{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_ -
+                                    static_cast<long long>(expectedIn) * targetRate_};
 
     // 1. Drain any spill from previous call into the head of out.
     std::size_t outIdx{0};
@@ -171,6 +173,8 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     if (result.value().inputConsumed != in.size()) {
         return false;
     }
+    // soxr accepted the full input span; safe to commit the accumulator now.
+    inputAccumulator_ = nextAccumulator;
     const std::size_t produced{result.value().outputProduced};
 
     // 3. Copy as many staging samples as fit into the remaining out slots;
