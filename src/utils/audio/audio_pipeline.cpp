@@ -88,13 +88,12 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             return AudioPipelineStatus::Ok;
         }
 
-        // Loop mode: rewind in place and keep filling the same block to
-        // avoid a silence gap at the loop boundary. When pre-rewind tail
-        // is present in the buffer, a short linear crossfade hides the
-        // filter discontinuity at the seam; on a block-aligned EOF we
-        // signal a clean boundary so the converter can be reset.
+        // Loop mode: rewind in place to keep the loop boundary gap-free.
+        // A short crossfade smooths the seam when pre-rewind tail is
+        // present in the buffer; on a block-aligned EOF there is no tail
+        // and consumeLoopBoundary() lets the converter reset cleanly.
         if (rewoundSinceProgress) {
-            // No samples produced after a rewind: source is empty.
+            // Source produced nothing after a rewind: it is empty.
             if (filledSamples == 0) {
                 return AudioPipelineStatus::End;
             }
@@ -111,24 +110,19 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
         rewoundSinceProgress = true;
 
         if (blendFrames < 2) {
-            // No (meaningful) pre-tail to blend with - either this is a
-            // block-aligned boundary (clean reset) or the pre-tail is a
-            // single frame, in which case the crossfade would degenerate
-            // and is skipped.
+            // Block-aligned boundary, or pre-tail too short to blend.
             if (filledSamples == 0) {
                 restartedThisRead_ = true;
             }
             continue;
         }
 
-        // Pull blendFrames worth of post-rewind data into the scratch
-        // buffer. AudioSource::read() may return short, so loop until we
-        // have the whole window or hit EOF/error.
+        // Pull blendFrames of post-rewind audio into scratch (handle short reads).
         const std::size_t blendSamples{blendFrames * chCount};
         std::size_t headFilled{0};
         while (headFilled < blendSamples) {
-            const std::size_t got{source_.read(
-                std::span<float>{crossfadeBuffer_.data() + headFilled, blendSamples - headFilled})};
+            const std::size_t got{
+                source_.read(std::span<float>{crossfadeBuffer_.data() + headFilled, blendSamples - headFilled})};
             if (source_.error()) {
                 return AudioPipelineStatus::Error;
             }
@@ -142,9 +136,8 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
         }
 
         if (headFilled < blendSamples) {
-            // File shorter than the crossfade window. Append what we
-            // have without blending and let the outer loop attempt
-            // another rewind on the next EOF.
+            // File shorter than the crossfade window: append what we got
+            // and let the outer loop hit EOF again.
             std::copy(crossfadeBuffer_.begin(),
                       crossfadeBuffer_.begin() + static_cast<std::ptrdiff_t>(headFilled),
                       dst.begin() + static_cast<std::ptrdiff_t>(filledSamples));
@@ -155,26 +148,25 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
             continue;
         }
 
-        // Linear crossfade in place: w goes 0 -> 1 across blendFrames,
-        // so the first blended frame is pure pre-tail and the last is
-        // pure post-head, matching the surrounding samples on both sides
-        // without a discontinuity.
+        // Linear crossfade in place over the trailing blendFrames of dst:
+        // w goes 0 -> 1 per frame, so the seam matches both surrounding
+        // sides without a discontinuity.
         const std::size_t blendStart{filledSamples - blendSamples};
         const float invDenom{1.0F / static_cast<float>(blendFrames - 1)};
+        std::size_t dstIdx{blendStart};
+        std::size_t srcIdx{0};
         for (std::size_t f{0}; f < blendFrames; ++f) {
             const float w{static_cast<float>(f) * invDenom};
+            const float invW{1.0F - w};
             for (std::size_t c{0}; c < chCount; ++c) {
-                const std::size_t dstIdx{blendStart + f * chCount + c};
-                const std::size_t srcIdx{f * chCount + c};
-                dst[dstIdx] = dst[dstIdx] * (1.0F - w) + crossfadeBuffer_[srcIdx] * w;
+                dst[dstIdx] = dst[dstIdx] * invW + crossfadeBuffer_[srcIdx] * w;
+                ++dstIdx;
+                ++srcIdx;
             }
         }
-        // filledSamples unchanged: the post-head samples were consumed
-        // into the blend. Source is now positioned at frame blendFrames
-        // of the rewound file; the outer loop will fill the remainder.
-        // Source data was successfully consumed, so the empty-source
-        // guard should not trip on the next EOF unless that EOF really
-        // produces nothing.
+        // Source is now at frame blendFrames of the rewound file; the
+        // outer loop fills the remainder. Reset the empty-source guard
+        // since post-head data was successfully consumed.
         rewoundSinceProgress = false;
     }
 
