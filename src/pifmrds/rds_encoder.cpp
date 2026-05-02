@@ -136,6 +136,17 @@ namespace {
     constexpr uint16_t CT_LOCAL_OFFSET_SIGN_BIT{0x20};
 
     /**
+     * @brief Mask for the 5-bit local-time offset magnitude (bits 0..4 of block 3).
+     *
+     * EN 50067 3.1.5.6 reserves five bits for the magnitude, so the largest
+     * representable offset is 31 half-hours (15.5 h). We mask defensively to
+     * keep the value from leaking into the minute-of-hour field above.
+     * Stored as int because every use site combines it with int magnitude
+     * arithmetic; the final OR into block D casts to uint16_t once.
+     */
+    constexpr int CT_LOCAL_OFFSET_MAGNITUDE_MASK{0x1F};
+
+    /**
      * @brief Current UTC minute decomposed for CT group encoding.
      */
     struct UtcMinuteTime {
@@ -266,12 +277,18 @@ bool RdsEncoder::tryFillCtGroup(std::array<uint16_t, RDS_BLOCKS_PER_GROUP>& bloc
     blocks[BLOCK_D] = static_cast<uint16_t>(((utc.hourOfDay & 0xF) << 12) | (utc.minuteOfHour << 6));
 
     // Local-offset half-hours are encoded as magnitude plus a separate sign bit.
+    // The magnitude field is only 5 bits wide (max 31 half-hours), so we clamp
+    // and mask to keep stray bits out of the minute-of-hour field above.
     const int offset{localUtcOffsetHalfHours(utc.now)};
     int offsetMagnitude{offset};
     if (offsetMagnitude < 0) {
         offsetMagnitude = -offsetMagnitude;
     }
-    blocks[BLOCK_D] = static_cast<uint16_t>(blocks[BLOCK_D] | offsetMagnitude);
+    if (offsetMagnitude > CT_LOCAL_OFFSET_MAGNITUDE_MASK) {
+        offsetMagnitude = CT_LOCAL_OFFSET_MAGNITUDE_MASK;
+    }
+    blocks[BLOCK_D] = static_cast<uint16_t>(blocks[BLOCK_D] |
+                                            static_cast<uint16_t>(offsetMagnitude & CT_LOCAL_OFFSET_MAGNITUDE_MASK));
     if (offset < 0) {
         blocks[BLOCK_D] = static_cast<uint16_t>(blocks[BLOCK_D] | CT_LOCAL_OFFSET_SIGN_BIT);
     }
