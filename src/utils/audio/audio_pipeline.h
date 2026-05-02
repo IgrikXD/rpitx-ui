@@ -83,6 +83,13 @@ public:
      *
      * @param source Source to read from; must outlive this pipeline.
      * @param config Pipeline policy and target block geometry.
+     *
+     * @throws std::invalid_argument when the source channel count is non-positive,
+     *         when an internal AudioRateConverter rejects the rate parameters
+     *         (non-positive rates, non-positive output frames), or when the
+     *         derived per-call input frame count overflows int.
+     * @throws std::runtime_error    when an internal AudioRateConverter cannot
+     *         create its libsoxr backend.
      */
     AudioPipeline(AudioSource& source, AudioPipelineConfig config);
 
@@ -108,6 +115,10 @@ public:
      *
      * @param out Destination block, interleaved by outputChannels().
      * @return Ok, End, or Error.
+     *
+     * @throws std::invalid_argument when an internal invariant is violated
+     *         (e.g. mono downmix called with mismatched span sizes); these
+     *         indicate a programming error rather than a stream condition.
      */
     [[nodiscard]] AudioPipelineStatus read(std::span<float> out);
 

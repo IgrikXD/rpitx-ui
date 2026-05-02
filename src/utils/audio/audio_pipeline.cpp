@@ -12,8 +12,9 @@
 #include "audio_pipeline.h"
 
 #include <algorithm>
-#include <cassert>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 bool validateAudioFormat(AudioFormat format, int minSampleRate, int maxSampleRate) {
@@ -41,7 +42,9 @@ bool validateLoopSupport(const AudioSource& source, bool loopRequested) {
 
 AudioPipeline::AudioBlockReader::AudioBlockReader(AudioSource& source, int channels, bool loop)
     : source_{source}, channels_{channels}, loop_{loop} {
-    assert(channels > 0);
+    if (channels <= 0) {
+        throw std::invalid_argument{"AudioBlockReader: channels must be positive, got " + std::to_string(channels)};
+    }
 }
 
 AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) {
@@ -124,15 +127,22 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
 
 namespace {
     void downmixInterleavedToMono(std::span<const float> interleaved, int channels, std::span<float> mono) {
-        assert(channels > 0);
-        assert(interleaved.size() == mono.size() * static_cast<std::size_t>(channels));
-
+        if (channels <= 0) {
+            throw std::invalid_argument{"downmixInterleavedToMono: channels must be positive, got " +
+                                        std::to_string(channels)};
+        }
+        const auto chCount{static_cast<std::size_t>(channels)};
+        if (interleaved.size() != mono.size() * chCount) {
+            throw std::invalid_argument{"downmixInterleavedToMono: interleaved size (" +
+                                        std::to_string(interleaved.size()) + ") must equal mono size (" +
+                                        std::to_string(mono.size()) + ") * channels (" + std::to_string(channels) +
+                                        ")"};
+        }
         if (channels == 1) {
             std::copy(interleaved.begin(), interleaved.end(), mono.begin());
             return;
         }
 
-        const auto chCount{static_cast<std::size_t>(channels)};
         const float scale{1.0F / static_cast<float>(channels)};
         for (std::size_t i{0}; i < mono.size(); ++i) {
             float sum{0.0F};
@@ -148,8 +158,13 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
     : sourceFormat_{source.format()},
       config_{std::move(config)},
       outputChannels_{config_.channelMode == AudioChannelMode::Mono ? 1 : sourceFormat_.channels} {
-    assert(sourceFormat_.channels > 0);
-    assert(outputChannels_ > 0);
+    if (sourceFormat_.channels <= 0) {
+        throw std::invalid_argument{"AudioPipeline: source channel count must be positive, got " +
+                                    std::to_string(sourceFormat_.channels)};
+    }
+    // outputChannels_ is derived from sourceFormat_.channels (or fixed at 1
+    // for the Mono mode) and is therefore positive whenever the source check
+    // above passes - no separate guard required.
 
     rateConverters_.reserve(static_cast<std::size_t>(outputChannels_));
     for (int c{0}; c < outputChannels_; ++c) {
@@ -190,7 +205,13 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     const int inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
     const std::size_t interleavedSize{static_cast<std::size_t>(inputFramesThisCall) *
                                       static_cast<std::size_t>(sourceFormat_.channels)};
-    assert(interleavedSize <= interleavedInput_.size());
+    // Defend against a future contract drift in AudioRateConverter: the
+    // interleavedInput_ buffer is sized for maxInputFrames_, and writing
+    // past it in reader_->read() would be a buffer overflow. Surface the
+    // violation as Error rather than UB.
+    if (interleavedSize > interleavedInput_.size()) {
+        return AudioPipelineStatus::Error;
+    }
 
     const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};
     if (status == AudioPipelineStatus::Error) {

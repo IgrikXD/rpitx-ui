@@ -14,7 +14,6 @@
 #include <sndfile.h>
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -91,7 +90,9 @@ namespace {
               format_{.channels = info.channels, .sampleRate = info.samplerate},
               seekable_{seekable},
               description_{std::move(description)} {
-            assert(handle_ != nullptr);
+            // makeFileAudioSource is the only construction site and rejects a
+            // null handle before reaching this point, so no defensive runtime
+            // check is needed here.
         }
 
         /**
@@ -137,10 +138,8 @@ namespace {
 
             const auto channels{static_cast<std::size_t>(format_.channels)};
             // Caller is contractually responsible for sizing dst as a multiple of
-            // channels; assert in debug builds so a stereo / mono mix-up is caught
-            // immediately rather than after producing a half-frame at the tail.
-            assert(channels > 0);
-            assert(dst.size() % channels == 0);
+            // channels; the explicit runtime check below catches a stereo / mono
+            // mix-up at the tail of dst rather than producing a half-frame.
             if (channels == 0 || dst.size() % channels != 0) {
                 error_ = true;
                 return 0;
