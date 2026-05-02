@@ -60,7 +60,10 @@ AudioPipelineStatus AudioPipeline::AudioBlockReader::read(std::span<float> dst) 
                                     std::to_string(dst.size()) + ", channels " + std::to_string(channels_) + ")"};
     }
 
-    restartedThisRead_ = false;
+    // Promote any deferred boundary from the previous call (see
+    // pendingLoopBoundary_ doc-string in audio_pipeline.h).
+    restartedThisRead_   = pendingLoopBoundary_;
+    pendingLoopBoundary_ = false;
 
     std::size_t filledSamples{0};
     bool rewoundSinceProgress{false};

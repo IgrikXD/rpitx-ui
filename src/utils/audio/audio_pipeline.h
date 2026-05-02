@@ -158,19 +158,17 @@ private:
         /**
          * @brief Whether the most recent read() began at a clean loop boundary.
          *
-         * Returns true exactly once after a read whose first samples came
-         * from a rewind (no pre-rewind tail in the block). Also returns
-         * true once when a previous read() rewound the source but had to
-         * exit before any post-rewind samples were available - in that
-         * case the signal is deferred to the next call so the caller
-         * resets the converter before processing fresh-loop data, not
-         * before the trailing pre-rewind tail still queued in the
-         * converter's filter state.
+         * Returns true exactly once when the block whose conversion is
+         * about to start contains no pre-rewind tail - either because the
+         * read() filled it from scratch after a block-aligned EOF, or
+         * because a previous read() rewound the source after emitting its
+         * trailing tail and the current read() is the first one to carry
+         * post-rewind data. The caller should reset rate-converter filter
+         * state for such a block.
          */
         [[nodiscard]] bool consumeLoopBoundary() noexcept {
-            const bool result{restartedThisRead_ || pendingLoopBoundary_};
-            restartedThisRead_   = false;
-            pendingLoopBoundary_ = false;
+            const bool result{restartedThisRead_};
+            restartedThisRead_ = false;
             return result;
         }
 
@@ -184,8 +182,20 @@ private:
         AudioSource& source_;
         int channels_;
         bool loop_;
-        bool restartedThisRead_{false};       ///< Set when read() filled the block starting from a rewind.
-        bool pendingLoopBoundary_{false};     ///< Carries an unsignalled rewind from one read() into the next.
+        bool restartedThisRead_{
+            false};  ///< Set when the current block began at a loop boundary (visible to consumeLoopBoundary()).
+        /// Carries an unsignalled rewind from one read() into the next.
+        ///
+        /// Set when read() had to exit with pre-rewind tail in the block
+        /// (Ok + zero pad) before any post-rewind samples were available.
+        /// The next read() promotes it into restartedThisRead_ on entry,
+        /// so the converter reset surfaces on the call that first
+        /// processes post-rewind data, not on the same call that set it.
+        /// Promoting on entry (rather than OR-ing into
+        /// consumeLoopBoundary()) is what makes the deferral observable
+        /// on the *next* AudioPipeline::read() iteration instead of the
+        /// same one that triggered the rewind.
+        bool pendingLoopBoundary_{false};
         std::vector<float> crossfadeBuffer_;  ///< Scratch for post-rewind head samples (loop mode only).
     };
 
