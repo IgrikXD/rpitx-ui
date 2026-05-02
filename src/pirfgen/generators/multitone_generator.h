@@ -31,6 +31,8 @@ public:
      * @param sampleRate DMA sample rate in Hz.
      * @param toneCount Number of equidistant tones (must be >= 2; a single tone would
      *                  degenerate to a plain carrier and is rejected upstream in the CLI).
+     *
+     * @throws std::invalid_argument when toneCount is less than 2.
      */
     MultitoneGenerator(float bandwidth, int sampleRate, int toneCount);
 
