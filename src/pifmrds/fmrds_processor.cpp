@@ -52,10 +52,10 @@ void FmRdsProcessor::validateConfig(const FmRdsConfig& config) {
     // Throw on broken contracts instead of asserting: this processor is
     // intended to be reusable, so critical invariants must surface as
     // runtime errors in release builds rather than vanish in NDEBUG.
-    // Called from makeChannelFilters() so validation runs before any
-    // Biquad is constructed against config (a non-positive sample rate
-    // would otherwise produce NaN coefficients before the constructor
-    // body got a chance to throw).
+    // Called from makeFilters() so validation runs before any Biquad is
+    // constructed against config (a non-positive sample rate would
+    // otherwise produce NaN coefficients before the constructor body
+    // got a chance to throw).
     if (config.channels != 1 && config.channels != 2) {
         throw std::invalid_argument{"FmRdsProcessor: channels must be 1 or 2, got " + std::to_string(config.channels)};
     }
@@ -74,7 +74,10 @@ void FmRdsProcessor::validateConfig(const FmRdsConfig& config) {
 }
 
 FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsConfig& config) {
-    validateConfig(config);
+    // Unchecked builder: callers must have already passed config through
+    // validateConfig(). The single entry point that invokes this method
+    // is makeFilters() below, which validates exactly once before fanning
+    // out to per-channel construction.
     const auto fs{static_cast<float>(config.audioSampleRate)};
     return ChannelFilters{
         .hpf         = Biquad::highPass(HPF_CUTOFF, fs),
@@ -87,14 +90,25 @@ FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsCon
     };
 }
 
+std::array<FmRdsProcessor::ChannelFilters, 2> FmRdsProcessor::makeFilters(const FmRdsConfig& config) {
+    // Single validation point for the whole filters_ array: validateConfig()
+    // runs once here and the two per-channel builds below reuse the vetted
+    // config without re-checking. Keeps the constructor's init list as a
+    // single brace-enclosed factory call rather than two side-by-side
+    // makeChannelFilters() invocations that would each re-validate.
+    validateConfig(config);
+    return {makeChannelFilters(config), makeChannelFilters(config)};
+}
+
 FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     : channels_{config.channels},
       peakDeviation_{config.peakDeviation},
-      filters_{makeChannelFilters(config), makeChannelFilters(config)} {
-    // Runtime config validation runs inside makeChannelFilters() above, so
-    // by the time we get here filters_ is guaranteed to have been built
-    // against a vetted config (and any contract violation has already
-    // surfaced as std::invalid_argument before any Biquad was touched).
+      filters_{makeFilters(config)} {
+    // Runtime config validation runs inside makeFilters() above (exactly
+    // once for the whole filters_ array), so by the time we get here
+    // filters_ is guaranteed to have been built against a vetted config
+    // and any contract violation has already surfaced as
+    // std::invalid_argument before any Biquad was touched.
 
     // Silent failure mode: extra slots in std::array<Biquad, LPF_ORDER / 2>
     // would value-init to zero-coefficient biquads (inaudible output), not

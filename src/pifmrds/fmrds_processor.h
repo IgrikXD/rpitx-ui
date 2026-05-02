@@ -240,9 +240,9 @@ private:
     /**
      * @brief Validate FmRdsConfig contract; throw on violation.
      *
-     * Invoked from makeChannelFilters() so it runs in the constructor's
-     * init list before any Biquad is built against config. Putting the
-     * checks in the constructor body would be too late: a non-positive
+     * Invoked from makeFilters() so it runs in the constructor's init
+     * list before any Biquad is built against config. Putting the checks
+     * in the constructor body would be too late: a non-positive
      * audioSampleRate would already have produced NaN/Inf filter
      * coefficients (division by sample rate) before control reached the
      * body. Keeping it as a separate static method also makes the
@@ -256,18 +256,35 @@ private:
     static void validateConfig(const FmRdsConfig& config);
 
     /**
-     * @brief Build one configured ChannelFilters instance.
+     * @brief Build one configured ChannelFilters instance (unchecked).
      *
-     * Used by the constructor's init list to populate two channels without
-     * repeating the same Biquad factory calls per channel. Calls
-     * validateConfig() before constructing any Biquad so a malformed
-     * config fails loudly rather than producing NaN coefficients.
+     * Internal builder used by makeFilters() to construct each per-channel
+     * filter bundle. Does not call validateConfig(): the single caller
+     * (makeFilters) validates exactly once and then fans out to this
+     * helper twice, so per-channel construction does not repeat the
+     * checks. Not intended for direct external use.
      *
-     * @param config Source FmRdsConfig.
+     * @param config Source FmRdsConfig (must already be validated).
      * @return Channel filter bundle initialised against the config's audio
      *         sample rate and pre-emphasis time constant.
      */
     [[nodiscard]] static ChannelFilters makeChannelFilters(const FmRdsConfig& config);
+
+    /**
+     * @brief Build the two-channel filter array, validating config once.
+     *
+     * Single entry point used by the constructor's init list to populate
+     * filters_. Calls validateConfig(config) exactly once and then builds
+     * both per-channel ChannelFilters via makeChannelFilters(), so the
+     * runtime invariants are checked one time per processor instance
+     * regardless of channel count.
+     *
+     * @param config Source FmRdsConfig.
+     * @return Two-element array of channel filter bundles.
+     * @throws std::invalid_argument when config violates a contract
+     *         (forwarded from validateConfig()).
+     */
+    [[nodiscard]] static std::array<ChannelFilters, 2> makeFilters(const FmRdsConfig& config);
 
     /**
      * @brief Process one audio frame through the channel filters and AGC.
