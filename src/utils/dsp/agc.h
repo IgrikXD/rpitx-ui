@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include "iq_sample.h"
 
 /**
@@ -48,21 +50,31 @@ public:
      * @brief Construct an AGC with the given configuration.
      * @param config AGC parameters.
      */
-    explicit Agc(AgcConfig config);
+    explicit Agc(AgcConfig config) noexcept
+        : target_{config.target}, attack_{config.attack}, decay_{config.decay}, env_{config.initialEnvelope} {
+    }
 
     /**
      * @brief Apply AGC to an IQ sample pair.
      * @param sample Input IQ sample.
      * @return Gain-adjusted IQ sample.
      */
-    [[nodiscard]] IqSample process(IqSample sample);
+    [[nodiscard]] IqSample process(IqSample sample) noexcept {
+        const float gain{updateGain(std::hypot(sample.i, sample.q))};
+        return {
+            .i = sample.i * gain,
+            .q = sample.q * gain,
+        };
+    }
 
     /**
      * @brief Apply AGC to a real-valued audio sample.
      * @param sample Input scalar sample.
      * @return Gain-adjusted scalar sample.
      */
-    [[nodiscard]] float process(float sample);
+    [[nodiscard]] float process(float sample) noexcept {
+        return sample * updateGain(std::abs(sample));
+    }
 
 private:
     /**
@@ -70,7 +82,19 @@ private:
      * @param mag Current sample magnitude (|i+jq| for IQ, |x| for scalar).
      * @return Gain factor target / env, clamped to 1.0 when env is near zero.
      */
-    [[nodiscard]] float updateGain(float mag);
+    [[nodiscard]] float updateGain(float mag) noexcept {
+        // Asymmetric attack/decay envelope tracker.
+        if (mag > env_) {
+            env_ += attack_ * (mag - env_);
+        } else {
+            env_ += decay_ * (mag - env_);
+        }
+
+        if (env_ > 1e-6f) {
+            return target_ / env_;
+        }
+        return 1.0f;
+    }
 
     float target_;  ///< Target output amplitude.
     float attack_;  ///< Envelope attack coefficient.

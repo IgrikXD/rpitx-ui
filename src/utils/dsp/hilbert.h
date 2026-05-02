@@ -52,20 +52,24 @@ public:
      * @brief Get the group delay in samples ((taps - 1) / 2).
      * @return Group delay.
      */
-    [[nodiscard]] int delay() const;
+    [[nodiscard]] int delay() const noexcept {
+        return delay_;
+    }
 
     /**
      * @brief Get the number of filter taps.
      * @return Tap count.
      */
-    [[nodiscard]] int taps() const;
+    [[nodiscard]] int taps() const noexcept {
+        return taps_;
+    }
 
     /**
      * @brief Process a single input sample and produce an analytic signal pair.
      * @param in Real-valued input sample.
      * @return IqSample with delayed I and Hilbert-transformed Q.
      */
-    [[nodiscard]] IqSample process(float in);
+    [[nodiscard]] IqSample process(float in) noexcept;
 
 private:
     int taps_;                        ///< Number of FIR filter taps.

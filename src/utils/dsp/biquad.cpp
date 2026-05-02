@@ -14,70 +14,81 @@
 #include <cmath>
 #include <numbers>
 
-Biquad Biquad::highPass(float cutoffHz, float sampleRate, float q) {
-    const float w0{2.0f * std::numbers::pi_v<float> * cutoffHz / sampleRate};
-    const float alpha{std::sin(w0) / (2.0f * q)};
-    const float cosW0{std::cos(w0)};
-    const float a0{1.0f + alpha};
+namespace {
 
-    Biquad bq{};
-    bq.b0_ = (1.0f + cosW0) / 2.0f / a0;
-    bq.b1_ = -(1.0f + cosW0) / a0;
-    bq.b2_ = (1.0f + cosW0) / 2.0f / a0;
-    bq.a1_ = -2.0f * cosW0 / a0;
-    bq.a2_ = (1.0f - alpha) / a0;
+    /**
+     * @brief Common RBJ-cookbook intermediate quantities for low/high-pass sections.
+     */
+    struct RbjParams {
+        float cosW0;  ///< cos(omega_0).
+        float alpha;  ///< sin(omega_0) / (2 * Q).
+        float a0;     ///< Unnormalised feedback coefficient a0 = 1 + alpha.
+    };
 
-    return bq;
+    /**
+     * @brief Compute the shared RBJ biquad design quantities.
+     * @param cutoffHz   Cutoff frequency in Hz.
+     * @param sampleRate Sample rate in Hz.
+     * @param q          Pole-pair quality factor; must be strictly positive.
+     * @return Filled RbjParams.
+     */
+    [[nodiscard]] RbjParams rbjParams(float cutoffHz, float sampleRate, float q) noexcept {
+        const float w0{2.0f * std::numbers::pi_v<float> * cutoffHz / sampleRate};
+        const float alpha{std::sin(w0) / (2.0f * q)};
+        return {
+            .cosW0 = std::cos(w0),
+            .alpha = alpha,
+            .a0    = 1.0f + alpha,
+        };
+    }
+
+}  // namespace
+
+Biquad Biquad::highPass(float cutoffHz, float sampleRate, float q) noexcept {
+    const auto [cosW0, alpha, a0]{rbjParams(cutoffHz, sampleRate, q)};
+    const float onePlusCosOverA0{(1.0f + cosW0) / a0};
+
+    return Biquad{
+        onePlusCosOverA0 / 2.0f,
+        -onePlusCosOverA0,
+        onePlusCosOverA0 / 2.0f,
+        -2.0f * cosW0 / a0,
+        (1.0f - alpha) / a0,
+    };
 }
 
-Biquad Biquad::lowPass(float cutoffHz, float sampleRate, float q) {
-    const float w0{2.0f * std::numbers::pi_v<float> * cutoffHz / sampleRate};
-    const float alpha{std::sin(w0) / (2.0f * q)};
-    const float cosW0{std::cos(w0)};
-    const float a0{1.0f + alpha};
+Biquad Biquad::lowPass(float cutoffHz, float sampleRate, float q) noexcept {
+    const auto [cosW0, alpha, a0]{rbjParams(cutoffHz, sampleRate, q)};
+    const float oneMinusCosOverA0{(1.0f - cosW0) / a0};
 
-    Biquad bq{};
-    bq.b0_ = (1.0f - cosW0) / 2.0f / a0;
-    bq.b1_ = (1.0f - cosW0) / a0;
-    bq.b2_ = (1.0f - cosW0) / 2.0f / a0;
-    bq.a1_ = -2.0f * cosW0 / a0;
-    bq.a2_ = (1.0f - alpha) / a0;
-
-    return bq;
+    return Biquad{
+        oneMinusCosOverA0 / 2.0f,
+        oneMinusCosOverA0,
+        oneMinusCosOverA0 / 2.0f,
+        -2.0f * cosW0 / a0,
+        (1.0f - alpha) / a0,
+    };
 }
 
-Biquad Biquad::preEmphasis(float tauSeconds, float sampleRate, float boost) {
+Biquad Biquad::preEmphasis(float tauSeconds, float sampleRate, float boost) noexcept {
     // Bilinear transform of H(s) = (1 + s*tau_z) / (1 + s*tau_p) with
-    //   tau_z = tauSeconds                  (zero -> +6 dB/oct shelf onset)
-    //   tau_p = tauSeconds / boost          (pole -> high-frequency plateau)
-    // The resulting digital filter is first-order; we lay it out as a
-    // Biquad with b2 = a2 = 0 so it shares the Direct-Form-I run-time
-    // path with the second-order shelves. K = 2 * Fs is the standard
-    // bilinear pre-warp factor; no further frequency warping is applied
-    // because broadcast pre-emphasis is specified by time constant
-    // rather than by a precise corner frequency.
+    //   tau_z = tauSeconds          (zero -> +6 dB/oct shelf onset)
+    //   tau_p = tauSeconds / boost  (pole -> high-frequency plateau)
+    // The resulting digital filter is first-order; it is laid out as a
+    // Biquad with b2 = a2 = 0 so it shares the Direct-Form-I run-time path
+    // with the second-order shelves. K = 2 * Fs is the standard bilinear
+    // pre-warp factor; no further frequency warping is applied because
+    // broadcast pre-emphasis is specified by time constant rather than by
+    // a precise corner frequency.
     const float k{2.0f * sampleRate};
-    const float tauZ{tauSeconds};
     const float tauP{tauSeconds / boost};
     const float a0{1.0f + k * tauP};
 
-    Biquad bq{};
-    bq.b0_ = (1.0f + k * tauZ) / a0;
-    bq.b1_ = (1.0f - k * tauZ) / a0;
-    bq.b2_ = 0.0f;
-    bq.a1_ = (1.0f - k * tauP) / a0;
-    bq.a2_ = 0.0f;
-
-    return bq;
-}
-
-float Biquad::process(float in) {
-    const float out{b0_ * in + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_};
-
-    x2_ = x1_;
-    x1_ = in;
-    y2_ = y1_;
-    y1_ = out;
-
-    return out;
+    return Biquad{
+        (1.0f + k * tauSeconds) / a0,
+        (1.0f - k * tauSeconds) / a0,
+        0.0f,
+        (1.0f - k * tauP) / a0,
+        0.0f,
+    };
 }

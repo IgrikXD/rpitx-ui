@@ -52,7 +52,7 @@ public:
      * @param q Pole-pair quality factor; must be strictly positive. Defaults to BUTTERWORTH_Q.
      * @return Configured high-pass Biquad instance.
      */
-    [[nodiscard]] static Biquad highPass(float cutoffHz, float sampleRate, float q = BUTTERWORTH_Q);
+    [[nodiscard]] static Biquad highPass(float cutoffHz, float sampleRate, float q = BUTTERWORTH_Q) noexcept;
 
     /**
      * @brief Create a low-pass biquad section.
@@ -62,7 +62,7 @@ public:
      * @param q Pole-pair quality factor; must be strictly positive. Defaults to BUTTERWORTH_Q.
      * @return Configured low-pass Biquad instance.
      */
-    [[nodiscard]] static Biquad lowPass(float cutoffHz, float sampleRate, float q = BUTTERWORTH_Q);
+    [[nodiscard]] static Biquad lowPass(float cutoffHz, float sampleRate, float q = BUTTERWORTH_Q) noexcept;
 
     /**
      * @brief Create a first-order FM pre-emphasis filter as a Biquad.
@@ -92,21 +92,33 @@ public:
      * @param boost      Linear high-frequency plateau gain; must be > 1.
      * @return Configured pre-emphasis Biquad instance.
      */
-    [[nodiscard]] static Biquad preEmphasis(float tauSeconds, float sampleRate, float boost = 16.0f);
+    [[nodiscard]] static Biquad preEmphasis(float tauSeconds, float sampleRate, float boost = 16.0f) noexcept;
 
     /**
      * @brief Process a single input sample through the filter.
      * @param in Input sample.
      * @return Filtered output sample.
      */
-    [[nodiscard]] float process(float in);
+    [[nodiscard]] float process(float in) noexcept {
+        const float out{b0_ * in + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_};
+
+        x2_ = x1_;
+        x1_ = in;
+        y2_ = y1_;
+        y1_ = out;
+
+        return out;
+    }
 
 private:
-    float b0_{};  ///< Feedforward coefficient b0.
-    float b1_{};  ///< Feedforward coefficient b1.
-    float b2_{};  ///< Feedforward coefficient b2.
-    float a1_{};  ///< Feedback coefficient a1.
-    float a2_{};  ///< Feedback coefficient a2.
+    Biquad(float b0, float b1, float b2, float a1, float a2) noexcept : b0_{b0}, b1_{b1}, b2_{b2}, a1_{a1}, a2_{a2} {
+    }
+
+    float b0_;    ///< Feedforward coefficient b0.
+    float b1_;    ///< Feedforward coefficient b1.
+    float b2_;    ///< Feedforward coefficient b2.
+    float a1_;    ///< Feedback coefficient a1.
+    float a2_;    ///< Feedback coefficient a2.
     float x1_{};  ///< Input delay z^-1.
     float x2_{};  ///< Input delay z^-2.
     float y1_{};  ///< Output delay z^-1.
