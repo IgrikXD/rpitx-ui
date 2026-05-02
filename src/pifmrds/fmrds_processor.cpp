@@ -12,9 +12,10 @@
 #include "fmrds_processor.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <numbers>
+#include <stdexcept>
+#include <string>
 
 namespace {
     /**
@@ -64,10 +65,24 @@ FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     : channels_{config.channels},
       peakDeviation_{config.peakDeviation},
       filters_{makeChannelFilters(config), makeChannelFilters(config)} {
-    assert(config.channels == 1 || config.channels == 2);
-    assert(config.audioSampleRate > 0);
-    assert(config.mpxSampleRate > 0);
-    assert(config.audioSampleRate == config.mpxSampleRate);
+    // Throw on broken contracts instead of asserting: this processor is
+    // intended to be reusable, so critical invariants must surface as
+    // runtime errors in release builds rather than vanish in NDEBUG.
+    if (config.channels != 1 && config.channels != 2) {
+        throw std::invalid_argument{"FmRdsProcessor: channels must be 1 or 2, got " + std::to_string(config.channels)};
+    }
+    if (config.audioSampleRate <= 0) {
+        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate must be positive, got " +
+                                    std::to_string(config.audioSampleRate)};
+    }
+    if (config.mpxSampleRate <= 0) {
+        throw std::invalid_argument{"FmRdsProcessor: mpxSampleRate must be positive, got " +
+                                    std::to_string(config.mpxSampleRate)};
+    }
+    if (config.audioSampleRate != config.mpxSampleRate) {
+        throw std::invalid_argument{"FmRdsProcessor: audioSampleRate (" + std::to_string(config.audioSampleRate) +
+                                    ") must equal mpxSampleRate (" + std::to_string(config.mpxSampleRate) + ")"};
+    }
 
     // Silent failure mode: extra slots in std::array<Biquad, LPF_ORDER / 2>
     // would value-init to zero-coefficient biquads (inaudible output), not
@@ -156,7 +171,11 @@ float FmRdsProcessor::buildMpxSample(float l, float r) {
 
 void FmRdsProcessor::process(std::span<const float> audioIn, std::span<float> mpxOut) {
     const auto frames{mpxOut.size()};
-    assert(audioIn.size() == frames * static_cast<std::size_t>(channels_));
+    const auto expectedAudio{frames * static_cast<std::size_t>(channels_)};
+    if (audioIn.size() != expectedAudio) {
+        throw std::invalid_argument{"FmRdsProcessor::process: audioIn.size() (" + std::to_string(audioIn.size()) +
+                                    ") must equal mpxOut.size() * channels (" + std::to_string(expectedAudio) + ")"};
+    }
 
     // Audio stage: HPF -> pre-emph -> LPF -> joint AGC, then MPX composition.
     // AudioPipeline already resampled the input to the MPX rate, so each

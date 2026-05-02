@@ -84,6 +84,15 @@ struct FmRdsConfig {
  */
 class FmRdsProcessor {
 public:
+    /**
+     * @brief Construct the processor and validate the configuration.
+     *
+     * @param config Processor configuration; see FmRdsConfig.
+     *
+     * @throws std::invalid_argument when config violates a contract:
+     *         channels not in {1, 2}, non-positive sample rate, or
+     *         audioSampleRate != mpxSampleRate.
+     */
     explicit FmRdsProcessor(const FmRdsConfig& config);
 
     FmRdsProcessor(const FmRdsProcessor&)            = delete;
@@ -113,6 +122,9 @@ public:
      *                Mono: single channel. Stereo: interleaved L, R.
      * @param mpxOut  Output buffer, written with one frequency deviation per
      *                MPX sample (Hz, clamped to +-peakDeviation).
+     *
+     * @throws std::invalid_argument when audioIn.size() does not match the
+     *         per-channel contract above.
      */
     void process(std::span<const float> audioIn, std::span<float> mpxOut);
 
