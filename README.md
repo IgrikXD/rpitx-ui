@@ -61,7 +61,7 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode (_any libsndfile-supported audio format for "**WFM**", "**NFM**", "**SSB**" and "**AM**"; `.jpg` for "**SSTV**"; `.rf` for "**FreeDV**"_) and then asks for a playback mode - "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode (_any libsndfile-supported audio files with one of the currently exposed extensions (`.aif`, `.aiff`, `.caf`, `.flac`, `.mp3`, `.wav`) for "**WFM**", "**NFM**", "**SSB**" and "**AM**"; `.jpg` for "**SSTV**"; `.rf` for "**FreeDV**"_) and then asks for a playback mode - "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.  
