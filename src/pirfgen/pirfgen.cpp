@@ -27,7 +27,6 @@
 #include "pirfgen.h"
 
 #include <librpitx/librpitx.h>
-#include <unistd.h>
 
 #include <CLI/CLI.hpp>
 #include <atomic>
@@ -36,6 +35,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "cli_common.h"
 #include "cli_validators.h"
@@ -190,19 +190,16 @@ namespace pirfgen {
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
 
-            // Sleep pattern borrowed from pichirp: wake every 3/4 FIFO drain period.
-            const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
-                                                       static_cast<float>(params.sampleRate))};
+            // SetFrequencySamples blocks until the whole block is in the DMA FIFO
+            // (see ngfmdmasync.cpp upstream), so no manual usleep / GetBufferAvailable
+            // pacing is needed here.
+            std::vector<float> sampleBuf(DMA_BLOCK_SAMPLES);
 
             while (running.load(std::memory_order_relaxed)) {
-                usleep(sleepUs);
-
-                if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-                    const int index{dma.GetUserMemIndex()};
-                    for (int j{0}; j < available; ++j) {
-                        dma.SetFrequencySample(index + j, rfgen.nextSample());
-                    }
+                for (auto& sample: sampleBuf) {
+                    sample = rfgen.nextSample();
                 }
+                dma.SetFrequencySamples(sampleBuf.data(), sampleBuf.size());
             }
 
             dma.stop();

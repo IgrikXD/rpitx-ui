@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "cli_parse_result.h"
@@ -22,6 +23,14 @@ namespace pichirp {
     inline constexpr int DMA_FIFO_SIZE{4096};
 
     /**
+     * @brief Number of samples produced per librpitx::SetFrequencySamples call.
+     *
+     * Half the FIFO: small enough for prompt SIGTERM/SIGINT response,
+     * large enough to amortise per-call overhead inside librpitx.
+     */
+    inline constexpr std::size_t DMA_BLOCK_SAMPLES{DMA_FIFO_SIZE / 2};
+
+    /**
      * @brief DMA time-register precision in bits (matches other rpitx modules).
      */
     inline constexpr int DMA_BIT_DEPTH{14};
@@ -30,11 +39,6 @@ namespace pichirp {
      * @brief DMA sample rate in Hz.
      */
     inline constexpr uint32_t SAMPLE_RATE{200'000};
-
-    /**
-     * @brief DMA drain fraction used to pace the refill loop.
-     */
-    inline constexpr float DMA_DRAIN_FRACTION{0.75F};
 
     /**
      * @brief Minimum number of samples per sweep cycle.

@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 
@@ -22,6 +23,14 @@ namespace pirfgen {
      * @brief DMA sample buffer depth.
      */
     inline constexpr int DMA_FIFO_SIZE{4096};
+
+    /**
+     * @brief Number of samples produced per librpitx::SetFrequencySamples call.
+     *
+     * Half the FIFO: small enough for prompt SIGTERM/SIGINT response,
+     * large enough to amortise per-call overhead inside librpitx.
+     */
+    inline constexpr std::size_t DMA_BLOCK_SAMPLES{DMA_FIFO_SIZE / 2};
 
     /**
      * @brief DMA time-register precision in bits (matches other rpitx modules).
@@ -37,11 +46,6 @@ namespace pirfgen {
      * @brief Maximum allowed multitone tone count.
      */
     inline constexpr int MAX_TONE_COUNT{1024};
-
-    /**
-     * @brief DMA drain fraction used to pace the refill loop.
-     */
-    inline constexpr float DMA_DRAIN_FRACTION{0.75F};
 
     /**
      * @brief RF generator parameters extracted from argv.

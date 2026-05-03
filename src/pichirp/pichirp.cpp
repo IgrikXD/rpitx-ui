@@ -24,7 +24,6 @@
 #include "pichirp.h"
 
 #include <librpitx/librpitx.h>
-#include <unistd.h>
 
 #include <CLI/CLI.hpp>
 #include <atomic>
@@ -34,6 +33,7 @@
 #include <iostream>
 #include <numbers>
 #include <string>
+#include <vector>
 
 #include "cli_common.h"
 #include "cli_validators.h"
@@ -136,22 +136,20 @@ namespace pichirp {
             // long sweeps (float loses integer precision above 2^24 ~= 16.8 M).
             const double phaseStep{2.0 * std::numbers::pi_v<double> / static_cast<double>(params.periodSamples)};
 
-            const auto sleepUs{static_cast<useconds_t>(DMA_FIFO_SIZE * 1'000'000.0F * DMA_DRAIN_FRACTION /
-                                                       static_cast<float>(SAMPLE_RATE))};
-
+            // SetFrequencySamples blocks until the whole block is in the DMA FIFO
+            // (see ngfmdmasync.cpp upstream), so no manual usleep / GetBufferAvailable
+            // pacing is needed here.
+            std::vector<float> sampleBuf(DMA_BLOCK_SAMPLES);
             int count{0};
-            while (running.load(std::memory_order_relaxed)) {
-                usleep(sleepUs);
 
-                if (const int available{dma.GetBufferAvailable()}; available > DMA_FIFO_SIZE / 2) {
-                    const int index{dma.GetUserMemIndex()};
-                    for (int j{0}; j < available; ++j) {
-                        dma.SetFrequencySample(index + j, static_cast<float>(deviation * std::sin(phaseStep * count)));
-                        if (++count >= params.periodSamples) {
-                            count = 0;
-                        }
+            while (running.load(std::memory_order_relaxed)) {
+                for (auto& sample: sampleBuf) {
+                    sample = static_cast<float>(deviation * std::sin(phaseStep * count));
+                    if (++count >= params.periodSamples) {
+                        count = 0;
                     }
                 }
+                dma.SetFrequencySamples(sampleBuf.data(), sampleBuf.size());
             }
 
             dma.stop();
