@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -133,16 +134,19 @@ namespace {
          *         may return a positive count and set error().
          */
         [[nodiscard]] std::size_t read(std::span<float> dst) override {
-            if (error_) {
-                return 0;
+            const auto channels{static_cast<std::size_t>(format_.channels)};
+            // Surface caller contract violations as throw, matching
+            // AudioBlockReader::read and downmixInterleavedToMono: a
+            // misaligned dst is a programmer error, not a runtime
+            // condition, so degrading silently to a sticky error_ would
+            // hide the real fault under generic "source failed" telemetry.
+            if (channels == 0 || dst.empty() || dst.size() % channels != 0) {
+                throw std::invalid_argument{
+                    "LibsndfileAudioSource::read: dst must be a non-empty whole number of frames (size " +
+                    std::to_string(dst.size()) + ", channels " + std::to_string(channels) + ")"};
             }
 
-            const auto channels{static_cast<std::size_t>(format_.channels)};
-            // Caller is contractually responsible for sizing dst as a multiple of
-            // channels; the explicit runtime check below catches a stereo / mono
-            // mix-up at the tail of dst rather than producing a half-frame.
-            if (channels == 0 || dst.size() % channels != 0) {
-                error_ = true;
+            if (error_) {
                 return 0;
             }
 

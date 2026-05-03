@@ -75,8 +75,8 @@ public:
      * @brief Read up to dst.size() interleaved float samples into dst.
      *
      * For stereo, samples are interleaved L, R, L, R, ... and dst.size()
-     * must be a multiple of format().channels. The caller derives frame
-     * count via dst.size() / format().channels.
+     * must be a non-empty whole multiple of format().channels. The caller
+     * derives frame count via dst.size() / format().channels.
      *
      * Returns the number of float samples actually written. A return value
      * less than dst.size() indicates either a clean end-of-stream or a fatal
@@ -84,8 +84,14 @@ public:
      * after a positive short read if the backend returned partial data before
      * surfacing the failure. Output samples are finite and clamped to [-1, 1].
      *
-     * @param dst Destination buffer; size must be a multiple of channels.
-     * @return Number of float samples written (0 on EOF or error).
+     * Implementations must throw std::invalid_argument when dst is empty or
+     * its size is not a whole multiple of channels: a contract violation is
+     * a programmer error and silently degrading to a sticky error / zero
+     * return would mask it.
+     *
+     * @param dst Destination buffer; size must be a non-empty multiple of channels.
+     * @return Number of float samples written (0 on EOF or sticky error).
+     * @throws std::invalid_argument when dst is empty or not aligned to channels.
      */
     [[nodiscard]] virtual std::size_t read(std::span<float> dst) = 0;
 
