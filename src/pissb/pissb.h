@@ -54,6 +54,33 @@ namespace pissb {
     inline constexpr int DEFAULT_HARMONIC{1};
 
     /**
+     * @brief PLL proportional-gain exponent for iqdmasync::SetPLLMasterLoop.
+     *
+     * Controls how aggressively the GPCLK PLL servo reacts to the
+     * instantaneous phase error of the DMA-driven IQ stream. Larger
+     * values tighten short-term tracking but raise close-in phase noise.
+     */
+    inline constexpr int PLL_PROPORTIONAL_GAIN{3};
+
+    /**
+     * @brief PLL integral-gain exponent for iqdmasync::SetPLLMasterLoop.
+     *
+     * Sets the strength of the long-term error accumulator that removes
+     * residual frequency offset between the requested carrier and the
+     * actual GPCLK output.
+     */
+    inline constexpr int PLL_INTEGRAL_GAIN{4};
+
+    /**
+     * @brief PLL fractional-divider trim for iqdmasync::SetPLLMasterLoop.
+     *
+     * Optional offset applied to the PLL fractional divider. Zero keeps
+     * the divider at its nominal value computed from the requested
+     * transmission frequency.
+     */
+    inline constexpr int PLL_FRACTIONAL_DIVIDER{0};
+
+    /**
      * @brief SSB parameters extracted from argv.
      */
     struct PissbParameters {

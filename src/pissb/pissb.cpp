@@ -160,7 +160,7 @@ namespace pissb {
                           DMA_BIT_DEPTH,
                           DMA_FIFO_SIZE,
                           MODE_IQ};
-            dma.SetPLLMasterLoop(3, 4, 0);
+            dma.SetPLLMasterLoop(PLL_PROPORTIONAL_GAIN, PLL_INTEGRAL_GAIN, PLL_FRACTIONAL_DIVIDER);
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
