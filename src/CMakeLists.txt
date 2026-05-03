@@ -11,24 +11,6 @@ add_subdirectory(utils/dsp)
 add_subdirectory(utils/audio)
 add_subdirectory(utils/cli)
 
-# Required libraries (installed by install.sh)
-find_library(SNDFILE_LIBRARY sndfile REQUIRED)
-
-# ----------------------------------------------------------
-# Shared DSP and I/O utility library
-# ----------------------------------------------------------
-add_library(rpitx_utils STATIC
-    utils/agc.cpp
-    utils/biquad.cpp
-    utils/cli_utils.cpp
-    utils/hilbert.cpp
-    utils/morse_encoder.cpp
-    utils/sawtooth.cpp
-    utils/wav_utils.cpp
-)
-target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
-target_link_libraries(rpitx_utils PRIVATE m)
-
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
