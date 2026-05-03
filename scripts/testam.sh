@@ -1,11 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
-# Date: 20.04.2026
+# Date: 28.04.2026
 # License: GPL-3.0
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Usage: testam.sh <freq_Hz> <audio.wav>
-#   Input audio must be 16-bit PCM mono at 48 kHz.
-(while true; do cat "$2"; done) | sudo piam "$1"
+# Invokes: piam --freq <Hz> --audio <path> [--loop]
+#   --audio : any format libsndfile understands; mono/stereo input is
+#             downmixed to mono and resampled to 48 kHz internally.
+#   --loop  : replay the audio file continuously when requested by the UI.
+FREQ="$1"
+AUDIO="$2"
+PLAYBACK="${3:-loop}"
+
+# Check if loop playback mode is requested
+LOOP_FLAG=""
+if [ "$PLAYBACK" = "loop" ]; then
+  LOOP_FLAG="--loop"
+fi
+
+sudo piam --freq "$FREQ" --audio "$AUDIO" $LOOP_FLAG
