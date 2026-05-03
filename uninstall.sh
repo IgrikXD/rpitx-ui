@@ -12,6 +12,9 @@ PACKAGE_VERSION='1.11'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
+# Installed resource directory
+RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
+
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
