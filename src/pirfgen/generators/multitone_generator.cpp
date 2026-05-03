@@ -12,14 +12,23 @@
 #include "multitone_generator.h"
 
 #include <algorithm>
-#include <cassert>
+#include <stdexcept>
+#include <string>
 
-MultitoneGenerator::MultitoneGenerator(float bandwidth, uint32_t sampleRate, int toneCount)
-    : dist_{0, toneCount - 1},
+namespace {
+    [[nodiscard]] int validatedToneCount(int toneCount) {
+        if (toneCount < 2) {
+            throw std::invalid_argument{"MultitoneGenerator: toneCount must be >= 2, got " + std::to_string(toneCount)};
+        }
+        return toneCount;
+    }
+}  // namespace
+
+MultitoneGenerator::MultitoneGenerator(float bandwidth, int sampleRate, int toneCount)
+    : dist_{0, validatedToneCount(toneCount) - 1},
       tones_{makeTones(bandwidth, toneCount)},
       samplesPerHop_{computeSamplesPerHop(sampleRate)},
       idx_{dist_(engine_)} {
-    assert(toneCount >= 2 && "MultitoneGenerator requires toneCount >= 2");
 }
 
 float MultitoneGenerator::nextSample() {
@@ -44,6 +53,6 @@ std::vector<float> MultitoneGenerator::makeTones(float bandwidth, int toneCount)
     return result;
 }
 
-int MultitoneGenerator::computeSamplesPerHop(uint32_t sampleRate) {
+int MultitoneGenerator::computeSamplesPerHop(int sampleRate) {
     return std::max(1, static_cast<int>(static_cast<float>(sampleRate) / HOP_RATE_HZ));
 }

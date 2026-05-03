@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <random>
 
 #include "rf_generator.h"
@@ -32,7 +31,7 @@ public:
      * @param bandwidth Target RF bandwidth in Hz.
      * @param sampleRate DMA sample rate in Hz.
      */
-    NoiseGenerator(float bandwidth, uint32_t sampleRate);
+    NoiseGenerator(float bandwidth, int sampleRate);
 
     [[nodiscard]] float nextSample() override;
 
@@ -48,7 +47,7 @@ private:
      * @param sampleRate DMA sample rate in Hz.
      * @return Hold duration in samples (clamped to >= 1).
      */
-    [[nodiscard]] static int computeHoldSamples(float bandwidth, uint32_t sampleRate);
+    [[nodiscard]] static int computeHoldSamples(float bandwidth, int sampleRate);
 
     std::mt19937 engine_{std::random_device{}()};  ///< PRNG engine (per-instance).
     std::uniform_real_distribution<float> dist_;   ///< Uniform [-BW/2, +BW/2] distribution.
