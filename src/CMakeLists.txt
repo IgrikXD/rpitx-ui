@@ -11,6 +11,9 @@ add_subdirectory(utils/dsp)
 add_subdirectory(utils/audio)
 add_subdirectory(utils/cli)
 
+# Required libraries (installed by install.sh)
+find_library(SNDFILE_LIBRARY sndfile REQUIRED)
+
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
