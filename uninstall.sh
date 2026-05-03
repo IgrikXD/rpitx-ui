@@ -61,7 +61,7 @@ REQUIRED_BINARIES=(
   pisstv pocsag sendiq spectrumpaint tune
 )
 OPTIONAL_BINARIES=(
-  corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook
+  corel8 dvbrf foxhunt pidcf77 pifsq pift8 rpitx sendook
 )
 
 for BIN in "${REQUIRED_BINARIES[@]}" "${OPTIONAL_BINARIES[@]}"; do

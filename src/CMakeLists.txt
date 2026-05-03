@@ -11,9 +11,6 @@ add_subdirectory(utils/dsp)
 add_subdirectory(utils/audio)
 add_subdirectory(utils/cli)
 
-# Required libraries (installed by install.sh)
-find_library(SNDFILE_LIBRARY sndfile REQUIRED)
-
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
@@ -38,19 +35,21 @@ target_link_libraries(piam
 add_executable(pichirp pichirp/pichirp.cpp)
 target_link_libraries(pichirp PRIVATE rpitx_cli_utils librpitx::librpitx)
 
-# --- pifmrds ---
-add_library(pifmrds_c_objs OBJECT
-    pifmrds/control_pipe.c
-    pifmrds/fm_mpx.c
-    pifmrds/rds.c
-    pifmrds/waveforms.c
-)
+# --- pifmrds (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
-    pifmrds/pi_fm_rds.cpp
-    $<TARGET_OBJECTS:pifmrds_c_objs>
+    pifmrds/pifmrds.cpp
+    pifmrds/fmrds_processor.cpp
+    pifmrds/rds_encoder.cpp
+    pifmrds/rds_modulator.cpp
+    pifmrds/rds_pulse.cpp
 )
-target_compile_options(pifmrds PRIVATE -Wno-write-strings)
-target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
+target_link_libraries(pifmrds
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- pimorse ---
 add_executable(pimorse
@@ -163,13 +162,6 @@ if(BUILD_OPTIONAL_TARGETS)
     target_compile_options(pift8 PRIVATE -Wno-write-strings)
     target_link_libraries(pift8 PRIVATE ft8::ft8 librpitx::librpitx)
 
-    # --- rds_wav ---
-    add_executable(rds_wav
-        pifmrds/rds_wav.c
-        $<TARGET_OBJECTS:pifmrds_c_objs>
-    )
-    target_link_libraries(rds_wav PRIVATE m ${SNDFILE_LIBRARY})
-
     # --- rpitx (v1 compat) ---
     add_executable(rpitx rpitxv1/rpitx.cpp)
     target_compile_options(rpitx PRIVATE -Wno-write-strings)
@@ -193,7 +185,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rds_wav rpitx sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
