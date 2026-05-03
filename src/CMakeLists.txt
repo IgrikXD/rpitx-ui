@@ -56,12 +56,18 @@ add_executable(pimorse
 )
 target_link_libraries(pimorse PRIVATE rpitx_cli_utils librpitx::librpitx)
 
-# --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+# --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
-    pinfm/main.cpp
+    pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pinfm
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
