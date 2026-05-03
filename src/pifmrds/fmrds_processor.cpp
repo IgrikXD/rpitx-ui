@@ -40,9 +40,9 @@ namespace {
 }  // namespace
 
 float FmRdsProcessor::ChannelFilters::process(float x) {
-    float s{hpf.process(x)};
-    s = preEmphasis.process(s);
-    for (auto& section: lpfChain) {
+    float s{hpf_.process(x)};
+    s = preEmphasis_.process(s);
+    for (auto& section: lpfChain_) {
         s = section.process(s);
     }
     return s;
@@ -72,9 +72,9 @@ FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsCon
     // out to per-channel construction.
     const auto fs{static_cast<float>(config.mpxSampleRate)};
     return ChannelFilters{
-        .hpf         = Biquad::highPass(HPF_CUTOFF, fs),
-        .preEmphasis = Biquad::preEmphasis(config.preEmphasisTau, fs),
-        .lpfChain =
+        .hpf_         = Biquad::highPass(HPF_CUTOFF, fs),
+        .preEmphasis_ = Biquad::preEmphasis(config.preEmphasisTau, fs),
+        .lpfChain_ =
             {
                 Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 1)),
                 Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 2)),
@@ -105,7 +105,7 @@ FmRdsProcessor::FmRdsProcessor(const FmRdsConfig& config)
     // real filter sections, so a mismatched LPF_ORDER / makeChannelFilters
     // pairing would not fail loudly. Mirror the nfm_processor invariant.
     static_assert(LPF_ORDER == 4,
-                  "ChannelFilters::lpfChain has two Biquad entries; bumping LPF_ORDER "
+                  "ChannelFilters::lpfChain_ has two Biquad entries; bumping LPF_ORDER "
                   "requires appending matching butterworthCascadeQ(order, k) calls "
                   "in makeChannelFilters() and updating this static_assert.");
 

@@ -224,11 +224,18 @@ private:
      * level. The LPF is realised as LPF_ORDER / 2 cascaded biquad sections
      * with staggered Q values (see Butterworth-cascade derivation in the
      * .cpp), giving the full 4th-order response at 15 kHz.
+     *
+     * Members carry trailing underscores to match the rest of the
+     * codebase's class-private convention (NfmProcessor's hpf_ /
+     * lpfChain_, FmRdsProcessor's filters_ / agc_ / rdsModulator_):
+     * ChannelFilters is conceptually a private state cluster of
+     * FmRdsProcessor, not a public POD, so its fields follow the same
+     * naming rule.
      */
     struct ChannelFilters {
-        Biquad hpf;
-        Biquad preEmphasis;
-        std::array<Biquad, LPF_ORDER / 2> lpfChain;
+        Biquad hpf_;
+        Biquad preEmphasis_;
+        std::array<Biquad, LPF_ORDER / 2> lpfChain_;
 
         /**
          * @brief Apply the full HPF -> pre-emph -> LPF chain to one sample.
@@ -317,7 +324,7 @@ private:
     float peakDeviation_;
 
     /**
-     * @brief Per-channel audio filters; lpfChain shape is fixed at compile time.
+     * @brief Per-channel audio filters; lpfChain_ shape is fixed at compile time.
      *
      * Always sized 2; in mono mode the second slot is unused (so we pay a
      * small upfront cost to avoid a polymorphic / pointer-indirected design
