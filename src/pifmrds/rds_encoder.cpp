@@ -250,7 +250,11 @@ void RdsEncoder::setRt(std::string_view rt) {
     rt_.fill(' ');
     const auto charsToCopy{std::min(rt.size(), static_cast<std::size_t>(RT_LENGTH))};
     std::copy_n(rt.begin(), charsToCopy, rt_.begin());
-    if (charsToCopy < static_cast<std::size_t>(RT_LENGTH)) {
+    // Skip the end-of-message marker for empty input: writing 0x0D at index 0
+    // would make every receiver display the RT field as immediately terminated
+    // and flicker through up to RT_LENGTH stale spaces from a previous update.
+    // A fully space-padded buffer is the canonical "no RT" presentation.
+    if (charsToCopy > 0 && charsToCopy < static_cast<std::size_t>(RT_LENGTH)) {
         rt_[charsToCopy] = RT_END_MARKER;
     }
 }
