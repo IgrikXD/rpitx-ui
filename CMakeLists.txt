@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Compiler version check
 # ----------------------------------------------------------
 # Floating-point std::from_chars (used in src/utils/cli/cli_common.cpp) requires
+# libstdc++ >= 11, which ships with GCC 11+.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
         message(FATAL_ERROR
