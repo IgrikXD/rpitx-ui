@@ -50,8 +50,11 @@ target_compile_options(pifmrds PRIVATE -Wno-write-strings)
 target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 
 # --- pimorse ---
-add_executable(pimorse pimorse/main.cpp)
-target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
+add_executable(pimorse
+    pimorse/morse_encoder.cpp
+    pimorse/pimorse.cpp
+)
+target_link_libraries(pimorse PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
