@@ -101,6 +101,15 @@ namespace pissb {
             return result;
         }
 
+        // --loop needs a seekable source to rewind on EOF; stdin is by
+        // definition non-seekable. Reject this combination here with a
+        // flag-specific message rather than letting validateLoopSupport()
+        // surface a generic "source is not seekable" later.
+        if (params.useStdin && params.loop) {
+            std::cerr << "[ERROR] --loop is unsupported with --stdin." << std::endl;
+            return rpitx::cli::ParseResult::Error;
+        }
+
         return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
 
