@@ -18,12 +18,18 @@ add_subdirectory(utils/cli)
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE librpitx::librpitx)
 
-# --- piam (stdin int16 -> librpitx amdmasync, self-contained) ---
+# --- piam (audio file -> librpitx amdmasync, self-contained) ---
 add_executable(piam
-    piam/main.cpp
+    piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(piam
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_dsp_utils
+        rpitx_cli_utils
+        librpitx::librpitx
+)
 
 # --- pichirp ---
 add_executable(pichirp pichirp/main.cpp)
