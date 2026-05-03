@@ -11,6 +11,7 @@ on:
       - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
+      - '.github/workflows/rpitx-ui-build.yml'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -19,6 +20,7 @@ on:
       - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
+      - '.github/workflows/rpitx-ui-build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -125,16 +127,12 @@ jobs:
             # 5. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
-            RESOURCES=(
-              SAMPLE_FREEDV.rf
-              SAMPLE_IMAGE.jpg
-              SAMPLE_MONO_AUDIO.wav
-              SAMPLE_STEREO_AUDIO.wav
-            )
-
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
 
-            for res in "${RESOURCES[@]}"; do
+            mapfile -t EXPECTED_RESOURCES < <(find src/resources -type f -printf '%P\n' | sort)
+            test "${#EXPECTED_RESOURCES[@]}" -gt 0 || { echo "FAIL: src/resources does not contain files"; exit 1; }
+
+            for res in "${EXPECTED_RESOURCES[@]}"; do
               test -f "/usr/share/rpitx-ui/${res}" || { echo "FAIL: resource /usr/share/rpitx-ui/${res} missing"; exit 1; }
               echo "  OK: /usr/share/rpitx-ui/${res}"
             done

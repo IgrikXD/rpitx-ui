@@ -9,6 +9,9 @@
 # rpitx-ui package version
 PACKAGE_VERSION='1.10'
 
+# Installed resource directory
+RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
+
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
@@ -57,8 +60,8 @@ print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 
 # System dependency installation via package manager
 print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
-sudo apt update
-sudo apt install -y \
+sudo apt-get update
+sudo apt-get install -y \
   buffer \
   cmake \
   imagemagick \
@@ -79,10 +82,15 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/csdr
   cd csdr
-  git checkout "${CSDR_COMMIT}"
+  git checkout --quiet "${CSDR_COMMIT}"
   make -j"$(nproc)" && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
+
+if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
+  sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  echo "${INFO} Cleared existing resources from ${RESOURCE_INSTALL_DIR}"
+fi
 
 # rpitx-ui build and installation with CMake
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."
