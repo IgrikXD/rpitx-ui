@@ -12,8 +12,10 @@ DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
 DEFAULT_NFM_MODE="Wide"
+DEFAULT_PLAYBACK="loop"
+DEFAULT_SSB_SIDEBAND="USB"
 LAST_ITEM="0 Tune"
-AUDIO_FILE_PATTERN='\.(wav)$'
+AUDIO_FILE_PATTERN='\.(aif|aiff|caf|flac|mp3|wav)$'
 
 do_check_file_existance() 
 {
@@ -163,6 +165,37 @@ fi
 
 }
 
+do_enter_ssb_sideband()
+{
+
+LAST_ITEM="$menuchoice"
+if SSB_SIDEBAND=$(whiptail --default-item "$DEFAULT_SSB_SIDEBAND" --title "SSB sideband" --menu "Select SSB sideband:" 15 78 2 \
+	"USB" "Upper Side Band modulation" \
+	"LSB" "Lower Side Band modulation" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
+do_enter_playback_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if PLAYBACK_MODE=$(whiptail --default-item "$DEFAULT_PLAYBACK" --title "Playback mode" --menu "Select playback mode:" 15 78 2 \
+	"loop" "Replay the audio file continuously" \
+	"once" "Play once and stop at end of file" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+
+}
+
 do_enter_callsign()
 {
 
@@ -207,16 +240,15 @@ do_stop_transmit()
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
 			4\ *) sudo killall testfmrds.sh >/dev/null 2>/dev/null ;;
 			5\ *) sudo killall testnfm.sh >/dev/null 2>/dev/null ;;
-			6\ *) sudo killall testusb.sh >/dev/null 2>/dev/null ;;
-			7\ *) sudo killall testlsb.sh >/dev/null 2>/dev/null ;;
-			8\ *) sudo killall testam.sh >/dev/null 2>/dev/null ;;
-			9\ *) sudo killall testfreedv.sh >/dev/null 2>/dev/null ;;
-			10\ *) sudo killall testsstv.sh >/dev/null 2>/dev/null ;;
-			11\ *) sudo killall testpocsag.sh >/dev/null 2>/dev/null ;;
-			12\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
-			13\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
-			14\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
-			15\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
+			6\ *) sudo killall testssb.sh >/dev/null 2>/dev/null ;;
+			7\ *) sudo killall testam.sh >/dev/null 2>/dev/null ;;
+			8\ *) sudo killall testfreedv.sh >/dev/null 2>/dev/null ;;
+			9\ *) sudo killall testsstv.sh >/dev/null 2>/dev/null ;;
+			10\ *) sudo killall testpocsag.sh >/dev/null 2>/dev/null ;;
+			11\ *) sudo killall testopera.sh >/dev/null 2>/dev/null ;;
+			12\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
+			13\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
+			14\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
 
 	esac
 }
@@ -244,17 +276,16 @@ do_freq_setup
 	"2 Spectrum" "Spectrum painting" \
 	"3 RfMyFace" "Snap with Raspicam and RF paint" \
 	"4 FmRds" "Broadcast modulation with RDS" \
-	"5 NFM" "Narrow band FM" \
-	"6 USB" "Upper Side Band modulation" \
-	"7 LSB" "Lower Side Band modulation" \
-	"8 AM" "Amplitude Modulation" \
-	"9 FreeDV" "Digital voice mode 800XA" \
-	"10 SSTV" "Pattern picture" \
-	"11 Pocsag" "Pager message" \
-    "12 Opera" "Like morse but need Opera decoder" \
-    "13 RTTY" "Radioteletype" \
-    "14 CW" "Morse code" \
-    "15 RFgen" "Wideband RF generator" \
+	"5 NFM" "Narrowband Frequency Modulation" \
+	"6 SSB" "Single Sideband modulation" \
+	"7 AM" "Amplitude Modulation" \
+	"8 FreeDV" "Digital voice mode 800XA" \
+	"9 SSTV" "Pattern picture" \
+	"10 Pocsag" "Pager message" \
+    "11 Opera" "Like morse but need Opera decoder" \
+    "12 RTTY" "Radioteletype" \
+    "13 CW" "Continuous Wave (Morse code)" \
+    "14 RFgen" "Wideband RF generator" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -291,74 +322,79 @@ do_freq_setup
 				do_status
 			fi
 			;;
-			
-			5\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" '\.wav$'
+
+			5\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_nfm_mode
 				if [ $abort_action -eq 0 ]; then
-					testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
+					do_enter_playback_mode
+					if [ $abort_action -eq 0 ]; then
+						testnfm.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${NFM_MODE,,}" >/dev/null 2>/dev/null &
+						do_status
+					fi
+				fi
+			fi
+			;;
+			
+			6\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			if [ $abort_action -eq 0 ]; then
+				do_enter_ssb_sideband
+				if [ $abort_action -eq 0 ]; then
+					do_enter_playback_mode
+					if [ $abort_action -eq 0 ]; then
+						testssb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${SSB_SIDEBAND,,}" >/dev/null 2>/dev/null &
+						do_status
+					fi
+				fi
+			fi
+			;;
+			
+			7\ *) do_file_choose "audio (.aif, .aiff, .caf, .flac, .mp3, .wav)" "$RESOURCES_LOCATION" "$AUDIO_FILE_PATTERN"
+			if [ $abort_action -eq 0 ]; then
+				do_enter_playback_mode
+				if [ $abort_action -eq 0 ]; then
+					testam.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" >/dev/null 2>/dev/null &
 					do_status
 				fi
 			fi
 			;;
 			
-			6\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" '\.wav$'
-			if [ $abort_action -eq 0 ]; then
-				testusb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
-			fi
-			;;
-			
-			7\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" '\.wav$'
-			if [ $abort_action -eq 0 ]; then
-				testlsb.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
-			fi
-			;;
-			
-			8\ *) do_file_choose ".wav (16 bit per sample, 48000 sample rate, mono)" "$RESOURCES_LOCATION" '\.wav$'
-			if [ $abort_action -eq 0 ]; then
-				testam.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
-			fi
-			;;
-			
-			9\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" '\.rf$'
+			8\ *) do_file_choose "FreeDV .rf" "$RESOURCES_LOCATION" '\.rf$'
 			if [ $abort_action -eq 0 ]; then
 				testfreedv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			10\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
+			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
 			if [ $abort_action -eq 0 ]; then
 				testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 			
-			11\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
+			10\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
 				testpocsag.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
-			12\ *) do_enter_callsign
+			11\ *) do_enter_callsign
 			if [ $abort_action -eq 0 ]; then
 				testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
-			13\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
+			12\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
 				testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
 
-			14\ *) do_enter_message "CW" "$DEFAULT_CW_MESSAGE"
+			13\ *) do_enter_message "CW" "$DEFAULT_CW_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
 				do_enter_wpm
 				if [ $abort_action -eq 0 ]; then
@@ -368,7 +404,7 @@ do_freq_setup
 			fi
 			;;
 
-			15\ *) do_enter_rfgen_params
+			14\ *) do_enter_rfgen_params
 			if [ $abort_action -eq 0 ]; then
 				testrfgen.sh "$OUTPUT_FREQ""e6" "$RFGEN_BW" "$DEFAULT_RFGEN_SAMPLE_RATE" "${RFGEN_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
 				do_status
