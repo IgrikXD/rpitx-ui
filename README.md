@@ -85,7 +85,7 @@ Added SSB sideband selection ("_**USB**_" / "_**LSB**_") for the "_**SSB**_" tra
 Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labelled "**FmRds**" in the menu_): RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and 50 us / 75 us FM pre-emphasis selection.  
 ![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
 
-In all custom-input modes, empty, malformed, or out-of-range values are rejected up front with a clear error message and **the transmission is not started**.
+In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
 Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
 
