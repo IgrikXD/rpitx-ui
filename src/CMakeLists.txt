@@ -32,8 +32,8 @@ target_link_libraries(piam
 )
 
 # --- pichirp ---
-add_executable(pichirp pichirp/main.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
+add_executable(pichirp pichirp/pichirp.cpp)
+target_link_libraries(pichirp PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pifmrds ---
 add_library(pifmrds_c_objs OBJECT
