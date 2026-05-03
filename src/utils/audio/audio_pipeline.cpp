@@ -246,12 +246,9 @@ AudioPipeline::AudioPipeline(AudioSource& source, AudioPipelineConfig config)
     // Buffers are sized for the worst-case input block. The actual per-call
     // read uses the converter's peekNextInputFrames(), which never exceeds
     // maxInputFrames_, and the surplus capacity is simply unused that call.
-    interleavedInput_.assign(
-        static_cast<std::size_t>(maxInputFrames_) * static_cast<std::size_t>(sourceFormat_.channels), 0.0F);
-    channelInput_.assign(static_cast<std::size_t>(outputChannels_),
-                         std::vector<float>(static_cast<std::size_t>(maxInputFrames_), 0.0F));
-    channelOutput_.assign(static_cast<std::size_t>(outputChannels_),
-                          std::vector<float>(static_cast<std::size_t>(outputFrames_), 0.0F));
+    interleavedInput_.assign(maxInputFrames_ * static_cast<std::size_t>(sourceFormat_.channels), 0.0F);
+    channelInput_.assign(static_cast<std::size_t>(outputChannels_), std::vector<float>(maxInputFrames_, 0.0F));
+    channelOutput_.assign(static_cast<std::size_t>(outputChannels_), std::vector<float>(outputFrames_, 0.0F));
 }
 
 AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
@@ -274,9 +271,8 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
 
     // All converters share the same rate parameters and Bresenham state so
     // they require the same input frame count on every call; query just one.
-    const int inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
-    const std::size_t interleavedSize{static_cast<std::size_t>(inputFramesThisCall) *
-                                      static_cast<std::size_t>(sourceFormat_.channels)};
+    const std::size_t inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
+    const std::size_t interleavedSize{inputFramesThisCall * static_cast<std::size_t>(sourceFormat_.channels)};
     // Internal invariant: AudioRateConverter must never request more than
     // maxInputFrames_ per call, which is exactly what interleavedInput_ is
     // sized for. A future contract drift would be a logic bug, not a
@@ -310,27 +306,23 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     }
 
     if (config_.channelMode == AudioChannelMode::Mono) {
-        downmixInterleavedToMono(
-            std::span<const float>{interleavedInput_.data(), interleavedSize},
-            sourceFormat_.channels,
-            std::span<float>{channelInput_[0].data(), static_cast<std::size_t>(inputFramesThisCall)});
+        downmixInterleavedToMono(std::span<const float>{interleavedInput_.data(), interleavedSize},
+                                 sourceFormat_.channels,
+                                 std::span<float>{channelInput_[0].data(), inputFramesThisCall});
     } else {
         for (int c{0}; c < outputChannels_; ++c) {
             auto& channel{channelInput_[static_cast<std::size_t>(c)]};
-            for (int i{0}; i < inputFramesThisCall; ++i) {
-                channel[static_cast<std::size_t>(i)] =
-                    interleavedInput_[static_cast<std::size_t>(i) * static_cast<std::size_t>(sourceFormat_.channels) +
-                                      static_cast<std::size_t>(c)];
+            for (std::size_t i{0}; i < inputFramesThisCall; ++i) {
+                channel[i] = interleavedInput_[i * static_cast<std::size_t>(sourceFormat_.channels) +
+                                               static_cast<std::size_t>(c)];
             }
         }
     }
 
     for (int c{0}; c < outputChannels_; ++c) {
         const bool converted{rateConverters_[static_cast<std::size_t>(c)].process(
-            std::span<const float>{channelInput_[static_cast<std::size_t>(c)].data(),
-                                   static_cast<std::size_t>(inputFramesThisCall)},
-            std::span<float>{channelOutput_[static_cast<std::size_t>(c)].data(),
-                             static_cast<std::size_t>(outputFrames_)})};
+            std::span<const float>{channelInput_[static_cast<std::size_t>(c)].data(), inputFramesThisCall},
+            std::span<float>{channelOutput_[static_cast<std::size_t>(c)].data(), outputFrames_})};
         if (converted == false) {
             return AudioPipelineStatus::Error;
         }
@@ -339,11 +331,10 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
     if (outputChannels_ == 1) {
         std::copy(channelOutput_[0].begin(), channelOutput_[0].end(), out.begin());
     } else {
-        for (int i{0}; i < outputFrames_; ++i) {
+        for (std::size_t i{0}; i < outputFrames_; ++i) {
             for (int c{0}; c < outputChannels_; ++c) {
-                out[static_cast<std::size_t>(i) * static_cast<std::size_t>(outputChannels_) +
-                    static_cast<std::size_t>(c)] =
-                    channelOutput_[static_cast<std::size_t>(c)][static_cast<std::size_t>(i)];
+                out[i * static_cast<std::size_t>(outputChannels_) + static_cast<std::size_t>(c)] =
+                    channelOutput_[static_cast<std::size_t>(c)][i];
             }
         }
     }
@@ -361,8 +352,8 @@ AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
     std::size_t producedAnyChannel{0};
     for (int c{0}; c < outputChannels_; ++c) {
         auto& channel{channelOutput_[static_cast<std::size_t>(c)]};
-        const auto produced{rateConverters_[static_cast<std::size_t>(c)].drain(
-            std::span<float>{channel.data(), static_cast<std::size_t>(outputFrames_)})};
+        const auto produced{
+            rateConverters_[static_cast<std::size_t>(c)].drain(std::span<float>{channel.data(), outputFrames_})};
         if (produced == std::nullopt) {
             return AudioPipelineStatus::Error;
         }
@@ -370,7 +361,7 @@ AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
         if (produced_n > producedAnyChannel) {
             producedAnyChannel = produced_n;
         }
-        if (produced_n < static_cast<std::size_t>(outputFrames_)) {
+        if (produced_n < outputFrames_) {
             std::fill(channel.begin() + static_cast<std::ptrdiff_t>(produced_n), channel.end(), 0.0F);
         }
     }
@@ -383,11 +374,10 @@ AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
     if (outputChannels_ == 1) {
         std::copy(channelOutput_[0].begin(), channelOutput_[0].end(), out.begin());
     } else {
-        for (int i{0}; i < outputFrames_; ++i) {
+        for (std::size_t i{0}; i < outputFrames_; ++i) {
             for (int c{0}; c < outputChannels_; ++c) {
-                out[static_cast<std::size_t>(i) * static_cast<std::size_t>(outputChannels_) +
-                    static_cast<std::size_t>(c)] =
-                    channelOutput_[static_cast<std::size_t>(c)][static_cast<std::size_t>(i)];
+                out[i * static_cast<std::size_t>(outputChannels_) + static_cast<std::size_t>(c)] =
+                    channelOutput_[static_cast<std::size_t>(c)][i];
             }
         }
     }

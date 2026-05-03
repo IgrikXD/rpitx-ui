@@ -50,10 +50,11 @@ public:
      *                           in seconds this is targetOutputFrames /
      *                           targetRateHz.
      *
-     * @throws std::invalid_argument when any parameter is non-positive.
+     * @throws std::invalid_argument when any parameter is non-positive or when
+     *         the derived per-call input frame count overflows std::size_t.
      * @throws std::runtime_error    when the underlying soxr handle cannot be created.
      */
-    AudioRateConverter(int sourceRateHz, int targetRateHz, int targetOutputFrames);
+    AudioRateConverter(int sourceRateHz, int targetRateHz, std::size_t targetOutputFrames);
 
     AudioRateConverter(const AudioRateConverter&)            = delete;
     AudioRateConverter& operator=(const AudioRateConverter&) = delete;
@@ -63,7 +64,7 @@ public:
     /**
      * @brief Output frames produced per process() call (constant).
      */
-    [[nodiscard]] int outputFrames() const noexcept {
+    [[nodiscard]] std::size_t outputFrames() const noexcept {
         return outputFrames_;
     }
 
@@ -73,7 +74,7 @@ public:
      * Used by the pipeline to size source-read buffers conservatively.
      * Bresenham accumulator alternates between this value and one less.
      */
-    [[nodiscard]] int maxInputFrames() const noexcept {
+    [[nodiscard]] std::size_t maxInputFrames() const noexcept {
         return maxInputFrames_;
     }
 
@@ -84,8 +85,10 @@ public:
      * exactly this many input frames from the source and pass them to the
      * matching process() call. After process(), the accumulator advances
      * and a fresh peek may return a different value.
+     *
+     * The value is by construction in [0, maxInputFrames()].
      */
-    [[nodiscard]] int peekNextInputFrames() const noexcept {
+    [[nodiscard]] std::size_t peekNextInputFrames() const noexcept {
         if (resampler_ == std::nullopt) {
             return outputFrames_;
         }
@@ -94,7 +97,7 @@ public:
         // K * outputFrames * sourceRate / targetRate, rounded to the
         // nearest integer at each step.
         const long long total{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_};
-        return static_cast<int>(total / targetRate_);
+        return static_cast<std::size_t>(total / targetRate_);
     }
 
     /**
@@ -147,10 +150,10 @@ public:
     [[nodiscard]] std::optional<std::size_t> drain(std::span<float> out);
 
 private:
-    int outputFrames_;
+    std::size_t outputFrames_;
     int sourceRate_;
     int targetRate_;
-    int maxInputFrames_;
+    std::size_t maxInputFrames_;
     long long inputAccumulator_;  ///< Bresenham state in [0, targetRate).
 
     std::optional<SoxrResampler> resampler_;  ///< nullopt = passthrough.

@@ -166,7 +166,7 @@ namespace pissb {
             // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
             // is converted into one complex IQ sample before being handed to DMA.
             std::vector<float> audioBuf(audio.outputSamplesPerBlock());
-            std::vector<std::complex<float>> iqBuf(static_cast<std::size_t>(audio.outputFrames()));
+            std::vector<std::complex<float>> iqBuf(audio.outputFrames());
 
             while (running.load(std::memory_order_relaxed)) {
                 const auto status{audio.read(audioBuf)};

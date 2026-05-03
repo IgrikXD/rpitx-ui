@@ -278,7 +278,7 @@ namespace pifmrds {
             // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
             // processor receives one already-rate-matched audio frame per MPX sample.
             std::vector<float> audioBuf(audio.outputSamplesPerBlock());
-            std::vector<float> mpxBuf(static_cast<std::size_t>(audio.outputFrames()));
+            std::vector<float> mpxBuf(audio.outputFrames());
 
             while (running.load(std::memory_order_relaxed)) {
                 const auto status{audio.read(audioBuf)};

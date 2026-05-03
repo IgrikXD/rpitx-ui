@@ -65,7 +65,7 @@ enum class AudioChannelMode {
 struct AudioPipelineConfig {
     bool loop;
     int targetSampleRate;
-    int targetOutputFrames;
+    std::size_t targetOutputFrames;
     AudioChannelMode channelMode;
 };
 
@@ -87,7 +87,7 @@ public:
      * @throws std::invalid_argument when the source channel count is non-positive,
      *         when an internal AudioRateConverter rejects the rate parameters
      *         (non-positive rates, non-positive output frames), or when the
-     *         derived per-call input frame count overflows int.
+     *         derived per-call input frame count overflows std::size_t.
      * @throws std::runtime_error    when an internal AudioRateConverter cannot
      *         create its libsoxr backend.
      */
@@ -101,11 +101,11 @@ public:
     [[nodiscard]] int outputChannels() const noexcept {
         return outputChannels_;
     }
-    [[nodiscard]] int outputFrames() const noexcept {
+    [[nodiscard]] std::size_t outputFrames() const noexcept {
         return outputFrames_;
     }
     [[nodiscard]] std::size_t outputSamplesPerBlock() const noexcept {
-        return static_cast<std::size_t>(outputFrames_) * static_cast<std::size_t>(outputChannels_);
+        return outputFrames_ * static_cast<std::size_t>(outputChannels_);
     }
 
     /**
@@ -213,8 +213,8 @@ private:
     AudioFormat sourceFormat_;
     AudioPipelineConfig config_;
     int outputChannels_;
-    int maxInputFrames_{0};
-    int outputFrames_{0};
+    std::size_t maxInputFrames_{0};
+    std::size_t outputFrames_{0};
     std::optional<AudioBlockReader> reader_;
     std::vector<AudioRateConverter> rateConverters_;
     std::vector<float> interleavedInput_;

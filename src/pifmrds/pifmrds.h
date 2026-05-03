@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -36,7 +37,7 @@ namespace pifmrds {
     /**
      * @brief Target MPX output frames per processing block (~18 ms at 228 kHz).
      */
-    inline constexpr int TARGET_OUTPUT_FRAMES{4096};
+    inline constexpr std::size_t TARGET_OUTPUT_FRAMES{4096};
 
     /**
      * @brief Peak FM deviation in Hz.

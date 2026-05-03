@@ -31,18 +31,22 @@ namespace {
         return (num + den - 1) / den;
     }
 
-    [[nodiscard]] int alignedMaxInputFrames(int targetOutputFrames, int sourceRateHz, int targetRateHz) {
+    [[nodiscard]] std::size_t alignedMaxInputFrames(std::size_t targetOutputFrames, int sourceRateHz,
+                                                    int targetRateHz) {
         const long long ceiled{ceilDiv(static_cast<long long>(targetOutputFrames) * sourceRateHz, targetRateHz)};
-        if (ceiled < 1LL || ceiled > static_cast<long long>(std::numeric_limits<int>::max())) {
-            throw std::invalid_argument{"AudioRateConverter input frame count overflows int"};
+        // ceiled is bounded below by 1 (positive inputs) and above by the
+        // chosen size_t domain - on 32-bit platforms size_t is narrower than
+        // long long, so the upper guard is not vacuous.
+        if (ceiled < 1LL || static_cast<unsigned long long>(ceiled) > std::numeric_limits<std::size_t>::max()) {
+            throw std::invalid_argument{"AudioRateConverter input frame count overflows std::size_t"};
         }
-        return static_cast<int>(ceiled);
+        return static_cast<std::size_t>(ceiled);
     }
 }  // namespace
 
-AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, int targetOutputFrames)
+AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, std::size_t targetOutputFrames)
     : outputFrames_{0}, sourceRate_{0}, targetRate_{0}, maxInputFrames_{0}, inputAccumulator_{0}, spillReadPos_{0} {
-    if (sourceRateHz < 1 || targetRateHz < 1 || targetOutputFrames < 1) {
+    if (sourceRateHz < 1 || targetRateHz < 1 || targetOutputFrames == 0) {
         throw std::invalid_argument{"Invalid AudioRateConverter parameters"};
     }
 
@@ -64,8 +68,8 @@ AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, int t
     // covers libsoxr's per-call jitter so the call is guaranteed to consume
     // every input frame (idone == ilen) instead of stalling at the output cap.
     const long long maxStagingLL{ceilDiv(static_cast<long long>(maxInputFrames_) * targetRateHz, sourceRateHz)};
-    if (maxStagingLL > static_cast<long long>(std::numeric_limits<int>::max())) {
-        throw std::invalid_argument{"AudioRateConverter staging size overflows int"};
+    if (maxStagingLL < 1LL || static_cast<unsigned long long>(maxStagingLL) > std::numeric_limits<std::size_t>::max()) {
+        throw std::invalid_argument{"AudioRateConverter staging size overflows std::size_t"};
     }
     stagingBuffer_.assign(static_cast<std::size_t>(maxStagingLL) + STAGING_HEADROOM_SAMPLES, 0.0F);
 
@@ -119,14 +123,13 @@ std::optional<std::size_t> AudioRateConverter::drain(std::span<float> out) {
 }
 
 bool AudioRateConverter::process(std::span<const float> in, std::span<float> out) {
-    const int expectedIn{peekNextInputFrames()};
+    const std::size_t expectedIn{peekNextInputFrames()};
     // expectedIn must be strictly positive: a zero-sized input span would
     // dispatch to libsoxr's documented end-of-stream flush form, desynchronising
     // the resampler for any subsequent calls. The audio_pipeline rate range
     // (>= 8000 Hz input, output frames >= 1024) makes this unreachable, but
     // the explicit guard documents the invariant.
-    if (expectedIn <= 0 || in.size() != static_cast<std::size_t>(expectedIn) ||
-        out.size() != static_cast<std::size_t>(outputFrames_)) {
+    if (expectedIn == 0 || in.size() != expectedIn || out.size() != outputFrames_) {
         return false;
     }
 
@@ -145,7 +148,7 @@ bool AudioRateConverter::process(std::span<const float> in, std::span<float> out
     // over K calls the cumulative input matches K * outputFrames *
     // sourceRate / targetRate exactly.
     const long long nextAccumulator{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_ -
-                                    static_cast<long long>(expectedIn) * targetRate_};
+                                    static_cast<long long>(expectedIn) * static_cast<long long>(targetRate_)};
 
     // 1. Drain any spill from previous call into the head of out.
     std::size_t outIdx{0};

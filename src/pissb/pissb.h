@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -36,7 +37,7 @@ namespace pissb {
     /**
      * @brief Target output frames per processing block (~21 ms at 48 kHz).
      */
-    inline constexpr int TARGET_OUTPUT_FRAMES{1024};
+    inline constexpr std::size_t TARGET_OUTPUT_FRAMES{1024};
 
     /**
      * @brief Minimum accepted input sample rate in Hz.
