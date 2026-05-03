@@ -88,12 +88,18 @@ target_link_libraries(pirfgen PRIVATE rpitx_cli_utils librpitx::librpitx)
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
-# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+# --- pissb (audio file -> librpitx iqdmasync, self-contained) ---
 add_executable(pissb
-    pissb/main.cpp
+    pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_utils)
+target_link_libraries(pissb
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
@@ -215,9 +221,9 @@ endif()
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
-    testchirp.sh testfmrds.sh testfreedv.sh testlsb.sh testmorse.sh
+    testchirp.sh testfmrds.sh testfreedv.sh testmorse.sh
     testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-    testspectrum.sh testusb.sh testsstv.sh testvfo.sh transponder.sh
+    testspectrum.sh testssb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
