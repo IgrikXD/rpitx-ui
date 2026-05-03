@@ -53,9 +53,10 @@ public:
      * @param sourceRateHz Input sample rate in Hz (> 0).
      * @param targetRateHz Output sample rate in Hz (> 0).
      * @param quality      Quality preset; defaults to Medium (~96 dB SNR),
-     *                     which exceeds the SNR of any FM/AM/SSB receiver
-     *                     while keeping the filter length and per-block
-     *                     CPU cost small enough for a Pi Zero.
+     *                     a balanced compromise between filter length and
+     *                     per-block CPU cost that fits the current
+     *                     transmitter paths on a Pi Zero. Use High if
+     *                     measurements show audible resampling artefacts.
      *
      * @throws std::invalid_argument when either rate is non-positive.
      * @throws std::runtime_error    when libsoxr rejects the configuration.
