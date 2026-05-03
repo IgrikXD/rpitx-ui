@@ -30,7 +30,7 @@ enum class SsbMode : uint8_t {
  * @brief Streaming SSB modulator with bandpass filtering and AGC.
  *
  * Processes normalized float audio into analytic IQ output
- * suitable for RF transmission via sendiq.
+ * suitable for RF transmission via librpitx IQ DMA.
  *
  * DSP chain: HPF 300 Hz -> LPF 3000 Hz -> Hilbert transform -> AGC.
  *

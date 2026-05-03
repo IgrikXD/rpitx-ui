@@ -37,10 +37,10 @@ enum class RfGenMode : uint8_t {
  * @endcode
  */
 struct RfGenConfig {
-    RfGenMode mode;       ///< Active RF generator mode.
-    float bandwidth;      ///< Generated bandwidth in Hz (full width, symmetric around center).
-    uint32_t sampleRate;  ///< DMA sample rate in Hz.
-    int toneCount;        ///< Number of tones for multitone mode (ignored otherwise).
+    RfGenMode mode;   ///< Active RF generator mode.
+    float bandwidth;  ///< Generated bandwidth in Hz (full width, symmetric around center).
+    int sampleRate;   ///< DMA sample rate in Hz.
+    int toneCount;    ///< Number of tones for multitone mode (ignored otherwise).
 };
 
 /**
@@ -61,6 +61,9 @@ public:
     /**
      * @brief Construct an RfGenProcessor for the given configuration.
      * @param config RF generator configuration parameters.
+     *
+     * @throws std::invalid_argument when the selected generator rejects its parameters
+     *         (e.g. MultitoneGenerator with toneCount < 2).
      */
     explicit RfGenProcessor(RfGenConfig config);
 

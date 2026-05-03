@@ -1,6 +1,6 @@
 /**
  * @file sweep_generator.h
- * @brief Linear sawtooth sweep generator.
+ * @brief Linear frequency sweep generator.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 15.04.2026
@@ -11,13 +11,11 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "rf_generator.h"
 #include "sawtooth.h"
 
 /**
- * @brief Thin wrapper around the Sawtooth primitive for frequency sweeping.
+ * @brief Thin wrapper around Sawtooth for RF frequency sweeping.
  *
  * Produces a linear ramp spanning [-bandwidth/2, +bandwidth/2] and wrapping at
  * the positive peak. Fully deterministic - no RNG, no hold state needed.
@@ -29,7 +27,7 @@ public:
      * @param bandwidth Target RF bandwidth in Hz (amplitude of the ramp is bandwidth / 2).
      * @param sampleRate DMA sample rate in Hz.
      */
-    SweepGenerator(float bandwidth, uint32_t sampleRate);
+    SweepGenerator(float bandwidth, int sampleRate);
 
     [[nodiscard]] float nextSample() override;
 
@@ -39,5 +37,5 @@ private:
      */
     static constexpr float RATE_HZ{1'000.0F};
 
-    Sawtooth sawtooth_;  ///< Underlying ramp oscillator.
+    Sawtooth sawtooth_;  ///< Underlying frequency-offset ramp.
 };

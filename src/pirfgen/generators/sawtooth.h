@@ -15,13 +15,11 @@
  * @brief Linear sawtooth (ramp) oscillator.
  *
  * Produces a monotonically increasing signal in the range [-amplitude, +amplitude)
- * that wraps back to -amplitude once the positive peak is reached. Suitable as a
- * building block for frequency sweeps, low-frequency oscillators, or any linear
- * ramp required by a DSP chain.
+ * that wraps back to -amplitude once the positive peak is reached.
  *
  * @code
- * Sawtooth lfo{100.0f, 500};
- * const float v{lfo.nextSample()};
+ * Sawtooth sawtooth{100.0f, 500};
+ * const float offsetHz{sawtooth.nextSample()};
  * @endcode
  */
 class Sawtooth {

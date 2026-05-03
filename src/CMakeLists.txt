@@ -15,37 +15,28 @@ add_subdirectory(utils/cli)
 find_library(SNDFILE_LIBRARY sndfile REQUIRED)
 
 # ----------------------------------------------------------
-# Shared DSP and I/O utility library
-# ----------------------------------------------------------
-add_library(rpitx_utils STATIC
-    utils/agc.cpp
-    utils/biquad.cpp
-    utils/cli_utils.cpp
-    utils/hilbert.cpp
-    utils/morse_encoder.cpp
-    utils/sawtooth.cpp
-    utils/wav_utils.cpp
-)
-target_include_directories(rpitx_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
-target_link_libraries(rpitx_utils PRIVATE m)
-
-# ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
 # --- freedv ---
 add_executable(freedv freedv/freedv.cpp)
 target_link_libraries(freedv PRIVATE librpitx::librpitx)
 
-# --- piam (stdin int16 -> librpitx amdmasync, self-contained) ---
+# --- piam (audio file -> librpitx amdmasync, self-contained) ---
 add_executable(piam
-    piam/main.cpp
+    piam/piam.cpp
     piam/am_processor.cpp
 )
-target_link_libraries(piam PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(piam
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_dsp_utils
+        rpitx_cli_utils
+        librpitx::librpitx
+)
 
 # --- pichirp ---
-add_executable(pichirp pichirp/main.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_utils librpitx::librpitx)
+add_executable(pichirp pichirp/pichirp.cpp)
+target_link_libraries(pichirp PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pifmrds ---
 add_library(pifmrds_c_objs OBJECT
@@ -62,15 +53,24 @@ target_compile_options(pifmrds PRIVATE -Wno-write-strings)
 target_link_libraries(pifmrds PRIVATE librpitx::librpitx ${SNDFILE_LIBRARY})
 
 # --- pimorse ---
-add_executable(pimorse pimorse/main.cpp)
-target_link_libraries(pimorse PRIVATE rpitx_utils librpitx::librpitx)
+add_executable(pimorse
+    pimorse/morse_encoder.cpp
+    pimorse/pimorse.cpp
+)
+target_link_libraries(pimorse PRIVATE rpitx_cli_utils librpitx::librpitx)
 
-# --- pinfm (stdin int16 -> librpitx ngfmdmasync, self-contained) ---
+# --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
-    pinfm/main.cpp
+    pinfm/pinfm.cpp
     pinfm/nfm_processor.cpp
 )
-target_link_libraries(pinfm PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pinfm
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- piopera ---
 add_executable(piopera opera/opera.cpp)
@@ -78,24 +78,31 @@ target_link_libraries(piopera PRIVATE librpitx::librpitx)
 
 # --- pirfgen ---
 add_executable(pirfgen
-    pirfgen/main.cpp
+    pirfgen/pirfgen.cpp
     pirfgen/rfgen_processor.cpp
     pirfgen/generators/multitone_generator.cpp
     pirfgen/generators/noise_generator.cpp
+    pirfgen/generators/sawtooth.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_utils librpitx::librpitx)
+target_link_libraries(pirfgen PRIVATE rpitx_cli_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
-# --- pissb (stdin int16 -> stdout float IQ, no buffering) ---
+# --- pissb (audio file -> librpitx iqdmasync, self-contained) ---
 add_executable(pissb
-    pissb/main.cpp
+    pissb/pissb.cpp
     pissb/ssb_processor.cpp
 )
-target_link_libraries(pissb PRIVATE rpitx_utils)
+target_link_libraries(pissb
+    PRIVATE
+        rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_dsp_utils
+        librpitx::librpitx
+)
 
 # --- pisstv ---
 add_executable(pisstv sstv/pisstv.cpp)
@@ -217,9 +224,9 @@ endif()
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
-    testchirp.sh testfmrds.sh testfreedv.sh testlsb.sh testmorse.sh
+    testchirp.sh testfmrds.sh testfreedv.sh testmorse.sh
     testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-    testspectrum.sh testusb.sh testsstv.sh testvfo.sh transponder.sh
+    testspectrum.sh testssb.sh testsstv.sh testvfo.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
