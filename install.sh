@@ -82,7 +82,7 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/csdr
   cd csdr
-  git checkout "${CSDR_COMMIT}"
+  git checkout --quiet "${CSDR_COMMIT}"
   make -j"$(nproc)" && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
