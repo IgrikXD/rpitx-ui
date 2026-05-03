@@ -155,6 +155,11 @@ public:
      *   2. Otherwise advance the 5-step state machine: four 0A (PS)
      *      groups followed by one 2A (RT) group.
      *
+     * Configuration setters (setPi / setPs / setRt / setTa) may be called
+     * at any time, including between groups, and updates take effect on
+     * the next call to nextGroupBits(). The encoder owns no synchronisation,
+     * so concurrent calls from another thread require external locking.
+     *
      * @param bits Output buffer of exactly RDS_BITS_PER_GROUP entries.
      *             Each entry is 0 or 1.
      */
