@@ -1,11 +1,13 @@
 ![rpitx-ui-logo](/doc/rpitx-ui-logo.png)
 ## About rpitx-ui
-**[rpitx]** is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. 
+[rpitx] is a general radio frequency SDR transmitter for Raspberry Pi which can work on frequencies from **5 kHz** up to **1500 MHz**. 
 
-**rpitx-ui** builds upon this project by providing a [convenient console user interface](#user-interface-changes) and a modern CMake-based build system to replace the legacy Makefiles. The [`install.sh`](./install.sh) script installs all system dependencies, CMake builds `librpitx` (_and optionally `ft8_lib`_) under the local build tree, installs binaries to `/usr/bin` and resource files to `/usr/share/rpitx-ui`, so **rpitx-ui** can be run from any directory. Beyond the UI, most transmitter binaries have been rewritten in modern C++20 with a shared DSP / audio / CLI infrastructure - see [changes to core functionality](#changes-to-core-functionality) for the full list.
+**rpitx-ui** is a modernized fork of [rpitx] that ships a [convenient console user interface](#user-interface-changes), replaces the legacy Makefiles with a modern CMake-based build system, and rewrites most transmitter binaries in modern C++20 around a shared DSP / audio / CLI infrastructure - see [changes to core functionality](#changes-to-core-functionality) for the full list.
+
+The [`install.sh`](./install.sh) script installs all system dependencies, builds `librpitx` (_and optionally `ft8_lib`_) under the local tree, and installs binaries to `/usr/bin` and resource files to `/usr/share/rpitx-ui`, so **rpitx-ui** can be run from any directory without being tied to the cloned repository.
 
 > [!WARNING]
-> The current upstream **[rpitx]** has a `dvb/dvbsenco8.s` build error. **rpitx-ui** is based on rpitx commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), builds cleanly, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**. Synchronization with upstream is no longer maintained - **rpitx-ui** evolves independently as its own ecosystem focused on fixing upstream bugs and building a modular, reusable architecture.
+> The current upstream [rpitx] has a `dvb/dvbsenco8.s` build error. **rpitx-ui** is based on [rpitx] commit [cce1fe6](https://github.com/F5OEO/rpitx/commit/cce1fe6acf90d4d34ce304aed48fe80ec4ff51e7), builds cleanly, and is adapted to work on **Raspberry Pi OS (_64-bit, Debian Trixie_)**. Synchronization with upstream is no longer maintained - **rpitx-ui** evolves independently as its own ecosystem focused on fixing upstream bugs and building a modular, reusable architecture.
 
 ## Project support
 [![BTC: Make a donation][BTC-badge]](https://nowpayments.io/donation/wsprbeacon)&nbsp;[![PayPal: Make a donation][PayPal-badge]](https://www.paypal.com/donate/?hosted_button_id=Q8PRFPXKKSDAQ)&nbsp;[![Revolut: Make a donation][Revolut-badge]](https://revolut.me/iharygxob)
@@ -48,7 +50,7 @@ To also remove the `csdr` runtime dependency, use the `--purge-deps` flag:
 ```
 
 ## Usage
-Plug a wire (_acts as an antenna_) on [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [a separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board is the best option, as it allows you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
+Connect a wire (_acts as an antenna_) to [GPIO 4](https://www.raspberrypi.com/documentation/computers/images/GPIO-Pinout-Diagram-2.png) or use [a separate PCB with SMA output](https://github.com/IgrikXD/rpitx-coax-pcb). Using an expansion board is the best option, as it allows you to use a coaxial SMA connector to connect radio equipment and an output filter to suppress interference.
 
 Run the **rpitx-ui** application:
 ```sh
@@ -61,7 +63,12 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and allows you to select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode (_any libsndfile-supported audio files with one of the currently exposed extensions (`.aif`, `.aiff`, `.caf`, `.flac`, `.mp3`, `.wav`) for "**WFM**", "**NFM**", "**SSB**" and "**AM**"; `.jpg` for "**SSTV**"; `.rf` for "**FreeDV**"_) and then asks for a playback mode - "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and lets you select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode:
+- "_**WFM**_" / "_**NFM**_" / "_**SSB**_" / "_**AM**_" - any libsndfile-supported audio file (`.aif`, `.aiff`, `.caf`, `.flac`, `.mp3`, `.wav`)
+- "_**SSTV**_" - `.jpg`
+- "_**FreeDV**_" - `.rf`
+
+After selecting a file, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.  
@@ -70,7 +77,7 @@ Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" a
 Added the ability to specify your call sign in "_**Opera**_" mode.  
 ![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
 
-Added "_**CW**_" mode for Morse code transmission with custom message and adjustable transmission speed in words per minute (_WPM_).  
+Added "_**CW**_" mode for Morse code transmission with a custom message and adjustable transmission speed in words per minute (_WPM_).  
 ![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
 
 Added "_**RFgen**_" mode for wideband RF signal generation. You can choose one of three generator types - "_**Noise**_" (_uniform pseudo-random noise_), "_**Sweep**_" (_fast sawtooth sweep_), or "_**Multitone**_" (_random fast-hopping across equidistant tones_) - then enter the bandwidth in Hz (_and the number of tones for "**Multitone**"_).  
@@ -79,15 +86,15 @@ Added "_**RFgen**_" mode for wideband RF signal generation. You can choose one o
 Added NFM deviation-mode selection for the "_**NFM**_" transmitter: "_**Wide**_" (_+-5 kHz deviation for 25 kHz amateur VHF/UHF channels_) or "_**Narrow**_" (_+-2.5 kHz deviation for 12.5 kHz PMR/DMR-style channels_).  
 ![rpitx-ui-nfm-mode](./doc/rpitx-ui-nfm-mode.gif)
 
-Added SSB sideband selection ("_**USB**_" / "_**LSB**_") for the "_**SSB**_" transmitter, replacing the original **[rpitx]** hard-coded single-sideband behaviour.  
+Added SSB sideband selection ("_**USB**_" / "_**LSB**_") for the "_**SSB**_" transmitter, replacing the original [rpitx] hard-coded single-sideband behavior.  
 ![rpitx-ui-ssb-mode](./doc/rpitx-ui-ssb-mode.gif)
 
-Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labelled "**FmRds**" in the menu_): RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and 50 us / 75 us FM pre-emphasis selection.  
+Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labeled "**FmRds**" in the menu_): RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and 50 us / 75 us FM pre-emphasis selection.  
 ![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
 
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
-Fixed a bug affecting the display of the "_Bye bye_" message when exiting the program; it is now shown correctly.
+Fixed the "_Bye bye_" exit message not being displayed correctly when leaving the program.
 
 ### Changes to core functionality
 Most transmit modes have been rewritten from scratch as standalone C++20 binaries that share a common foundation:
@@ -99,22 +106,22 @@ Most transmit modes have been rewritten from scratch as standalone C++20 binarie
 
 #### Per-mode changes
 
-**SSB ([`pissb`](./src/pissb/)) - rewritten.** The original SSB option in **[rpitx]** suffered from a significant delay between initiating transmission and the actual RF output, making it impractical for real use. The new binary runs the DSP chain internally - 300-3000 Hz bandpass filtering, 255-tap Blackman-windowed Hilbert transform for analytic signal generation, and asymmetric attack/decay AGC - and drives `librpitx::iqdmasync` directly with no perceptible start-up delay.
+**SSB ([`pissb`](./src/pissb/)) - rewritten.** The original SSB option in [rpitx] suffered from a significant delay between initiating transmission and the actual RF output, making it impractical for real use. The new binary runs the DSP chain internally - 300-3000 Hz bandpass filtering, 255-tap Blackman-windowed Hilbert transform for analytic signal generation, and asymmetric attack/decay AGC - and drives `librpitx::iqdmasync` directly with no perceptible start-up delay.
 
 **Morse ([`pimorse`](./src/pimorse/)) - rewritten.** Renamed from `morse` to align with the project's naming convention (_pinfm, pissb, pirtty, etc._). The legacy implementation used C-style I/O, `atof` parsing, and a fixed-size `char cw[23]` buffer that could overflow on longer patterns. The new version uses `std::optional` for safe Morse table lookup, `std::string` for dynamically sized CW buffers, and named `constexpr` constants. Dit timing was corrected to the canonical PARIS relation (_one dit = `1200/WPM` ms_), replacing the earlier approximation that ran ~4 % slow. The encoding logic (_ITU lookup + CW OOK conversion_) was extracted into reusable [`morse_encoder`](./src/pimorse/morse_encoder.h) utilities, and the table now covers A-Z, 0-9, space, and the 15 standard ITU punctuation characters so typical beacon and CQ messages transmit without silently skipping characters.
 
 **Chirp ([`pichirp`](./src/pichirp/)) - rewritten.** The original implementation used `atof` for argument parsing (_which silently returns 0 on invalid input_), ran non-async-signal-safe `fprintf` from a handler installed for all 64 signals, mutated a plain `bool running` flag from that handler (_data race_), accepted bandwidths above the Nyquist limit without diagnosis, and contained dead code. The new version uses `std::atomic<bool>` for the stop flag with the handler restricted to `SIGTERM` / `SIGINT`, uses shared CLI parser for input validation, adds an explicit Nyquist check, and switches phase accumulation to `double` with `std::numbers::pi_v<double>` for full precision on long sweeps.
 
-**AM ([`piam`](./src/piam/)) - rewritten.** The original path piped audio through `csdr dsb_fc` and fed `rpitx` in `IQFLOAT` mode; the Raspberry Pi has no amplitude-capable DAC (_the only on-chip amplitude control is a coarse 3-bit GPIO pad-drive quantiser_), so the `IQFLOAT` pipeline could not reproduce the AM envelope cleanly and the on-air spectrum lacked a clean constant carrier. The new version drives `librpitx::amdmasync` directly - a purpose-built AM path that maps the audio envelope onto the pad-drive quantiser while keeping the carrier frequency fixed - and runs the audio through a dedicated [`AmProcessor`](./src/piam/am_processor.h) chain (_HPF -> LPF -> scalar AGC -> DSB-FC envelope formation_).
+**AM ([`piam`](./src/piam/)) - rewritten.** The original path piped audio through `csdr dsb_fc` and fed `rpitx` in `IQFLOAT` mode; the Raspberry Pi has no amplitude-capable DAC (_the only on-chip amplitude control is a coarse 3-bit GPIO pad-drive quantizer_), so the `IQFLOAT` pipeline could not reproduce the AM envelope cleanly and the on-air spectrum lacked a clean constant carrier. The new version drives `librpitx::amdmasync` directly - a purpose-built AM path that maps the audio envelope onto the pad-drive quantizer while keeping the carrier frequency fixed - and runs the audio through a dedicated [`AmProcessor`](./src/piam/am_processor.h) chain (_HPF -> LPF -> scalar AGC -> DSB-FC envelope formation_).
 
-**RFgen ([`pirfgen`](./src/pirfgen/)) - new.** A wideband RF generator with no equivalent in the original **[rpitx]**. It implements three generator modes through a polymorphic generator architecture - an `RfGenerator` abstract base class with three concrete implementations: `NoiseGenerator` (_uniform pseudo-random frequency offsets with sample-and-hold band-limiting_), `SweepGenerator` (_deterministic linear sawtooth ramp_), and `MultitoneGenerator` (_FHSS-style random hopping across a pre-computed equidistant tone comb_). The active generator is owned via `std::unique_ptr` by the `RfGenProcessor` facade.
+**RFgen ([`pirfgen`](./src/pirfgen/)) - new.** A wideband RF generator with no equivalent in the original [rpitx]. Provides three modes: **Noise** (_uniform pseudo-random frequency offsets with sample-and-hold band-limiting_), **Sweep** (_deterministic linear sawtooth ramp_), and **Multitone** (_FHSS-style random hopping across a pre-computed equidistant tone comb_).
 
 > [!CAUTION]
 > The "_**RFgen**_" mode is intended **exclusively for laboratory use** (_shielded-room interference testing, receiver sensitivity/selectivity/blocking evaluation, RF front-end and filter characterization, radio protocol resilience evaluation_) and research purposes only. Using this mode to transmit over the air may violate radio spectrum regulations and result in serious legal consequences. The author assumes no responsibility for any misuse of this functionality.
 
 **NFM ([`pinfm`](./src/pinfm/)) - rewritten.** The original NFM mode had no dedicated binary at all - it converted PCM audio through several external `csdr` stages and fed the result into the generic `rpitx` raw-RF entry point, with no built-in deviation presets, AGC, or audio-bandwidth guard. The new standalone binary drives `librpitx::ngfmdmasync` directly with per-sample frequency-deviation values, and its [`NfmProcessor`](./src/pinfm/nfm_processor.h) chain applies a 30 Hz HPF, a cascaded 4th-order 3000 Hz Butterworth LPF, scalar AGC, and a hard clamp before scaling to the selected peak deviation (_+-5 kHz wide / +-2.5 kHz narrow_).
 
-**WFM + RDS ([`pifmrds`](./src/pifmrds/)) - rewritten.** Replaces the legacy PiFmRds stack (_mixed C/C++ sources, separate control-pipe path, `atof` / `strtol` parsing, auxiliary `rds_wav` helper_) with a self-contained C++20 binary. Audio is resampled to the canonical 228 kHz MPX rate; the [`FmRdsProcessor`](./src/pifmrds/fmrds_processor.h) chain applies a 30 Hz HPF, selectable 50 us / 75 us broadcast pre-emphasis, a cascaded 4th-order 15 kHz Butterworth LPF, joint AGC, and MPX composition (_mono + RDS, or stereo `(L+R) + 19 kHz pilot + 38 kHz DSB-SC (L-R) + 57 kHz RDS`_), clamped to 75 kHz peak deviation. RDS generation is split into reusable [`RdsEncoder`](./src/pifmrds/rds_encoder.h) (_EN 50067 PI / PS / RT / CT groups with CRC and block offset words_) and [`RdsModulator`](./src/pifmrds/rds_modulator.h) (_differential encoding, RRC-shaped biphase pulse overlap-add, phase-locked 57 kHz subcarrier_) components. The modulator output is analytically normalised so the `RDS_GAIN = 0.05` constant has the literal physical meaning "_5 % of peak deviation = 3.75 kHz_" (_the EN 50067 "high pilot level" preset_) instead of the empirically tuned scalar used by the upstream PiFmRds reference.
+**WFM + RDS ([`pifmrds`](./src/pifmrds/)) - rewritten.** Replaces the legacy PiFmRds stack (_mixed C/C++ sources, separate control-pipe path, `atof` / `strtol` parsing, auxiliary `rds_wav` helper_) with a self-contained C++20 binary. Audio is resampled to the 228 kHz MPX rate; the [`FmRdsProcessor`](./src/pifmrds/fmrds_processor.h) chain applies a 30 Hz HPF, selectable 50 us / 75 us broadcast pre-emphasis, a cascaded 4th-order 15 kHz Butterworth LPF, joint AGC, and MPX composition (_mono + RDS, or stereo `(L+R) + 19 kHz pilot + 38 kHz DSB-SC (L-R) + 57 kHz RDS`_), clamped to 75 kHz peak deviation. RDS generation is split into reusable [`RdsEncoder`](./src/pifmrds/rds_encoder.h) (_EN 50067 PI / PS / RT / CT groups with CRC and block offset words_) and [`RdsModulator`](./src/pifmrds/rds_modulator.h) (_differential encoding, RRC-shaped biphase pulse overlap-add, phase-locked 57 kHz subcarrier_) components. The RDS injection level is analytically normalized to 5 % of peak deviation (_3.75 kHz - the EN 50067 "high pilot level" preset_), instead of the empirically tuned scalar used in upstream PiFmRds.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
