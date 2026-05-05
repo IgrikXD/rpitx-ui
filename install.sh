@@ -16,11 +16,13 @@ RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[34m'
+COLOR_RED=$'\033[31m'
 COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
+ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
 # Print a colored banner: print_banner <color_var> <message>
@@ -36,14 +38,18 @@ print_banner() {
 # Command-line options
 # ----------------------------------------------------------
 # Default: build all project targets and their dependencies
+# without building or running tests
 BUILD_OPTIONAL_TARGETS=true
+ENABLE_TESTING=false
 
 for arg in "$@"; do
   case "$arg" in
     --skip-optional) BUILD_OPTIONAL_TARGETS=false ;;
+    --enable-testing) ENABLE_TESTING=true ;;
     -h|--help)
-      echo "Usage: $0 [--skip-optional]"
-      echo "  --skip-optional  Build only targets used directly by easytest.sh and available through the UI"
+      echo "Usage: $0 [--skip-optional] [--enable-testing]"
+      echo "  --skip-optional   Build only targets used directly by easytest.sh and available through the UI"
+      echo "  --enable-testing  Build and execute tests during installation"
       exit 0
       ;;
     *) echo "Unknown option: $arg" >&2; exit 1 ;;
@@ -102,13 +108,36 @@ if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
 else
   CMAKE_OPTIONAL=OFF
 fi
-cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_OPTIONAL_TARGETS="${CMAKE_OPTIONAL}"
+if [ "${ENABLE_TESTING}" = true ]; then
+  CMAKE_TESTING=ON
+else
+  CMAKE_TESTING=OFF
+fi
+cmake -B build \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DBUILD_OPTIONAL_TARGETS="${CMAKE_OPTIONAL}" \
+  -DENABLE_TESTING="${CMAKE_TESTING}"
 cmake --build build --parallel "$(nproc)"
+
+# rpitx-ui tests execution (if enabled)
+if [ "${ENABLE_TESTING}" = true ]; then
+  print_banner "$COLOR_YELLOW" "Starting test execution..."
+  # The `if ! ctest ...` form bypasses `set -e` for the ctest call so we can surface a tailored
+  # diagnostic instead of the bare "Errors while running CTest" line.
+  if ! ctest --test-dir build --output-on-failure --parallel "$(nproc)"; then
+    print_banner "$COLOR_RED" "Test execution failed - installation aborted!"
+    echo "${INFO} Review the ctest output above, fix the issues, and re-run rpitx-ui installation with the --enable-testing flag."
+    echo "${INFO} No files have been installed to /usr/bin or /usr/share/rpitx-ui."
+    exit 1
+  fi
+  print_banner "$COLOR_GREEN" "Test execution completed successfully!"
+fi
+
 sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
-echo "${INFO} In order to run properly, rpitx-ui need to modify boot config."
+echo "${INFO} In order to run properly, rpitx-ui needs to modify boot config."
 echo "${INFO} Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
 if [ ! -f /boot/firmware/config.txt ]; then
   echo "${INFO} Raspberry Pi OS 11 or below detected, using /boot/config.txt"
