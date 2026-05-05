@@ -88,4 +88,16 @@ if(BUILD_OPTIONAL_TARGETS)
     include(cmake/ft8_lib-build.cmake)
 endif()
 
+# ----------------------------------------------------------
+# Test infrastructure
+# ----------------------------------------------------------
+# Tests are opt-in: production users running install.sh must not pay the
+# GoogleTest FetchContent cost, but contributors building locally enable the
+# suite via -DENABLE_TESTING=ON.
+option(ENABLE_TESTING "Build unit tests for the shared utility libraries" OFF)
+if(ENABLE_TESTING)
+    enable_testing()
+    include(cmake/googletest-build.cmake)
+endif()
+
 add_subdirectory(src)
