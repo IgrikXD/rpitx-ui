@@ -20,3 +20,7 @@ add_library(rpitx_cli_utils STATIC
 )
 target_include_directories(rpitx_cli_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rpitx_cli_utils PUBLIC CLI11::CLI11)
+
+if(ENABLE_TESTING)
+    add_subdirectory(tests)
+endif()
