@@ -26,3 +26,7 @@ add_library(rpitx_audio_utils STATIC
 )
 target_include_directories(rpitx_audio_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rpitx_audio_utils PRIVATE PkgConfig::SNDFILE PkgConfig::SOXR)
+
+if(ENABLE_TESTING)
+    add_subdirectory(tests)
+endif()
