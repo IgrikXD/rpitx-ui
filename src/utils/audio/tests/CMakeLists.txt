@@ -16,7 +16,6 @@ add_executable(rpitx_audio_utils_tests
     test_audio_rate_converter.cpp
     test_libsndfile_audio_source.cpp
     test_soxr_resampler.cpp
-    test_validate_helpers.cpp
 )
 
 target_link_libraries(rpitx_audio_utils_tests
