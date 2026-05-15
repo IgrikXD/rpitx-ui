@@ -1,5 +1,5 @@
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
-# Date: 05.05.2026
+# Date: 15.05.2026
 # License: GPL-3.0
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -21,6 +21,7 @@ add_executable(rpitx_audio_utils_tests
 target_link_libraries(rpitx_audio_utils_tests
     PRIVATE
         rpitx_audio_utils
+        rpitx_common_test_utils
         PkgConfig::SNDFILE
         GTest::gtest
         GTest::gmock
