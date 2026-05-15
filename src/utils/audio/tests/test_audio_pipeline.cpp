@@ -434,10 +434,10 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
  * never short-circuits at the chosen values.
  */
 TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
-    constexpr std::size_t kFrames{4096};
-    std::vector<float> samples(kFrames);
-    for (std::size_t frame{0}; frame < kFrames; ++frame) {
-        samples[frame] = static_cast<float>(frame) / static_cast<float>(kFrames) * 0.5F;
+    constexpr std::size_t kSourceFrames{4096};
+    std::vector<float> samples(kSourceFrames);
+    for (std::size_t frame{0}; frame < kSourceFrames; ++frame) {
+        samples[frame] = static_cast<float>(frame) / static_cast<float>(kSourceFrames) * 0.5F;
     }
     const auto referenceSamples{samples};
     FakeAudioSource source{AudioFormat{
@@ -482,9 +482,9 @@ TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
  * sign-flip regressions slip through silently.
  */
 TEST(AudioPipelineReadTest, StereoMonoModeAveragesChannels) {
-    constexpr std::size_t kFrames{2048};
-    std::vector<float> samples(kFrames * 2);
-    for (std::size_t frame{0}; frame < kFrames; ++frame) {
+    constexpr std::size_t kSourceFrames{2048};
+    std::vector<float> samples(kSourceFrames * 2);
+    for (std::size_t frame{0}; frame < kSourceFrames; ++frame) {
         samples[frame * 2 + 0] = 1.0F;
         samples[frame * 2 + 1] = 0.5F;
     }
@@ -514,9 +514,9 @@ TEST(AudioPipelineReadTest, StereoMonoModeAveragesChannels) {
  * would average the two to -0.125 and trip the EXPECT_NEAR on both interleaved slots.
  */
 TEST(AudioPipelineReadTest, StereoPreserveModePropagatesIndependentChannels) {
-    constexpr std::size_t kFrames{2048};
-    std::vector<float> samples(kFrames * 2);
-    for (std::size_t frame{0}; frame < kFrames; ++frame) {
+    constexpr std::size_t kSourceFrames{2048};
+    std::vector<float> samples(kSourceFrames * 2);
+    for (std::size_t frame{0}; frame < kSourceFrames; ++frame) {
         samples[frame * 2 + 0] = 0.25F;
         samples[frame * 2 + 1] = -0.5F;
     }
