@@ -424,15 +424,14 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
 }
 
 /**
- * @brief Mono passthrough reproduces the input sample-by-sample within a 1e-5 tolerance.
+ * @brief Mono passthrough reproduces the input sample-by-sample bit-exactly.
  *
- * Equal source/target rate plus mono-mode on a mono source minimizes per-sample arithmetic:
- * the downmix collapses to a single-channel copy and AudioRateConverter takes its
- * passthrough fast path (libsoxr is not even instantiated), so any deviation beyond 1e-5
- * between the source and the output points to a regression in the pass-through path.
- * kFrames is a multiple of targetOutputFrames, so the source is consumed in whole blocks
- * with no zero-pad tail; the reference-size guard on the inner loop is defensive against
- * future tweaks to either constant and never short-circuits at the chosen values.
+ * Equal source/target rate with a mono source collapses the data path to four std::copy
+ * hops (libsoxr is not even instantiated) - no arithmetic touches the sample values, so
+ * gtest's 4-ULP float precision is the right strictness; any larger drift signals a
+ * non-passthrough code path leaking into the equal-rate mono case. kFrames is a multiple
+ * of targetOutputFrames, so the inner loop's reference-size guard is defensive only and
+ * never short-circuits at the chosen values.
  */
 TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
     constexpr std::size_t kFrames{4096};
@@ -465,7 +464,7 @@ TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
         ASSERT_EQ(status, AudioPipelineStatus::Ok);
         for (std::size_t sampleIdx{0}; sampleIdx < outputBlock.size() && comparedSampleCount < referenceSamples.size();
              ++sampleIdx, ++comparedSampleCount) {
-            EXPECT_NEAR(outputBlock[sampleIdx], referenceSamples[comparedSampleCount], 1e-5F)
+            EXPECT_FLOAT_EQ(outputBlock[sampleIdx], referenceSamples[comparedSampleCount])
                 << "Mismatch at sample " << comparedSampleCount;
         }
     }
