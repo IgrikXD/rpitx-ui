@@ -606,7 +606,7 @@ TEST(AudioPipelineReadTest, NonLoopOnEmptySourceReturnsEndAndStays) {
  */
 TEST(AudioPipelineReadTest, LoopModeReplaysContent) {
     constexpr std::size_t kSourceFrames{600};
-    constexpr int kIterations{5};
+    constexpr std::size_t kIterations{5};
     std::vector<float> samples(kSourceFrames, 0.5F);
     FakeAudioSource source{AudioFormat{
                                .channels   = 1,
@@ -623,7 +623,7 @@ TEST(AudioPipelineReadTest, LoopModeReplaysContent) {
                            });
 
     std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
-    for (int blockIdx{0}; blockIdx < kIterations; ++blockIdx) {
+    for (std::size_t blockIdx{0}; blockIdx < kIterations; ++blockIdx) {
         EXPECT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Ok);
     }
 }
