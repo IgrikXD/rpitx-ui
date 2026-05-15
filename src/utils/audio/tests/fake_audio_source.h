@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -30,7 +32,7 @@
  */
 class FakeAudioSource final : public AudioSource {
 public:
-    FakeAudioSource(AudioFormat format, std::vector<float> samples, bool seekable = true)
+    FakeAudioSource(AudioFormat format, std::vector<float> samples, bool seekable)
         : format_{format}, samples_{std::move(samples)}, seekable_{seekable} {
     }
 
@@ -60,6 +62,16 @@ public:
     }
 
     [[nodiscard]] std::size_t read(std::span<float> dst) override {
+        const auto channels{static_cast<std::size_t>(format_.channels)};
+        // Mirror the throw-on-misalignment contract enforced by
+        // LibsndfileAudioSource::read so the fake stays substitutable in any
+        // test that drives the AudioSource contract directly instead of
+        // through AudioPipeline.
+        if (channels == 0 || dst.empty() || dst.size() % channels != 0) {
+            throw std::invalid_argument{
+                "FakeAudioSource::read: dst must be a non-empty whole number of frames (size " +
+                std::to_string(dst.size()) + ", channels " + std::to_string(channels) + ")"};
+        }
         if (error_) {
             return 0;
         }
@@ -88,7 +100,7 @@ public:
 private:
     AudioFormat format_;
     std::vector<float> samples_;
-    bool seekable_{true};
+    bool seekable_;
     bool error_{false};
     std::size_t readPos_{0};
 };
