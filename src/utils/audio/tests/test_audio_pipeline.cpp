@@ -430,9 +430,9 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
  * the downmix collapses to a single-channel copy and AudioRateConverter takes its
  * passthrough fast path (libsoxr is not even instantiated), so any deviation beyond 1e-5
  * between the source and the output points to a regression in the pass-through path.
- * Comparison stops at the reference end; any trailing output the pipeline emits past that
- * point is drain padding rather than source content and is not part of the reproduction
- * contract.
+ * kFrames is a multiple of targetOutputFrames, so the source is consumed in whole blocks
+ * with no zero-pad tail; the reference-size guard on the inner loop is defensive against
+ * future tweaks to either constant and never short-circuits at the chosen values.
  */
 TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
     constexpr std::size_t kFrames{4096};
