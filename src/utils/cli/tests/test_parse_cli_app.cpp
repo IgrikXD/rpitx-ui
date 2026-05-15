@@ -3,7 +3,7 @@
  * @brief Unit tests for rpitx::cli::parseCliApp and assignFrequencyHz.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 11.05.2026
+ * @date 15.05.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -17,71 +17,12 @@
 #include <string_view>
 #include <vector>
 
+#include "captured_streams_mixin.h"
 #include "cli_common.h"
 #include "cli_parse_result.h"
 
 namespace {
     using rpitx::cli::ParseResult;
-    using ::testing::internal::CaptureStderr;
-    using ::testing::internal::CaptureStdout;
-    using ::testing::internal::GetCapturedStderr;
-    using ::testing::internal::GetCapturedStdout;
-
-    /**
-     * @brief Test-mixin that arms gtest's stdout/stderr capturers in SetUp and exposes
-     *        the captured text via lazy, cached accessors, releasing any unconsumed
-     *        capture in TearDown.
-     *
-     * Parameterized by the gtest fixture base (`::testing::Test` for non-parametric
-     * tests, `::testing::TestWithParam<T>` for value-parametrized ones) so the same
-     * capture behaviour plugs into either kind of fixture without code duplication.
-     * SetUp arms both captures unconditionally; the test body only pays the Get cost
-     * for the streams it actually queries via capturedStdout() / capturedStderr().
-     * The accessors cache on first call - gtest's API permits exactly one Get per
-     * Capture, and the cache turns subsequent calls into a reference read instead of
-     * a double-Get crash. TearDown releases any stream the body never consumed,
-     * keeping the process-global capture state clean for the next test even when a
-     * test bails out mid-body before reaching its stream assertions.
-     */
-    template <typename Base>
-    class CapturedStreamsMixin : public Base {
-    protected:
-        void SetUp() override {
-            CaptureStdout();
-            CaptureStderr();
-        }
-
-        void TearDown() override {
-            if (stdoutConsumed_ == false) {
-                GetCapturedStdout();
-            }
-            if (stderrConsumed_ == false) {
-                GetCapturedStderr();
-            }
-        }
-
-        const std::string& capturedStdout() {
-            if (stdoutConsumed_ == false) {
-                cachedStdout_   = GetCapturedStdout();
-                stdoutConsumed_ = true;
-            }
-            return cachedStdout_;
-        }
-
-        const std::string& capturedStderr() {
-            if (stderrConsumed_ == false) {
-                cachedStderr_   = GetCapturedStderr();
-                stderrConsumed_ = true;
-            }
-            return cachedStderr_;
-        }
-
-    private:
-        std::string cachedStdout_;
-        std::string cachedStderr_;
-        bool stdoutConsumed_{false};
-        bool stderrConsumed_{false};
-    };
 
     /**
      * @brief Drive parseCliApp with an inline argv list, owning the backing string storage internally.

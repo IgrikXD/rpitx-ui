@@ -3,7 +3,7 @@
  * @brief Unit tests for the libsndfile-backed AudioSource factory.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
- * @date 05.05.2026
+ * @date 15.05.2026
  * @copyright GPL-3.0
  * @see https://github.com/IgrikXD/rpitx-ui
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
@@ -22,12 +22,10 @@
 #include <system_error>
 #include <vector>
 
+#include "captured_streams_mixin.h"
 #include "libsndfile_audio_source.h"
 
 namespace {
-    using ::testing::internal::CaptureStderr;
-    using ::testing::internal::GetCapturedStderr;
-
     /**
      * @brief CD-audio sample rate (44.1 kHz). Paired with stereo on the open-format case.
      */
@@ -104,47 +102,9 @@ namespace {
         }
     };
 
-    /**
-     * @brief Test-mixin that arms gtest's stderr capture in SetUp and exposes the captured
-     *        text via a lazy, cached accessor, releasing any unconsumed capture in TearDown.
-     *
-     * Parameterized by the gtest fixture base (`::testing::Test` for non-parametric tests,
-     * `::testing::TestWithParam<T>` for value-parametrized ones) so the same capture behaviour
-     * plugs into either kind of fixture without code duplication. SetUp arms unconditionally;
-     * the test body only pays the Get cost when it actually queries via capturedStderr().
-     * The accessor caches on first call - gtest's API permits exactly one Get per Capture,
-     * and the cache turns subsequent calls into a reference read instead of a double-Get
-     * crash. TearDown releases the stream when the body never consumed it, keeping the
-     * process-global capture state clean for the next test.
-     */
-    template <typename Base>
-    class CapturedStderrMixin : public Base {
-    protected:
-        void SetUp() override {
-            CaptureStderr();
-        }
-
-        void TearDown() override {
-            if (stderrConsumed_ == false) {
-                GetCapturedStderr();
-            }
-        }
-
-        const std::string& capturedStderr() {
-            if (stderrConsumed_ == false) {
-                cachedStderr_   = GetCapturedStderr();
-                stderrConsumed_ = true;
-            }
-            return cachedStderr_;
-        }
-
-    private:
-        std::string cachedStderr_;
-        bool stderrConsumed_{false};
-    };
 }  // namespace
 
-class MakeFileAudioSourceFailureTest : public CapturedStderrMixin<::testing::Test> {};
+class MakeFileAudioSourceFailureTest : public CapturedStreamsMixin<::testing::Test> {};
 
 /**
  * @brief makeFileAudioSource returns nullptr and emits a stderr diagnostic for a nonexistent path.
