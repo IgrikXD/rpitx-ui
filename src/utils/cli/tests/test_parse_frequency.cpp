@@ -87,7 +87,7 @@ TEST_P(ParseFrequencyHzTest, ResolvesToExpectedHz) {
     const auto parsed{parseFrequencyHz(testCase.input)};
 
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(*parsed, testCase.expectedHz);
+    EXPECT_EQ(parsed.value(), testCase.expectedHz);
 }
 
 INSTANTIATE_TEST_SUITE_P(ValidInputMatrix, ParseFrequencyHzTest, ::testing::ValuesIn(makeValidFrequencyTestCases()),
