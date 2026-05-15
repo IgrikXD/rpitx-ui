@@ -63,8 +63,9 @@ namespace {
         info.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
 
         std::random_device randomDevice;
-        const auto stem{std::to_string(randomDevice()) + "_" + std::to_string(randomDevice())};
-        const auto path{(std::filesystem::temp_directory_path() / ("rpitx_test_" + stem + ".wav")).string()};
+        const auto path{
+            (std::filesystem::temp_directory_path() / ("rpitx_test_" + std::to_string(randomDevice()) + ".wav"))
+                .string()};
 
         SNDFILE* handle{sf_open(path.c_str(), SFM_WRITE, &info)};
         if (handle == nullptr) {
