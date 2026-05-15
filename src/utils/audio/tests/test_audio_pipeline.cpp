@@ -487,7 +487,12 @@ TEST(AudioPipelineReadTest, StereoMonoModeAveragesChannels) {
         samples[frame * 2 + 0] = 1.0F;
         samples[frame * 2 + 1] = 0.5F;
     }
-    FakeAudioSource source{AudioFormat{.channels = 2, .sampleRate = kBroadcastRateHz}, std::move(samples), true};
+    FakeAudioSource source{AudioFormat{
+                               .channels   = 2,
+                               .sampleRate = kBroadcastRateHz,
+                           },
+                           std::move(samples),
+                           true};
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = false,
