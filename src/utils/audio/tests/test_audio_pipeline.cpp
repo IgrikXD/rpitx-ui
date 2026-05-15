@@ -283,12 +283,14 @@ class AudioPipelineCtorTest
     : public CapturedStreamsMixin<::testing::TestWithParam<AudioPipelineCtorRejectionTestCase>> {};
 
 /**
- * @brief Ctor throws std::invalid_argument for any rejected config combination.
+ * @brief Ctor throws std::invalid_argument for any rejected config and emits no stderr diagnostic.
  *
  * The exception type is uniform across the two rejection branches (channel-count check in
  * AudioPipeline::AudioPipeline; targetOutputFrames check in the per-channel
  * AudioRateConverter ctor), so the test does not need to differentiate which branch fired -
- * surfacing std::invalid_argument from any rejected config is the public contract.
+ * surfacing std::invalid_argument from any rejected config is the public contract. The
+ * stderr-empty check pins the silence half: a future ctor that printed a diagnostic before
+ * throwing would slip past a throw-only assertion.
  */
 TEST_P(AudioPipelineCtorTest, ThrowsInvalidArgument) {
     const auto& testCase{GetParam()};
@@ -306,6 +308,7 @@ TEST_P(AudioPipelineCtorTest, ThrowsInvalidArgument) {
                                    .channelMode        = AudioChannelMode::Mono,
                                }),
                  std::invalid_argument);
+    EXPECT_TRUE(capturedStderr().empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(RejectedConfig, AudioPipelineCtorTest,
@@ -358,12 +361,14 @@ class AudioPipelineOutputGeometryTest : public CapturedStreamsMixin<::testing::T
 };
 
 /**
- * @brief Output channel count, frame count, and samples-per-block follow channelMode and targetOutputFrames.
+ * @brief Output dimensions follow channelMode and targetOutputFrames, and construction stays silent on stderr.
  *
  * Mono mode collapses any source-channel count to 1; Preserve mode passes the source-channel
  * count through. outputSamplesPerBlock() multiplies frames by the resulting channel count -
  * checking that derived value alongside the two primary getters catches a regression in
- * either factor or the multiplication itself.
+ * either factor or the multiplication itself. The stderr-empty check pins the
+ * construction-path silence: a ctor or getter that leaked a warning would slip past the
+ * value checks.
  */
 TEST_P(AudioPipelineOutputGeometryTest, ReportsExpectedOutputDimensions) {
     const auto& testCase{GetParam()};
@@ -383,6 +388,7 @@ TEST_P(AudioPipelineOutputGeometryTest, ReportsExpectedOutputDimensions) {
     EXPECT_EQ(pipeline.outputChannels(), testCase.expectedOutputChannels);
     EXPECT_EQ(pipeline.outputFrames(), testCase.targetOutputFrames);
     EXPECT_EQ(pipeline.outputSamplesPerBlock(), testCase.expectedOutputSamplesPerBlock);
+    EXPECT_TRUE(capturedStderr().empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(ChannelModeMatrix, AudioPipelineOutputGeometryTest,
