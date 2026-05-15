@@ -297,17 +297,14 @@ TEST_P(AudioPipelineCtorTest, ThrowsInvalidArgument) {
                            },
                            true};
 
-    EXPECT_THROW(
-        {
-            [[maybe_unused]] AudioPipeline pipeline(source,
-                                                    AudioPipelineConfig{
-                                                        .loop               = false,
-                                                        .targetSampleRate   = kBroadcastRateHz,
-                                                        .targetOutputFrames = testCase.targetOutputFrames,
-                                                        .channelMode        = AudioChannelMode::Mono,
-                                                    });
-        },
-        std::invalid_argument);
+    EXPECT_THROW(AudioPipeline(source,
+                               AudioPipelineConfig{
+                                   .loop               = false,
+                                   .targetSampleRate   = kBroadcastRateHz,
+                                   .targetOutputFrames = testCase.targetOutputFrames,
+                                   .channelMode        = AudioChannelMode::Mono,
+                               }),
+                 std::invalid_argument);
 }
 
 INSTANTIATE_TEST_SUITE_P(RejectedConfig, AudioPipelineCtorTest,
