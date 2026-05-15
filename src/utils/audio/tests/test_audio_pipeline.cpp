@@ -429,9 +429,9 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
  * Equal source/target rate with a mono source collapses the data path to four std::copy
  * hops (libsoxr is not even instantiated) - no arithmetic touches the sample values, so
  * gtest's 4-ULP float precision is the right strictness; any larger drift signals a
- * non-passthrough code path leaking into the equal-rate mono case. kFrames is a multiple
- * of targetOutputFrames, so the inner loop's reference-size guard is defensive only and
- * never short-circuits at the chosen values.
+ * non-passthrough code path leaking into the equal-rate mono case. kSourceFrames is a
+ * multiple of targetOutputFrames so the inner loop indexes referenceSamples in-bounds
+ * through every Ok block.
  */
 TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
     constexpr std::size_t kSourceFrames{4096};
@@ -462,8 +462,7 @@ TEST(AudioPipelineReadTest, MonoPassthroughReproducesInput) {
             break;
         }
         ASSERT_EQ(status, AudioPipelineStatus::Ok);
-        for (std::size_t sampleIdx{0}; sampleIdx < outputBlock.size() && comparedSampleCount < referenceSamples.size();
-             ++sampleIdx, ++comparedSampleCount) {
+        for (std::size_t sampleIdx{0}; sampleIdx < outputBlock.size(); ++sampleIdx, ++comparedSampleCount) {
             EXPECT_FLOAT_EQ(outputBlock[sampleIdx], referenceSamples[comparedSampleCount])
                 << "Mismatch at sample " << comparedSampleCount;
         }
