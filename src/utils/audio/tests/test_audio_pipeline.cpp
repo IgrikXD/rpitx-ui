@@ -657,6 +657,47 @@ TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
     EXPECT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::End);
 }
 
+/**
+ * @brief Passthrough emits exactly the source frame count.
+ *
+ * Equal source/target rate routes AudioRateConverter to its passthrough fast path - no
+ * libsoxr, no warmup / drain padding. With kSourceFrames a multiple of targetOutputFrames
+ * block-rounding adds nothing either, pinning the total to kSourceFrames bit-for-bit -
+ * a regression that spuriously built soxr on an equal-rate config trips the EXPECT_EQ that
+ * AudioPipelineResampleSweepTest's 10% tolerance would mask.
+ */
+TEST(AudioPipelineReadTest, PassthroughEmitsExactSourceFrameCount) {
+    constexpr std::size_t kSourceFrames{16'384};
+    constexpr std::size_t kTargetOutputFrames{1'024};
+    std::vector<float> samples(kSourceFrames, 0.5F);
+    FakeAudioSource source{AudioFormat{
+                               .channels   = 1,
+                               .sampleRate = kBroadcastRateHz,
+                           },
+                           std::move(samples),
+                           true};
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = false,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = kTargetOutputFrames,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+    std::size_t totalSamples{0};
+    while (true) {
+        const auto status{pipeline.read(outputBlock)};
+        if (status == AudioPipelineStatus::End) {
+            break;
+        }
+        ASSERT_EQ(status, AudioPipelineStatus::Ok);
+        totalSamples += outputBlock.size();
+    }
+
+    EXPECT_EQ(totalSamples, kSourceFrames);
+}
+
 namespace {
     struct ResampleTestCase {
         std::string_view name;
@@ -673,14 +714,16 @@ namespace {
     }
 
     /**
-     * @brief Four characteristic rate-conversion regimes the pipeline must handle: a same-rate
-     *        passthrough, the canonical 44.1 / 48 kHz upsample, its symmetric downsample, and
-     *        a large upsample into the project's broadcast ceiling. Same canonical pairing as
-     *        the SoxrResampler and AudioRateConverter test suites.
+     * @brief Three rate-converting regimes the pipeline must handle: the canonical 44.1 /
+     *        48 kHz upsample, its symmetric downsample, and a large upsample into the
+     *        project's broadcast ceiling. Same canonical pairing as the SoxrResampler and
+     *        AudioRateConverter test suites. The same-rate passthrough configuration is
+     *        covered exact-match by PassthroughEmitsExactSourceFrameCount instead - libsoxr is
+     *        never instantiated on that path, so the 10% warmup / drain budget carried by the
+     *        sweep below would be meaninglessly generous there.
      */
     std::vector<ResampleTestCase> makeResampleTestCases() {
         return {
-            ResampleTestCase{"Passthrough48k", kBroadcastRateHz, kBroadcastRateHz},
             ResampleTestCase{"Upsample441kTo48k", kCdAudioRateHz, kBroadcastRateHz},
             ResampleTestCase{"Downsample48kTo441k", kBroadcastRateHz, kCdAudioRateHz},
             ResampleTestCase{"LargeUpsample441kTo192k", kCdAudioRateHz, kMaxSampleRateHz},
