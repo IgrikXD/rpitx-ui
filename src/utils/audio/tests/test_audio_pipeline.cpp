@@ -279,7 +279,8 @@ namespace {
     }
 }  // namespace
 
-class AudioPipelineCtorTest : public ::testing::TestWithParam<AudioPipelineCtorRejectionTestCase> {};
+class AudioPipelineCtorTest
+    : public CapturedStreamsMixin<::testing::TestWithParam<AudioPipelineCtorRejectionTestCase>> {};
 
 /**
  * @brief Ctor throws std::invalid_argument for any rejected config combination.
@@ -353,7 +354,8 @@ namespace {
     }
 }  // namespace
 
-class AudioPipelineOutputGeometryTest : public ::testing::TestWithParam<OutputGeometryTestCase> {};
+class AudioPipelineOutputGeometryTest : public CapturedStreamsMixin<::testing::TestWithParam<OutputGeometryTestCase>> {
+};
 
 /**
  * @brief Output channel count, frame count, and samples-per-block follow channelMode and targetOutputFrames.
