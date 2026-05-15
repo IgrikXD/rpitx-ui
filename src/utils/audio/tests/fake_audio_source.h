@@ -68,9 +68,8 @@ public:
         // test that drives the AudioSource contract directly instead of
         // through AudioPipeline.
         if (channels == 0 || dst.empty() || dst.size() % channels != 0) {
-            throw std::invalid_argument{
-                "FakeAudioSource::read: dst must be a non-empty whole number of frames (size " +
-                std::to_string(dst.size()) + ", channels " + std::to_string(channels) + ")"};
+            throw std::invalid_argument{"FakeAudioSource::read: dst must be a non-empty whole number of frames (size " +
+                                        std::to_string(dst.size()) + ", channels " + std::to_string(channels) + ")"};
         }
         if (error_) {
             return 0;
