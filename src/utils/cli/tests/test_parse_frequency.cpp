@@ -68,19 +68,14 @@ class ParseFrequencyHzTest : public ::testing::TestWithParam<ValidFrequencyTestC
 /**
  * @brief Valid frequency text resolves to the corresponding integer Hz value.
  *
- * The input matrix sweeps integer notation across several magnitudes plus scientific
- * notation in lower-case `e`, upper-case `E`, and decimal-mantissa forms whose
- * mathematical result is integer-valued in Hz (e.g. 100.5e6 -> 100_500_000). The
- * AtTwoToTheThirtyTwo case probes the 2^32 boundary and guards against silent 32-bit
- * truncation that smaller cases cannot detect; NearTwoToTheSixtyFour probes the upper
- * boundary at 18_446_744_073_709_549_568 - the largest representable double strictly
- * below 2^64, where the 2048-unit gap to 2^64 equals the double ULP at this magnitude
- * - pinning both the high-end static_cast and the strict `< 2^64` admit-side of the
- * range check. The two assertions split the contract: ASSERT_TRUE pins parse-success
- * and prevents UB in the *parsed dereference below; EXPECT_EQ pins exact-Hz
- * correctness - a regression that returned 0 on success, truncated high bits, or
- * mis-handled the mantissa-to-integer conversion would slip past a has_value()-only
- * check.
+ * AtTwoToTheThirtyTwo guards against silent 32-bit truncation that smaller cases cannot
+ * detect. NearTwoToTheSixtyFour pins the strict `< 2^64` admit-side of the range check at
+ * 18_446_744_073_709_549_568 - the largest representable double strictly below 2^64.
+ *
+ * The split assertions: ASSERT_TRUE prevents parsed.value() from throwing
+ * bad_optional_access on a nullopt regression, giving a clean precondition-style failure;
+ * EXPECT_EQ pins exact-Hz correctness against truncation or mantissa-handling regressions
+ * that a has_value()-only check would miss.
  */
 TEST_P(ParseFrequencyHzTest, ResolvesToExpectedHz) {
     const auto& testCase{GetParam()};
@@ -146,20 +141,13 @@ class ParseFrequencyHzRejectionTest : public ::testing::TestWithParam<InvalidFre
 /**
  * @brief Inputs that violate the parser's contract round-trip to std::nullopt.
  *
- * The rejection axis carries one named case per distinct failure class so a regression
- * in any single gate is attributable from the case name alone. Empty falls at the
- * `text.empty()` early-out; Whitespace and NonNumeric fail std::from_chars with
- * errc::invalid_argument (no characters matched the pattern); ExponentOverflowsDouble
- * fails std::from_chars with errc::result_out_of_range (10^999 exceeds double's
- * exponent range); Trailing* cases pass the parse but trip `ptr != last`;
- * InfinityLiteral and NanLiteral fail std::isfinite; Negative* and Zero* magnitudes
- * fail the `value <= 0` gate; AtTwoToTheSixtyFour and AboveTwoToTheSixtyFour fail
- * the `value >= 0x1p64` upper bound (a distinct gate from ExponentOverflowsDouble -
- * that one overflows double's exponent range, these overflow uint64); and
- * FractionalHz* cases fail the std::modf integer-Hz check.
+ * One named case per distinct failure class so a regression in any single gate is
+ * attributable from the case name alone. AtTwoToTheSixtyFour / AboveTwoToTheSixtyFour
+ * are distinct from ExponentOverflowsDouble - the first two overflow uint64, the latter
+ * overflows double's exponent range.
  *
- * Comparing against std::nullopt rather than negating has_value() keeps failure
- * messages readable - gtest's pretty-printer surfaces the wrapped value on mismatch.
+ * Comparing against std::nullopt rather than negating has_value() keeps failure messages
+ * readable - gtest's pretty-printer surfaces the wrapped value on mismatch.
  */
 TEST_P(ParseFrequencyHzRejectionTest, ReturnsNullopt) {
     const auto& testCase{GetParam()};

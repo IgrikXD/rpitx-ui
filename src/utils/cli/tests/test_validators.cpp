@@ -73,21 +73,13 @@ class PositiveFiniteFloatTest : public ::testing::TestWithParam<ValidPositiveFin
 /**
  * @brief Valid positive-finite-float text resolves to an empty diagnostic.
  *
- * The input matrix sweeps integer notation ("1", "100"), decimal-fraction notation in
- * both below-one ("0.5") and above-one ("3.14") flavours, and scientific notation in
- * lower-case 'e' ("1e2"), upper-case 'E' ("1E2"), and negative-exponent ("1.5e-3")
- * forms. The negative-exponent case pins sub-1 admit-side coverage that integer-only
- * sweeps cannot reach - a regression that tightened the lower bound (e.g.
- * value >= 1.0F) would slip past "1" and "100" but fail on "0.5" and "1.5e-3"; the
- * upper-case 'E' case mirrors the parser-test guard against a case-sensitivity
- * regression in the float overload of std::from_chars (the double overload is
- * already pinned by test_parse_frequency.cpp's ScientificUpperCaseE case).
+ * The negative-exponent case pins sub-1 admit-side coverage that integer-only sweeps cannot
+ * reach - a regression that tightened the lower bound (e.g. value >= 1.0F) would slip past
+ * "1" and "100" but fail on "0.5" and "1.5e-3". The upper-case 'E' case guards against a
+ * case-sensitivity regression in the float overload of std::from_chars.
  *
- * Comparing against a literal empty string rather than negating !empty() keeps
- * failure messages readable - gtest's pretty-printer surfaces the unexpected
- * diagnostic on mismatch, immediately revealing which of the two failure-class
- * diagnostics ("must be a numeric value" or "must be a positive finite float") was
- * returned in error.
+ * Comparing against a literal empty string rather than negating !empty() keeps failure
+ * messages readable - gtest's pretty-printer surfaces the unexpected diagnostic on mismatch.
  */
 TEST_P(PositiveFiniteFloatTest, ReturnsEmptyDiagnostic) {
     const auto& testCase{GetParam()};
@@ -147,17 +139,9 @@ class PositiveFiniteFloatRejectionTest : public ::testing::TestWithParam<Invalid
 /**
  * @brief Inputs that violate the validator's contract round-trip to a diagnostic.
  *
- * The rejection axis carries one named case per distinct failure class so a regression
- * in any single gate is attributable from the case name alone, and cases are grouped by
- * which of the validator's two diagnostics they trigger. Cases producing the
- * "must be a numeric value" diagnostic come first: Empty, Whitespace and NonNumeric
- * fail std::from_chars with errc::invalid_argument (no characters matched the float
- * pattern); Trailing* and IncompleteScientific cases pass the parse but trip
- * `ptr != last` (the unconsumed-tail check). Cases producing the "must be a positive
- * finite float" diagnostic follow: ExponentOverflowsFloat fails with
- * errc::result_out_of_range (10^40 exceeds float's exponent range); InfinityLiteral
- * and NanLiteral fail std::isfinite; Zero* and Negative* magnitudes fail the
- * `value <= 0.0F` gate.
+ * One named case per distinct failure class so a regression in any single gate is
+ * attributable from the case name alone, with cases grouped by which of the validator's
+ * two diagnostics they trigger.
  */
 TEST_P(PositiveFiniteFloatRejectionTest, ReturnsDiagnostic) {
     const auto& testCase{GetParam()};
@@ -268,19 +252,10 @@ class FrequencyHzValidatorRejectionTest : public ::testing::TestWithParam<Invali
 /**
  * @brief Inputs the parser rejects round-trip through the wrapper to a diagnostic.
  *
- * The FrequencyHz validator collapses every parseFrequencyHz nullopt return into a
- * single "must be a positive integer Hz value..." diagnostic, so the matrix carries
- * one named case per distinct parser rejection class, ordered by gate ascent.
- * Empty falls at the `text.empty()` early-out; Whitespace and NonNumeric fail
- * std::from_chars with errc::invalid_argument (no characters matched the pattern);
- * ExponentOverflowsDouble fails std::from_chars with errc::result_out_of_range
- * (10^999 exceeds double's exponent range); TrailingUnit passes the parse but
- * trips `ptr != last`; InfinityLiteral and NanLiteral fail std::isfinite;
- * NegativeInteger and Zero fail the `value <= 0` gate; AboveTwoToTheSixtyFour
- * fails the `value >= 0x1p64` upper bound; and FractionalHzDecimal fails the
- * std::modf integer-check. Exhaustive coverage with multiple cases per gate lives
- * in test_parse_frequency.cpp; here this fan-out suffices because the wrapper has
- * a single nullopt-branch.
+ * The FrequencyHz wrapper collapses every parseFrequencyHz nullopt return into a single
+ * diagnostic, so the matrix carries one named case per distinct parser rejection class.
+ * Exhaustive coverage with multiple cases per gate lives in test_parse_frequency.cpp;
+ * here this fan-out suffices because the wrapper has a single nullopt-branch.
  */
 TEST_P(FrequencyHzValidatorRejectionTest, ReturnsDiagnostic) {
     const auto& testCase{GetParam()};
