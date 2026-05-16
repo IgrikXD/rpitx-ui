@@ -35,7 +35,7 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 ./install.sh --skip-optional
 ```
 
-To run the tests for the shared `audio` / `cli` / `dsp` utility libraries as part of the installation script execution, use the `--enable-testing` flag. A failing test aborts the installation process before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
+To run the tests for the shared `audio` / `cli` / `dsp` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
 ```
