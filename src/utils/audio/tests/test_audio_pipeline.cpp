@@ -769,7 +769,8 @@ TEST(AudioPipelineReadTest, LoopModeInvokesRewindWhenSourceDrains) {
  *
  * Rewinding an empty source produces another empty read on every iteration - the SUT must
  * detect "no progress after rewind" and convert it to End rather than spinning forever
- * pulling zero samples through an unending sequence of rewinds.
+ * pulling zero samples through an unending sequence of rewinds. The AtMost ceilings turn
+ * a livelock regression into a loud EXPECT_CALL failure instead of a ctest timeout.
  */
 TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
     ::testing::NiceMock<MockAudioSource> source;
@@ -779,8 +780,13 @@ TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
             .sampleRate = kBroadcastRateHz,
         }));
     ON_CALL(source, seekable()).WillByDefault(::testing::Return(true));
-    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(0));
-    ON_CALL(source, rewind()).WillByDefault(::testing::Return(true));
+    constexpr int kLivelockCallCeiling{8};
+    EXPECT_CALL(source, read(::testing::_))
+        .Times(::testing::AtMost(kLivelockCallCeiling))
+        .WillRepeatedly(::testing::Return(0));
+    EXPECT_CALL(source, rewind())
+        .Times(::testing::AtMost(kLivelockCallCeiling))
+        .WillRepeatedly(::testing::Return(true));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = true,
