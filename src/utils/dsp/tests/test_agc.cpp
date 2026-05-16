@@ -43,8 +43,8 @@ namespace {
     };
 
     /**
-     * @brief Initial envelope below the 1e-6 floor - exercises the construct-time path where the
-     *        AGC clamps gain to unity before any signal is observed.
+     * @brief Initial envelope below Agc::ENVELOPE_FLOOR - exercises the construct-time path where
+     *        the AGC clamps gain to unity before any signal is observed.
      */
     constexpr AgcConfig kZeroEnvelopeConfig{
         .target          = 1.0F,
@@ -69,8 +69,8 @@ namespace {
  * @brief Floor branch returns unity gain when envelope and magnitude are both zero.
  *
  * Constructed with a zero initial envelope and fed a zero magnitude, the AGC must return
- * unity rather than diverge - the 1e-6 envelope floor keeps the gain finite when no signal
- * is present.
+ * unity rather than diverge - the Agc::ENVELOPE_FLOOR clamp keeps the gain finite when no
+ * signal is present.
  */
 TEST(AgcTest, FloorYieldsUnityGainWhenEnvelopeNearZero) {
     Agc agc{kZeroEnvelopeConfig};
@@ -168,7 +168,7 @@ namespace {
     }
 
     /**
-     * @brief Magnitudes above the 1e-6 envelope floor where gain = target / |magnitude| (target=1).
+     * @brief Magnitudes above Agc::ENVELOPE_FLOOR where gain = target / |magnitude| (target=1).
      */
     std::vector<AgcUpdateGainTestCase> makeAboveFloorTestCases() {
         return {
@@ -182,12 +182,14 @@ namespace {
     }
 
     /**
-     * @brief Magnitudes at or below the 1e-6 envelope floor where the AGC clamps gain to unity.
+     * @brief Magnitudes at or below Agc::ENVELOPE_FLOOR where the AGC clamps gain to unity.
+     *        NearZero is expressed as ENVELOPE_FLOOR / 10 so the "one order of magnitude below
+     *        floor" relationship survives a floor retune without manual edits to the literal.
      */
     std::vector<AgcUpdateGainTestCase> makeBelowFloorTestCases() {
         return {
             AgcUpdateGainTestCase{"ExactlyZero", 0.0F, 1.0F},
-            AgcUpdateGainTestCase{"NearZero", 1e-7F, 1.0F},
+            AgcUpdateGainTestCase{"NearZero", Agc::ENVELOPE_FLOOR / 10.0F, 1.0F},
         };
     }
 }  // namespace
