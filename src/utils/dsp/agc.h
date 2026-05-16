@@ -47,6 +47,12 @@ struct AgcConfig {
 class Agc {
 public:
     /**
+     * @brief Envelope magnitude below which updateGain() clamps to unity instead of dividing
+     *        by the near-zero envelope, keeping the gain finite when no signal is present.
+     */
+    static constexpr float ENVELOPE_FLOOR{1e-6F};
+
+    /**
      * @brief Construct an AGC with the given configuration.
      * @param config AGC parameters.
      */
@@ -99,7 +105,7 @@ public:
             env_ += decay_ * (mag - env_);
         }
 
-        if (env_ > 1e-6f) {
+        if (env_ > ENVELOPE_FLOOR) {
             return target_ / env_;
         }
         return 1.0f;

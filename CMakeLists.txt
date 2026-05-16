@@ -1,12 +1,12 @@
 # Author: Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
-# Date: 27.03.2026
+# Date: 15.05.2026
 # License: GPL-3.0
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 cmake_minimum_required(VERSION 3.26)
 project(rpitx-ui
-    VERSION 1.11
+    VERSION 1.12
     DESCRIPTION "RF transmitter for Raspberry Pi with improved UI functionality, built with CMake."
     LANGUAGES C CXX ASM
 )
@@ -86,6 +86,18 @@ include(cmake/librpitx-build.cmake)
 # ft8_lib is only needed for the optional pift8 target
 if(BUILD_OPTIONAL_TARGETS)
     include(cmake/ft8_lib-build.cmake)
+endif()
+
+# ----------------------------------------------------------
+# Test infrastructure
+# ----------------------------------------------------------
+# Tests are opt-in: production users running install.sh must not pay the
+# GoogleTest FetchContent cost, but contributors building locally enable the
+# suite via -DENABLE_TESTING=ON.
+option(ENABLE_TESTING "Build unit tests for the shared utility libraries" OFF)
+if(ENABLE_TESTING)
+    enable_testing()
+    include(cmake/googletest-build.cmake)
 endif()
 
 add_subdirectory(src)

@@ -54,11 +54,11 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 1. Install rpitx-ui
+            # 1. Install rpitx-ui with --enable-testing flag
             # ==============================================================
             echo "::group::Install rpitx-ui"
             sudo apt-get update && sudo apt-get install -y git
-            echo "n" | bash ./install.sh
+            echo "n" | bash ./install.sh --enable-testing
             echo "::endgroup::"
 
             # ==============================================================

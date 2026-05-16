@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.11-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui build status][rpitx-ui-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.12-blue.svg?longCache=true&style=for-the-badge)
 
 ## Installation process
 Clone the **rpitx-ui** repository:
@@ -33,6 +33,11 @@ Install the **rpitx-ui** package:
 To build only the core targets used directly by the `rpitx-ui` interface (_skipping optional binaries and the ft8_lib dependency_), use the `--skip-optional` flag:
 ```sh
 ./install.sh --skip-optional
+```
+
+To run the tests for the shared `audio` / `cli` / `dsp` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
+```sh
+./install.sh --enable-testing
 ```
 
 To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
