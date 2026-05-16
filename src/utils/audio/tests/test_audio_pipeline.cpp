@@ -9,6 +9,7 @@
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -23,6 +24,7 @@
 #include "audio_pipeline.h"
 #include "captured_streams_mixin.h"
 #include "fake_audio_source.h"
+#include "mock_audio_source.h"
 
 namespace {
     /**
@@ -226,11 +228,8 @@ class ValidateLoopSupportTest : public CapturedStreamsMixin<::testing::TestWithP
  */
 TEST_P(ValidateLoopSupportTest, MatchesExpectedOutcome) {
     const auto& testCase{GetParam()};
-    FakeAudioSource source{AudioFormat{
-                               .channels   = 1,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           testCase.seekable};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, seekable()).WillByDefault(::testing::Return(testCase.seekable));
 
     const bool accepted{validateLoopSupport(source, testCase.loopRequested)};
 
@@ -294,11 +293,12 @@ class AudioPipelineCtorTest
  */
 TEST_P(AudioPipelineCtorTest, ThrowsInvalidArgument) {
     const auto& testCase{GetParam()};
-    FakeAudioSource source{AudioFormat{
-                               .channels   = testCase.sourceChannels,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = testCase.sourceChannels,
+            .sampleRate = kBroadcastRateHz,
+        }));
 
     EXPECT_THROW(AudioPipeline(source,
                                AudioPipelineConfig{
@@ -316,6 +316,34 @@ INSTANTIATE_TEST_SUITE_P(RejectedConfig, AudioPipelineCtorTest,
                          [](const ::testing::TestParamInfo<AudioPipelineCtorRejectionTestCase>& info) {
                              return std::string{info.param.name};
                          });
+
+/**
+ * @brief Ctor pulls source.format() exactly once and never touches read() / rewind() / error() /
+ *        seekable() / description().
+ *
+ * Pins the construction-path interaction contract: AudioPipeline must materialize its geometry
+ * from the format snapshot alone, deferring every data-path interaction with the source until
+ * the first read() call. StrictMock fails the test if the ctor calls any unprogrammed method,
+ * so a regression that probed seekable() up-front (e.g. moving validateLoopSupport into the
+ * ctor) or pre-pulled samples for warmup would surface as a strict-mock violation rather than
+ * passing silently.
+ */
+TEST(AudioPipelineCtorInteractionTest, CtorTouchesOnlyFormatOnce) {
+    ::testing::StrictMock<MockAudioSource> source;
+    EXPECT_CALL(source, format())
+        .WillOnce(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = false,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = 1024,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+}
 
 namespace {
     struct OutputGeometryTestCase {
@@ -372,11 +400,12 @@ class AudioPipelineOutputGeometryTest : public CapturedStreamsMixin<::testing::T
  */
 TEST_P(AudioPipelineOutputGeometryTest, ReportsExpectedOutputDimensions) {
     const auto& testCase{GetParam()};
-    FakeAudioSource source{AudioFormat{
-                               .channels   = testCase.sourceChannels,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = testCase.sourceChannels,
+            .sampleRate = kBroadcastRateHz,
+        }));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = false,
@@ -406,11 +435,12 @@ INSTANTIATE_TEST_SUITE_P(ChannelModeMatrix, AudioPipelineOutputGeometryTest,
  * against expected 1024) would let slip through.
  */
 TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
-    FakeAudioSource source{AudioFormat{
-                               .channels   = 1,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = false,
@@ -427,6 +457,39 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
     EXPECT_THROW(
         { [[maybe_unused]] const AudioPipelineStatus status{pipeline.read(oversizedOutputBlock)}; },
         std::invalid_argument);
+}
+
+/**
+ * @brief read() throws std::logic_error when the source returns a partial-frame sample count.
+ *
+ * AudioBlockReader treats a non-multiple-of-channels positive return as a backend invariant
+ * violation rather than a soft EOF, surfacing it as std::logic_error so the failure cannot be
+ * misread as a clean end-of-stream. Driving the contract via the mock is the only way to
+ * exercise it - LibsndfileAudioSource cannot produce such a return (sf_readf_float reads in
+ * whole frames by API), and FakeAudioSource does not produce it in current usage either:
+ * every caller initialises its samples buffer as a whole number of frames, so each
+ * min(remaining, dst.size()) take stays aligned. Stereo source with a return of 3 (3 % 2 != 0)
+ * is the smallest input that trips the check.
+ */
+TEST(AudioPipelineReadTest, ThrowsLogicErrorOnPartialFrameFromSource) {
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 2,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    constexpr std::size_t kPartialFrameSamplesRead{3};
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(kPartialFrameSamplesRead));
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = false,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = 1024,
+                               .channelMode        = AudioChannelMode::Preserve,
+                           });
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+
+    EXPECT_THROW({ [[maybe_unused]] const AudioPipelineStatus status{pipeline.read(outputBlock)}; }, std::logic_error);
 }
 
 /**
@@ -555,19 +618,56 @@ TEST(AudioPipelineReadTest, StereoPreserveModePropagatesIndependentChannels) {
 }
 
 /**
- * @brief read() returns Error when the source already has its sticky error flag raised on the first read.
+ * @brief read() returns Error when the source's first call returns zero samples with error()=true.
  *
- * FakeAudioSource publishes error()=true at the same call that returns 0 samples, so the
- * pipeline reader hits the error-during-zero-read path and reports Error rather than End -
- * distinguishing a fatal I/O failure from a clean EOF on the same zero-sample return.
+ * The mock surfaces error()=true on the same call that returns 0 samples, so the pipeline
+ * reader hits the error-during-zero-read path and reports Error rather than End -
+ * distinguishing a fatal I/O failure from a clean EOF on the same zero-sample return. The
+ * orthogonal positive-then-error path is covered by ReportsErrorWhenSourceErrorsAfterPositiveRead.
  */
 TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorFlagIsSet) {
-    FakeAudioSource source{AudioFormat{
-                               .channels   = 1,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
-    source.setError(true);
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(0));
+    ON_CALL(source, error()).WillByDefault(::testing::Return(true));
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = false,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = 1024,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+
+    EXPECT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Error);
+}
+
+/**
+ * @brief read() returns Error when the source surfaces error() = true on the same call that
+ *        returned a positive partial sample count.
+ *
+ * AudioSource's documented contract (audio_source.h) permits a backend to report a fatal failure
+ * after a positive short read - the post-positive-read error check in AudioBlockReader is the
+ * SUT branch handling that case. ReportsErrorWhenSourceErrorFlagIsSet covers the orthogonal
+ * "error visible on the first zero-sample return" branch; this test covers the positive-then-error
+ * variant. Returning kPositiveSamplesRead samples then reporting error()=true forces the SUT
+ * down that path and pins down its Error verdict.
+ */
+TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorsAfterPositiveRead) {
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    constexpr std::size_t kPositiveSamplesRead{64};
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(kPositiveSamplesRead));
+    ON_CALL(source, error()).WillByDefault(::testing::Return(true));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = false,
@@ -589,11 +689,13 @@ TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorFlagIsSet) {
  * stays set and subsequent reads continue returning End instead of attempting to restart.
  */
 TEST(AudioPipelineReadTest, NonLoopOnEmptySourceReturnsEndAndStays) {
-    FakeAudioSource source{AudioFormat{
-                               .channels   = 1,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(0));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = false,
@@ -640,6 +742,42 @@ TEST(AudioPipelineReadTest, LoopModeReplaysContent) {
 }
 
 /**
+ * @brief Loop mode invokes source.rewind() at least once when the source drains mid-block.
+ *
+ * LoopModeReplaysContent already pins the state-side outcome (read() keeps returning Ok across
+ * iterations); this test pins the interaction-side contract that the SUT actually drives
+ * rewind() on the source rather than synthesising replayed samples internally. Mock returns a
+ * short initial chunk then perpetual EOF so the AudioBlockReader is forced into the rewind
+ * branch within the first pipeline.read() call. The test deliberately does not assert on the
+ * returned status - the rewind expectation is the verifiable contract here, and pinning the
+ * status would duplicate LoopModeReplaysContent on the state-side axis.
+ */
+TEST(AudioPipelineReadTest, LoopModeInvokesRewindWhenSourceDrains) {
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    ON_CALL(source, seekable()).WillByDefault(::testing::Return(true));
+    constexpr std::size_t kInitialPartialReadSamples{100};
+    EXPECT_CALL(source, read(::testing::_))
+        .WillOnce(::testing::Return(kInitialPartialReadSamples))
+        .WillRepeatedly(::testing::Return(0));
+    EXPECT_CALL(source, rewind()).Times(::testing::AtLeast(1)).WillRepeatedly(::testing::Return(true));
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = true,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = 1024,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+    [[maybe_unused]] const auto status{pipeline.read(outputBlock)};
+}
+
+/**
  * @brief Loop mode on an empty seekable source reports End instead of livelocking on empty replays.
  *
  * Rewinding an empty source produces another empty read on every iteration - the SUT must
@@ -647,11 +785,15 @@ TEST(AudioPipelineReadTest, LoopModeReplaysContent) {
  * pulling zero samples through an unending sequence of rewinds.
  */
 TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
-    FakeAudioSource source{AudioFormat{
-                               .channels   = 1,
-                               .sampleRate = kBroadcastRateHz,
-                           },
-                           true};
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    ON_CALL(source, seekable()).WillByDefault(::testing::Return(true));
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(0));
+    ON_CALL(source, rewind()).WillByDefault(::testing::Return(true));
     AudioPipeline pipeline(source,
                            AudioPipelineConfig{
                                .loop               = true,
@@ -663,6 +805,38 @@ TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
     std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
 
     EXPECT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::End);
+}
+
+/**
+ * @brief Loop mode reports Error when source.rewind() fails on the boundary.
+ *
+ * Distinct from LoopModeReportsEndOnEmptySource, which exercises the rewind-then-empty path
+ * with rewind()=true. Here rewind() returns false on the first EOF, modelling a backend whose
+ * seekable() advertisement turned out to be a lie at the moment the seek was actually issued -
+ * the SUT must surface this as Error rather than swallowing the seek failure and falling
+ * through to End.
+ */
+TEST(AudioPipelineReadTest, ReportsErrorWhenLoopRewindFails) {
+    ::testing::NiceMock<MockAudioSource> source;
+    ON_CALL(source, format())
+        .WillByDefault(::testing::Return(AudioFormat{
+            .channels   = 1,
+            .sampleRate = kBroadcastRateHz,
+        }));
+    ON_CALL(source, seekable()).WillByDefault(::testing::Return(true));
+    ON_CALL(source, read(::testing::_)).WillByDefault(::testing::Return(0));
+    ON_CALL(source, rewind()).WillByDefault(::testing::Return(false));
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = true,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = 1024,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+
+    EXPECT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Error);
 }
 
 /**
