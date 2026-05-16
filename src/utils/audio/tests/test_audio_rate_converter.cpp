@@ -141,9 +141,6 @@ TEST(AudioRateConverterTest, PassthroughLeavesSamplesIntact) {
 
 /**
  * @brief process() reports success when the buffers match the converter's geometry.
- *
- * Sizing both spans from peekNextInputFrames and outputFrames satisfies the contract;
- * the call returns true.
  */
 TEST(AudioRateConverterTest, ProcessSucceedsOnRealRateConversion) {
     AudioRateConverter audioRateConverter{kCdAudioRateHz, kBroadcastRateHz, kDefaultOutputFrames};

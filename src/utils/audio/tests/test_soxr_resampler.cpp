@@ -147,11 +147,10 @@ TEST(SoxrResamplerTest, ClearProducesFreshInstanceOutputCount) {
 /**
  * @brief Move-constructed instance retains a fully functional libsoxr handle.
  *
- * The Impl pointer transfers ownership from the donor to the taker; the donor is left in a
- * valid-but-empty state that must remain safely destructible at scope exit (verified
- * implicitly by the test completing without crash). The taker then processes a non-trivial
- * input block - a present optional from process() is the smallest signal that the underlying
- * soxr_t survived the move and the resampler is still wired through to libsoxr.
+ * After the move the donor must remain safely destructible at scope exit (verified implicitly
+ * by the test completing without crash) and the taker must carry the working handle. A present
+ * optional from process() is the smallest signal that the underlying soxr_t survived the move
+ * and the resampler is still wired through to libsoxr.
  */
 TEST(SoxrResamplerTest, MoveConstructedInstanceProcessesSuccessfully) {
     SoxrResampler donor{kCdAudioRateHz, kBroadcastRateHz};
@@ -165,8 +164,7 @@ TEST(SoxrResamplerTest, MoveConstructedInstanceProcessesSuccessfully) {
 /**
  * @brief Move-assigned instance retains a fully functional libsoxr handle and adopts donor's rates.
  *
- * The Impl pointer transfers from donor to taker, replacing taker's prior unique_ptr. The
- * taker is intentionally constructed with the reversed rate pair so the assignment is
+ * The taker is intentionally constructed with the reversed rate pair so the assignment is
  * non-trivial - it must release the old handle and adopt donor's. The strong-form contract
  * is that taker's post-assignment process() emits the same outputProduced as a cold-start
  * reference resampler built at donor's rates running on the same input - a buggy operator=

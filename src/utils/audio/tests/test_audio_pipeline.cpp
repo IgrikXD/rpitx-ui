@@ -322,11 +322,8 @@ INSTANTIATE_TEST_SUITE_P(RejectedConfig, AudioPipelineCtorTest,
  *        seekable() / description().
  *
  * Pins the construction-path interaction contract: AudioPipeline must materialize its geometry
- * from the format snapshot alone, deferring every data-path interaction with the source until
- * the first read() call. StrictMock fails the test if the ctor calls any unprogrammed method,
- * so a regression that probed seekable() up-front (e.g. moving validateLoopSupport into the
- * ctor) or pre-pulled samples for warmup would surface as a strict-mock violation rather than
- * passing silently.
+ * from the format snapshot alone. A regression that probed seekable() up-front (e.g. moving
+ * validateLoopSupport into the ctor) or pre-pulled samples for warmup would trip the StrictMock.
  */
 TEST(AudioPipelineCtorInteractionTest, CtorTouchesOnlyFormatOnce) {
     ::testing::StrictMock<MockAudioSource> source;
@@ -464,12 +461,9 @@ TEST(AudioPipelineReadTest, ThrowsOnMismatchedOutputBlockSize) {
  *
  * AudioBlockReader treats a non-multiple-of-channels positive return as a backend invariant
  * violation rather than a soft EOF, surfacing it as std::logic_error so the failure cannot be
- * misread as a clean end-of-stream. Driving the contract via the mock is the only way to
- * exercise it - LibsndfileAudioSource cannot produce such a return (sf_readf_float reads in
- * whole frames by API), and FakeAudioSource does not produce it in current usage either:
- * every caller initialises its samples buffer as a whole number of frames, so each
- * min(remaining, dst.size()) take stays aligned. Stereo source with a return of 3 (3 % 2 != 0)
- * is the smallest input that trips the check.
+ * misread as a clean end-of-stream. The mock is the only way to exercise this path - no real
+ * source produces a misaligned return in practice. Stereo with a return of 3 (3 % 2 != 0) is
+ * the smallest input that trips the check.
  */
 TEST(AudioPipelineReadTest, ThrowsLogicErrorOnPartialFrameFromSource) {
     ::testing::NiceMock<MockAudioSource> source;
@@ -620,10 +614,9 @@ TEST(AudioPipelineReadTest, StereoPreserveModePropagatesIndependentChannels) {
 /**
  * @brief read() returns Error when the source's first call returns zero samples with error()=true.
  *
- * The mock surfaces error()=true on the same call that returns 0 samples, so the pipeline
- * reader hits the error-during-zero-read path and reports Error rather than End -
- * distinguishing a fatal I/O failure from a clean EOF on the same zero-sample return. The
- * orthogonal positive-then-error path is covered by ReportsErrorWhenSourceErrorsAfterPositiveRead.
+ * Distinguishes a fatal I/O failure from a clean EOF on the same zero-sample return - the
+ * pipeline must report Error, not End. The orthogonal positive-then-error branch is covered
+ * by ReportsErrorWhenSourceErrorsAfterPositiveRead.
  */
 TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorFlagIsSet) {
     ::testing::NiceMock<MockAudioSource> source;
@@ -648,15 +641,12 @@ TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorFlagIsSet) {
 }
 
 /**
- * @brief read() returns Error when the source surfaces error() = true on the same call that
+ * @brief read() returns Error when the source surfaces error()=true on the same call that
  *        returned a positive partial sample count.
  *
- * AudioSource's documented contract (audio_source.h) permits a backend to report a fatal failure
- * after a positive short read - the post-positive-read error check in AudioBlockReader is the
- * SUT branch handling that case. ReportsErrorWhenSourceErrorFlagIsSet covers the orthogonal
- * "error visible on the first zero-sample return" branch; this test covers the positive-then-error
- * variant. Returning kPositiveSamplesRead samples then reporting error()=true forces the SUT
- * down that path and pins down its Error verdict.
+ * AudioSource's contract (audio_source.h) permits a backend to report a fatal failure after
+ * a positive short read. ReportsErrorWhenSourceErrorFlagIsSet covers the orthogonal
+ * zero-sample-then-error branch; this one covers the positive-then-error variant.
  */
 TEST(AudioPipelineReadTest, ReportsErrorWhenSourceErrorsAfterPositiveRead) {
     ::testing::NiceMock<MockAudioSource> source;
@@ -744,13 +734,10 @@ TEST(AudioPipelineReadTest, LoopModeReplaysContent) {
 /**
  * @brief Loop mode invokes source.rewind() at least once when the source drains mid-block.
  *
- * LoopModeReplaysContent already pins the state-side outcome (read() keeps returning Ok across
- * iterations); this test pins the interaction-side contract that the SUT actually drives
- * rewind() on the source rather than synthesising replayed samples internally. Mock returns a
- * short initial chunk then perpetual EOF so the AudioBlockReader is forced into the rewind
- * branch within the first pipeline.read() call. The test deliberately does not assert on the
- * returned status - the rewind expectation is the verifiable contract here, and pinning the
- * status would duplicate LoopModeReplaysContent on the state-side axis.
+ * LoopModeReplaysContent already pins the state-side outcome (Ok across iterations); this test
+ * pins the interaction-side: the SUT must actually drive rewind() on the source. The test
+ * deliberately does not assert on the returned status - the rewind expectation is the
+ * verifiable contract here, and pinning the status would duplicate LoopModeReplaysContent.
  */
 TEST(AudioPipelineReadTest, LoopModeInvokesRewindWhenSourceDrains) {
     ::testing::NiceMock<MockAudioSource> source;
@@ -810,11 +797,9 @@ TEST(AudioPipelineReadTest, LoopModeReportsEndOnEmptySource) {
 /**
  * @brief Loop mode reports Error when source.rewind() fails on the boundary.
  *
- * Distinct from LoopModeReportsEndOnEmptySource, which exercises the rewind-then-empty path
- * with rewind()=true. Here rewind() returns false on the first EOF, modelling a backend whose
- * seekable() advertisement turned out to be a lie at the moment the seek was actually issued -
- * the SUT must surface this as Error rather than swallowing the seek failure and falling
- * through to End.
+ * Distinct from LoopModeReportsEndOnEmptySource (rewind()=true followed by empty source).
+ * Here rewind() returns false on the first EOF - the SUT must surface this as Error rather
+ * than swallow the failure and fall through to End.
  */
 TEST(AudioPipelineReadTest, ReportsErrorWhenLoopRewindFails) {
     ::testing::NiceMock<MockAudioSource> source;
