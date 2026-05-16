@@ -22,7 +22,6 @@ COLOR_RESET=$'\033[0m'
 # Status message helpers
 INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
-ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
 # Print a colored banner: print_banner <color_var> <message>
@@ -38,8 +37,8 @@ print_banner() {
 # Command-line options
 # ----------------------------------------------------------
 # Default: build all project targets and their dependencies
-# without building or running tests
 BUILD_OPTIONAL_TARGETS=true
+# Default: do not build or run tests
 ENABLE_TESTING=false
 
 for arg in "$@"; do
