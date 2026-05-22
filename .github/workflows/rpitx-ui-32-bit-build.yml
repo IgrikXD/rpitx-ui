@@ -1,4 +1,4 @@
-name: rpitx-ui build
+name: rpitx-ui 32-bit build
 
 on:
   schedule:
@@ -11,7 +11,7 @@ on:
       - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
-      - '.github/workflows/rpitx-ui-build.yml'
+      - '.github/workflows/rpitx-ui-32-bit-build.yml'
   pull_request:
     branches: [ "**" ]
     paths:
@@ -20,7 +20,7 @@ on:
       - 'cmake/**'
       - '**/CMakeLists.txt'
       - '*.sh'
-      - '.github/workflows/rpitx-ui-build.yml'
+      - '.github/workflows/rpitx-ui-32-bit-build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -29,18 +29,18 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build on latest Raspberry Pi OS 64-bit
+    name: Build on latest Raspberry Pi OS 32-bit
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Build & verify on Raspberry Pi OS (arm64)
+      - name: Build & verify on Raspberry Pi OS (armhf)
         uses: pguyot/arm-runner-action@v2
         with:
-          base_image: raspios_lite_arm64:latest
-          cpu: cortex-a72
+          base_image: raspios_lite:latest
+          cpu: arm1176
           shell: /bin/bash
           image_additional_mb: 4096
           commands: |
