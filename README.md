@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.12-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.13-blue.svg?longCache=true&style=for-the-badge)
 
 ## Installation process
 Clone the **rpitx-ui** repository:
