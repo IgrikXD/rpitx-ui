@@ -57,11 +57,16 @@
 namespace pifmrds {
     namespace {
         /**
-         * @brief Atomic flag for graceful shutdown on signal reception.
+         * @brief Atomic shutdown flag accessed from a signal handler.
+         *
+         * Uses int (not bool) because std::atomic<bool> is not always lock-free
+         * on 32-bit ARMv6 (default Raspberry Pi OS 32-bit target). The
+         * static_assert below fails fast on any platform where the chosen type
+         * is not lock-free.
          */
-        std::atomic<bool> running{true};
-        static_assert(std::atomic<bool>::is_always_lock_free,
-                      "std::atomic<bool> must be lock-free for signal-handler access");
+        std::atomic<int> running{1};
+        static_assert(std::atomic<int>::is_always_lock_free,
+                      "std::atomic<int> must be lock-free for signal-handler access");
 
         /**
          * @brief Parse 1-4 hex digits (with optional 0x prefix) into uint16_t.
@@ -142,7 +147,7 @@ namespace pifmrds {
     }
 
     void handleSignal([[maybe_unused]] int sig) {
-        running.store(false, std::memory_order_relaxed);
+        running.store(0, std::memory_order_relaxed);
     }
 
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FmRdsParameters& params) {

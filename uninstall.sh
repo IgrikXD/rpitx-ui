@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.12'
+PACKAGE_VERSION='1.13'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
