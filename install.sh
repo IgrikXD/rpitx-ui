@@ -98,9 +98,11 @@ check_hardware_compatibility() {
 
 # Limit the parallel build jobs to the CPU cores and the available memory: set_build_jobs
 set_build_jobs() {
-  local cpu_cores available_mib
+  local cpu_cores available_mib=0
   cpu_cores=$(nproc)
-  available_mib=$(awk '$1 == "MemAvailable:" { kib = $2 } END { print int(kib / 1024) }' "${MEMINFO_FILE}")
+  if [ -r "${MEMINFO_FILE}" ]; then
+    available_mib=$(awk '$1 == "MemAvailable:" { kib = $2 } END { print int(kib / 1024) }' "${MEMINFO_FILE}")
+  fi
   BUILD_JOBS=$(( available_mib / BUILD_JOB_MEMORY_MIB ))
   if [ "${BUILD_JOBS}" -gt "${cpu_cores}" ]; then
     BUILD_JOBS=${cpu_cores}
