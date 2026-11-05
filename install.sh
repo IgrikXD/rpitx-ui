@@ -28,6 +28,12 @@ SUPPORTED_SOCS=(
   'brcm,bcm2711' # Raspberry Pi 4, 400, Compute Module 4 / 4S
 )
 
+# Kernel memory statistics exposing the available memory
+MEMINFO_FILE='/proc/meminfo'
+
+# Memory budget of a single parallel build job, in MiB
+BUILD_JOB_MEMORY_MIB=512
+
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
@@ -88,6 +94,20 @@ check_hardware_compatibility() {
   echo "${INFO} No changes have been made to the system."
   echo "${INFO} To install anyway, re-run rpitx-ui installation with the --skip-hardware-check flag."
   return 1
+}
+
+# Limit the parallel build jobs to the CPU cores and the available memory: set_build_jobs
+set_build_jobs() {
+  local cpu_cores available_mib
+  cpu_cores=$(nproc)
+  available_mib=$(awk '$1 == "MemAvailable:" { kib = $2 } END { print int(kib / 1024) }' "${MEMINFO_FILE}")
+  BUILD_JOBS=$(( available_mib / BUILD_JOB_MEMORY_MIB ))
+  if [ "${BUILD_JOBS}" -gt "${cpu_cores}" ]; then
+    BUILD_JOBS=${cpu_cores}
+  elif [ "${BUILD_JOBS}" -lt 1 ]; then
+    BUILD_JOBS=1
+  fi
+  echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
 # Provide only the definitions above when the script is sourced instead of executed
@@ -153,6 +173,8 @@ sudo apt-get install -y \
   rtl-sdr
 print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 
+set_build_jobs
+
 # Build the csdr runtime dependency in a temporary directory to keep the source tree clean
 BUILD_TMPDIR=$(mktemp -d)
 trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
@@ -166,7 +188,7 @@ print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}...
   git clone https://github.com/F5OEO/csdr
   cd csdr
   git checkout --quiet "${CSDR_COMMIT}"
-  make -j"$(nproc)" && sudo make install PREFIX=/usr
+  make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
 )
 print_banner "$COLOR_CYAN" 'csdr installed successfully!'
 
@@ -191,7 +213,7 @@ cmake -B build \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DBUILD_OPTIONAL_TARGETS="${CMAKE_OPTIONAL}" \
   -DENABLE_TESTING="${CMAKE_TESTING}"
-cmake --build build --parallel "$(nproc)"
+cmake --build build --parallel "${BUILD_JOBS}"
 
 # rpitx-ui tests execution (if enabled)
 if [ "${ENABLE_TESTING}" = true ]; then
