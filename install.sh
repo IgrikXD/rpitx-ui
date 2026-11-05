@@ -86,7 +86,7 @@ check_hardware_compatibility() {
   echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) are not supported by the librpitx backend."
   echo "${INFO} Supported hardware list: https://github.com/IgrikXD/rpitx-ui#supported-hardware"
   echo "${INFO} No changes have been made to the system."
-  echo "${INFO} To install anyway at your own risk, re-run rpitx-ui installation with the --skip-hardware-check flag."
+  echo "${INFO} To install anyway, re-run rpitx-ui installation with the --skip-hardware-check flag."
   return 1
 }
 

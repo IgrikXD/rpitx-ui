@@ -56,7 +56,7 @@ To run the tests for the shared `audio` / `cli` / `dsp` utility libraries during
 ./install.sh --enable-testing
 ```
 
-Before making any change to the system, the installer checks that it is running on [supported hardware](#supported-hardware) and aborts the installation otherwise. To skip this check (_e.g. in an emulated build environment, or on unsupported hardware at your own risk_), use the `--skip-hardware-check` flag:
+Before making any change to the system, the installer checks that it is running on [supported hardware](#supported-hardware) and aborts the installation otherwise. To skip this check (_e.g. in an emulated build environment or on unsupported hardware_), use the `--skip-hardware-check` flag:
 ```sh
 ./install.sh --skip-hardware-check
 ```
