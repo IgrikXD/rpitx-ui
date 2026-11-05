@@ -83,7 +83,7 @@ check_hardware_compatibility() {
     echo "${INFO} Detected board: ${model} (${compatibles[*]})"
   fi
   echo "${INFO} rpitx-ui runs only on Raspberry Pi boards built on the BCM2835, BCM2836, BCM2837 (BCM2837B0, BCM2710A1) or BCM2711 SoC."
-  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) are not supported by the librpitx backend, so rpitx-ui cannot work on them."
+  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) are not supported by the librpitx backend."
   echo "${INFO} Supported hardware list: https://github.com/IgrikXD/rpitx-ui#supported-hardware"
   echo "${INFO} No changes have been made to the system."
   echo "${INFO} To install anyway at your own risk, re-run rpitx-ui installation with the --skip-hardware-check flag."
@@ -114,7 +114,7 @@ for arg in "$@"; do
       echo "Usage: $0 [--skip-optional] [--enable-testing] [--skip-hardware-check]"
       echo "  --skip-optional        Build only targets used directly by easytest.sh and available through the UI"
       echo "  --enable-testing       Build and execute tests during installation"
-      echo "  --skip-hardware-check  Install without checking for a supported Raspberry Pi SoC (at your own risk)"
+      echo "  --skip-hardware-check  Install without checking for a supported Raspberry Pi SoC"
       exit 0
       ;;
     *) echo "${ERROR} Unknown option: $arg" >&2; exit 1 ;;
@@ -133,7 +133,7 @@ print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 print_banner "$COLOR_CYAN" 'Checking hardware compatibility...'
 if [ "${SKIP_HARDWARE_CHECK}" = true ]; then
   echo "${WARNING} Hardware compatibility check skipped (--skip-hardware-check)!"
-  echo "${WARNING} On unsupported hardware rpitx-ui cannot work."
+  echo "${WARNING} Correct operation of rpitx-ui is not guaranteed on unsupported hardware!"
 elif ! check_hardware_compatibility; then
   exit 1
 fi
