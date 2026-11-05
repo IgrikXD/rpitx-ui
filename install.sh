@@ -54,11 +54,6 @@ print_banner() {
 }
 
 # Check that the board is built on one of SUPPORTED_SOCS: check_hardware_compatibility
-# librpitx programs the clock, DMA and GPIO registers of these SoCs directly through /dev/mem.
-# Other SoCs (BCM2712 in Raspberry Pi 5 / 500 / CM5, non-Broadcom boards) lay out different
-# peripherals at different addresses, so rpitx-ui builds there but cannot transmit, and its
-# register writes may freeze or reboot the system. The SoC is matched against the device tree
-# compatible list instead of the model string, so new boards on a supported SoC pass unchanged.
 check_hardware_compatibility() {
   local model='unknown model'
   local compatibles=()
@@ -95,8 +90,7 @@ check_hardware_compatibility() {
   return 1
 }
 
-# Stop here when the script is sourced instead of executed: the CI workflows source it to test
-# check_hardware_compatibility against device tree fixtures without running the installation
+# Provide only the definitions above when the script is sourced instead of executed
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 0
 fi
