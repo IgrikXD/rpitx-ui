@@ -6,7 +6,7 @@
 # Fork: https://github.com/IgrikXD/rpitx-ui
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
-# Re-run under bash when started by another shell (e.g. `sh install.sh`): the script relies on bash arrays, mapfile and $'...' strings
+# Re-run under bash when started by another shell (e.g. `sh install.sh`)
 if [ -z "${BASH_VERSION:-}" ]; then
   exec bash "$0" "$@"
 fi
