@@ -45,7 +45,7 @@ Install the **rpitx-ui** package:
 ```sh
 ./install.sh
 ```
-The installer runs one parallel build job per CPU core, but no more than one job per 512 MiB of available memory, so boards with little RAM (_e.g. Raspberry Pi Zero 2 W or Raspberry Pi 3_) build with fewer jobs and take longer to install.
+The installer runs as many parallel build jobs as there are CPU cores, but no more than one per 512 MiB of available memory - boards with little RAM (_e.g. Raspberry Pi Zero 2 W or Raspberry Pi 3_) build with a single job and take longer to install.
 
 To build only the core targets used directly by the `rpitx-ui` interface (_skipping optional binaries and the ft8_lib dependency_), use the `--skip-optional` flag:
 ```sh
