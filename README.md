@@ -17,6 +17,22 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 ## Current development progress
 [![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.13-blue.svg?longCache=true&style=for-the-badge)
 
+## Supported hardware
+**rpitx-ui** generates RF by programming the clock, DMA and GPIO peripherals of the Raspberry Pi SoC directly (_via `librpitx`_), so it works only on Raspberry Pi boards built on the following Broadcom SoCs:
+
+| SoC | Raspberry Pi boards | Status |
+|:---|:---|:---:|
+| BCM2835 | Raspberry Pi 1 Model A / A+ / B / B+, Zero, Zero W, Compute Module 1 | Supported |
+| BCM2836 | Raspberry Pi 2 Model B (_v1.1_) | Supported |
+| BCM2837 | Raspberry Pi 2 Model B (_v1.2_), Raspberry Pi 3 Model B, Compute Module 3 | Supported |
+| BCM2837B0 | Raspberry Pi 3 Model A+ / B+, Compute Module 3+ (_and later Raspberry Pi 2 Model B / 3 Model B revisions_) | Supported |
+| BCM2710A1 (_RP3A0_) | Raspberry Pi Zero 2 W | Supported |
+| BCM2711 | Raspberry Pi 4 Model B, Raspberry Pi 400, Compute Module 4 / 4S | Supported |
+| BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
+| Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |
+
+The Raspberry Pi 5 family routes its GPIO through the separate RP1 south bridge, and other single-board computers use entirely different clock and DMA hardware: **rpitx-ui** still compiles there, but cannot transmit, and transmission attempts may freeze or reboot the system. The same applies to compute-module devices such as the ClockworkPi uConsole - the CM4 core is supported, while the CM5 and third-party cores (_e.g. Radxa CM5_) are not. To prevent such installations, [`install.sh`](./install.sh) identifies the SoC from the device tree before making any change to the system and aborts the installation on unsupported hardware.
+
 ## Installation process
 Clone the **rpitx-ui** repository:
 ```sh
@@ -38,6 +54,11 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 To run the tests for the shared `audio` / `cli` / `dsp` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
+```
+
+Before making any change to the system, the installer checks that it is running on [supported hardware](#supported-hardware) and aborts the installation otherwise. To skip this check (_e.g. in an emulated build environment, or on unsupported hardware at your own risk_), use the `--skip-hardware-check` flag:
+```sh
+./install.sh --skip-hardware-check
 ```
 
 To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
