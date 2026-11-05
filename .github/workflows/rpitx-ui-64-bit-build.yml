@@ -82,7 +82,8 @@ jobs:
 
             HW_CHECK_LOG=$(mktemp)
             HW_CHECK_STATUS=0
-            bash ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
+            # Started through sh (dash) to also cover the re-run of install.sh under bash
+            sh ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
             cat "${HW_CHECK_LOG}"
             test "${HW_CHECK_STATUS}" -eq 1 || { echo "FAIL: install.sh exited with status ${HW_CHECK_STATUS} instead of 1"; exit 1; }
             grep -qF 'Unsupported hardware detected - installation aborted!' "${HW_CHECK_LOG}" || { echo "FAIL: unsupported hardware banner not printed"; exit 1; }
@@ -198,10 +199,12 @@ jobs:
 
             # ==============================================================
             # 8. Uninstall rpitx-ui (with --purge-deps to also remove
-            #    runtime third-party dependencies and verify full cleanup)
+            #    runtime third-party dependencies and verify full cleanup;
+            #    started through sh (dash) to also cover the re-run of
+            #    uninstall.sh under bash)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
-            echo "n" | bash ./uninstall.sh --purge-deps
+            echo "n" | sh ./uninstall.sh --purge-deps
             echo "::endgroup::"
 
             # ==============================================================
