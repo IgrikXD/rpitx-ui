@@ -40,6 +40,7 @@ COLOR_RESET=$'\033[0m'
 # Status message helpers
 INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
 WARNING="${COLOR_YELLOW}[WARNING]${COLOR_RESET}"
+ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
@@ -122,7 +123,7 @@ for arg in "$@"; do
       echo "  --skip-hardware-check  Install without checking for a supported Raspberry Pi SoC (at your own risk)"
       exit 0
       ;;
-    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    *) echo "${ERROR} Unknown option: $arg" >&2; exit 1 ;;
   esac
 done
 

@@ -22,10 +22,12 @@ RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 COLOR_GREEN=$'\033[32m'
 COLOR_BLUE=$'\033[34m'
 COLOR_CYAN=$'\033[36m'
+COLOR_RED=$'\033[31m'
 COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
+ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
@@ -54,7 +56,7 @@ for arg in "$@"; do
       echo "  --purge-deps  Remove installed runtime third-party dependencies (csdr)"
       exit 0
       ;;
-    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    *) echo "${ERROR} Unknown option: $arg" >&2; exit 1 ;;
   esac
 done
 
