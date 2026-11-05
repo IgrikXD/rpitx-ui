@@ -92,6 +92,12 @@ check_hardware_compatibility() {
   return 1
 }
 
+# Stop here when the script is sourced instead of executed: the CI workflows source it to test
+# check_hardware_compatibility against device tree fixtures without running the installation
+if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+  return 0
+fi
+
 # ----------------------------------------------------------
 # Command-line options
 # ----------------------------------------------------------

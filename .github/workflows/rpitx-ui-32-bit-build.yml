@@ -54,11 +54,32 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 1. Verify the hardware compatibility check aborts the
-            #    installation before any system change (the emulated
-            #    chroot exposes no Raspberry Pi device tree)
+            # 1. Verify the hardware compatibility check: device tree
+            #    fixtures of supported SoCs pass it, unsupported ones fail
+            #    it, and without a device tree (the emulated chroot exposes
+            #    none) install.sh aborts before any system change
             # ==============================================================
             echo "::group::Verify hardware compatibility check"
+            # Sourcing install.sh only defines its constants and functions, the installation itself does not
+            # run; xtrace is disabled in the sourcing subshell to keep the log readable
+            HW_CHECK_FIXTURE_DIR=$(mktemp -d)
+            expect_hardware_check() {
+              local expected_status=$1
+              local status=0
+              shift
+              printf '%s\0' "$@" > "${HW_CHECK_FIXTURE_DIR}/compatible"
+              ( set +x; source ./install.sh; DEVICE_TREE_DIR="${HW_CHECK_FIXTURE_DIR}"; check_hardware_compatibility ) || status=$?
+              test "${status}" -eq "${expected_status}" || { echo "FAIL: hardware check returned ${status} instead of ${expected_status} for: $*"; exit 1; }
+            }
+            expect_hardware_check 0 raspberrypi,model-zero-w brcm,bcm2835
+            expect_hardware_check 0 raspberrypi,2-model-b brcm,bcm2836
+            expect_hardware_check 0 raspberrypi,3-model-b-plus brcm,bcm2837
+            expect_hardware_check 0 raspberrypi,model-zero-2-w brcm,bcm2837
+            expect_hardware_check 0 raspberrypi,4-model-b brcm,bcm2711
+            expect_hardware_check 1 raspberrypi,5-model-b brcm,bcm2712
+            expect_hardware_check 1 radxa,cm5-io radxa,cm5 rockchip,rk3588s
+            echo "PASS: supported SoCs accepted, unsupported SoCs rejected"
+
             HW_CHECK_LOG=$(mktemp)
             HW_CHECK_STATUS=0
             bash ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
