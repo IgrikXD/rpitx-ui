@@ -31,6 +31,8 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 | BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
 | Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |
 
+[`install.sh`](./install.sh) detects the SoC from the device tree and aborts the installation on unsupported hardware before any change is made to the system.
+
 ## Installation process
 Clone the **rpitx-ui** repository:
 ```sh
