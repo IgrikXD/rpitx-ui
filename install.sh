@@ -83,7 +83,7 @@ check_hardware_compatibility() {
     echo "${INFO} Detected board: ${model} (${compatibles[*]})"
   fi
   echo "${INFO} rpitx-ui runs only on Raspberry Pi boards built on the BCM2835, BCM2836, BCM2837 (BCM2837B0, BCM2710A1) or BCM2711 SoC."
-  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) do not provide the clock, DMA and GPIO hardware librpitx drives: transmission does not work and may freeze or reboot the system."
+  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) do not provide the clock, DMA and GPIO hardware librpitx drives, so rpitx-ui cannot work on them."
   echo "${INFO} Supported hardware list: https://github.com/IgrikXD/rpitx-ui#supported-hardware"
   echo "${INFO} No changes have been made to the system."
   echo "${INFO} To install anyway at your own risk, re-run rpitx-ui installation with the --skip-hardware-check flag."
@@ -133,7 +133,7 @@ print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 print_banner "$COLOR_CYAN" 'Checking hardware compatibility...'
 if [ "${SKIP_HARDWARE_CHECK}" = true ]; then
   echo "${WARNING} Hardware compatibility check skipped (--skip-hardware-check)!"
-  echo "${WARNING} On unsupported hardware rpitx-ui cannot transmit, and transmission attempts may freeze or reboot the system."
+  echo "${WARNING} On unsupported hardware rpitx-ui cannot work."
 elif ! check_hardware_compatibility; then
   exit 1
 fi
