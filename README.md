@@ -23,10 +23,10 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 | SoC | Raspberry Pi boards | Status |
 |:---|:---|:---:|
 | BCM2835 | Raspberry Pi 1 Model A / A+ / B / B+, Zero, Zero W, Compute Module 1 | Supported |
-| BCM2836 | Raspberry Pi 2 Model B (_v1.1_) | Supported |
+| BCM2836 | Raspberry Pi 2 Model B (_v1.0 / v1.1_) | Supported |
 | BCM2837 | Raspberry Pi 2 Model B (_v1.2_), Raspberry Pi 3 Model B, Compute Module 3 | Supported |
 | BCM2837B0 | Raspberry Pi 3 Model A+ / B+, Compute Module 3+ (_and later Raspberry Pi 2 Model B / 3 Model B revisions_) | Supported |
-| BCM2710A1 (_RP3A0_) | Raspberry Pi Zero 2 W | Supported |
+| BCM2710A1 (_RP3A0_) | Raspberry Pi Zero 2 W, Compute Module 0 | Supported |
 | BCM2711 | Raspberry Pi 4 Model B, Raspberry Pi 400, Compute Module 4 / 4S | Supported |
 | BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
 | Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |

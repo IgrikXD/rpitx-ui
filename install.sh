@@ -18,8 +18,8 @@ DEVICE_TREE_DIR='/proc/device-tree'
 # Device tree compatible strings of the SoCs whose clock, DMA and GPIO peripherals librpitx drives
 SUPPORTED_SOCS=(
   'brcm,bcm2835' # Raspberry Pi 1, Zero, Zero W, Compute Module 1
-  'brcm,bcm2836' # Raspberry Pi 2 Model B v1.1
-  'brcm,bcm2837' # Raspberry Pi 2 Model B v1.2, 3, Zero 2 W, Compute Module 3 / 3+ (BCM2837, BCM2837B0, BCM2710A1)
+  'brcm,bcm2836' # Raspberry Pi 2 Model B v1.0 / v1.1
+  'brcm,bcm2837' # Raspberry Pi 2 Model B v1.2, 3, Zero 2 W, Compute Module 0 / 3 / 3+ (BCM2837, BCM2837B0, BCM2710A1)
   'brcm,bcm2711' # Raspberry Pi 4, 400, Compute Module 4 / 4S
 )
 
