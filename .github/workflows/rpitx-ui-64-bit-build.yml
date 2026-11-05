@@ -90,7 +90,27 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 2. Install rpitx-ui with --enable-testing flag
+            # 2. Verify the parallel build job count
+            # ==============================================================
+            echo "::group::Verify parallel build job count"
+            MEMINFO_FIXTURE=$(mktemp)
+            expect_build_jobs() {
+              local expected_jobs=$1
+              local fixture_cpu_cores=$2
+              local fixture_available_mib=$3
+              printf 'MemTotal: 3887800 kB\nMemAvailable: %d kB\nSwapFree: 2097148 kB\n' "$(( fixture_available_mib * 1024 ))" > "${MEMINFO_FIXTURE}"
+              ( set +x; source ./install.sh; MEMINFO_FILE="${MEMINFO_FIXTURE}"; nproc() { echo "${fixture_cpu_cores}"; }; set_build_jobs; test "${BUILD_JOBS}" -eq "${expected_jobs}" ) || { echo "FAIL: expected ${expected_jobs} build jobs for ${fixture_cpu_cores} CPU cores and ${fixture_available_mib} MiB of available memory"; exit 1; }
+            }
+            expect_build_jobs 1 4 340
+            expect_build_jobs 1 4 1023
+            expect_build_jobs 2 4 1024
+            expect_build_jobs 4 4 3400
+            expect_build_jobs 1 1 3400
+            echo "PASS: parallel build jobs limited by CPU cores and available memory"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 3. Install rpitx-ui with --enable-testing flag
             #    (--skip-hardware-check: no physical Raspberry Pi in CI)
             # ==============================================================
             echo "::group::Install rpitx-ui"
@@ -99,7 +119,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 3. Verify boot configuration was modified
+            # 4. Verify boot configuration was modified
             # ==============================================================
             echo "::group::Verify boot configuration"
             if [ -f /boot/firmware/config.txt ]; then
@@ -115,7 +135,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 4. Verify all installed binaries
+            # 5. Verify all installed binaries
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
@@ -141,7 +161,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 5. Verify all installed scripts
+            # 6. Verify all installed scripts
             # ==============================================================
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
@@ -161,7 +181,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 6. Verify resource files
+            # 7. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
@@ -177,7 +197,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 7. Verify rpitx-ui is callable from any directory
+            # 8. Verify rpitx-ui is callable from any directory
             # ==============================================================
             echo "::group::Verify rpitx-ui callable from any directory"
             pushd /tmp > /dev/null
@@ -193,7 +213,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 8. Uninstall rpitx-ui (with --purge-deps to also remove
+            # 9. Uninstall rpitx-ui (with --purge-deps to also remove
             #    runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
@@ -201,7 +221,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 9. Verify all binaries removed
+            # 10. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -220,7 +240,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 10. Verify all scripts removed
+            # 11. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -242,7 +262,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify resources removed
+            # 12. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -253,7 +273,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 12. Verify runtime dependencies removed
+            # 13. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -267,7 +287,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Verify boot configuration reverted
+            # 14. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
