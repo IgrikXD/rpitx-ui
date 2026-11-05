@@ -28,16 +28,18 @@ SUPPORTED_SOCS=(
   'brcm,bcm2711' # Raspberry Pi 4, 400, Compute Module 4 / 4S
 )
 
-# Terminal color helpers (ANSI escape sequences)
+# Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
+# cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[34m'
+COLOR_CYAN=$'\033[36m'
 COLOR_RED=$'\033[31m'
 COLOR_RESET=$'\033[0m'
 
 # Status message helpers
-INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
-WARNING="${COLOR_RED}[WARNING]${COLOR_RESET}"
+INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
+WARNING="${COLOR_YELLOW}[WARNING]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
@@ -133,7 +135,7 @@ set -e
 print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
 
 # Hardware compatibility check - runs before any change is made to the system
-print_banner "$COLOR_YELLOW" 'Checking hardware compatibility...'
+print_banner "$COLOR_CYAN" 'Checking hardware compatibility...'
 if [ "${SKIP_HARDWARE_CHECK}" = true ]; then
   echo "${WARNING} Hardware compatibility check skipped (--skip-hardware-check)!"
   echo "${WARNING} On unsupported hardware rpitx-ui cannot transmit, and transmission attempts may freeze or reboot the system."
@@ -142,7 +144,7 @@ elif ! check_hardware_compatibility; then
 fi
 
 # System dependency installation via package manager
-print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
+print_banner "$COLOR_CYAN" 'Installing system dependencies...'
 sudo apt-get update
 sudo apt-get install -y \
   buffer \
@@ -154,7 +156,7 @@ sudo apt-get install -y \
   libsoxr-dev \
   pkg-config \
   rtl-sdr
-print_banner "$COLOR_YELLOW" 'System dependencies installed successfully!'
+print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 
 # Build the csdr runtime dependency in a temporary directory to keep the source tree clean
 BUILD_TMPDIR=$(mktemp -d)
@@ -163,7 +165,7 @@ trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
 # Pinned dependency commits (to ensure reproducible builds)
 CSDR_COMMIT='69bfc62'
 
-print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}..."
+print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
 (
   cd "${BUILD_TMPDIR}"
   git clone https://github.com/F5OEO/csdr
@@ -171,7 +173,7 @@ print_banner "$COLOR_YELLOW" "csdr installation, based on commit ${CSDR_COMMIT}.
   git checkout --quiet "${CSDR_COMMIT}"
   make -j"$(nproc)" && sudo make install PREFIX=/usr
 )
-print_banner "$COLOR_YELLOW" 'csdr installed successfully!'
+print_banner "$COLOR_CYAN" 'csdr installed successfully!'
 
 if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
   sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
@@ -198,7 +200,7 @@ cmake --build build --parallel "$(nproc)"
 
 # rpitx-ui tests execution (if enabled)
 if [ "${ENABLE_TESTING}" = true ]; then
-  print_banner "$COLOR_YELLOW" "Starting test execution..."
+  print_banner "$COLOR_CYAN" "Starting test execution..."
   # The `if ! ctest ...` form bypasses `set -e` for the ctest call so we can surface a tailored
   # diagnostic instead of the bare "Errors while running CTest" line.
   if ! ctest --test-dir build --output-on-failure --parallel "$(nproc)"; then

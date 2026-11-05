@@ -17,14 +17,15 @@ PACKAGE_VERSION='1.14'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
-# Terminal color helpers (ANSI escape sequences)
+# Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
+# cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
-COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[34m'
+COLOR_CYAN=$'\033[36m'
 COLOR_RESET=$'\033[0m'
 
 # Status message helpers
-INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
+INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
@@ -60,7 +61,7 @@ done
 print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 
 # Remove rpitx-ui binaries from /usr/bin
-print_banner "$COLOR_YELLOW" 'Removing rpitx-ui binaries...'
+print_banner "$COLOR_CYAN" 'Removing rpitx-ui binaries...'
 REQUIRED_BINARIES=(
   freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen pirtty pissb
   pisstv pocsag sendiq spectrumpaint tune
@@ -78,7 +79,7 @@ done
 echo "${INFO} Binaries removed!"
 
 # Remove rpitx-ui shell scripts from /usr/bin
-print_banner "$COLOR_YELLOW" 'Removing rpitx-ui shell scripts...'
+print_banner "$COLOR_CYAN" 'Removing rpitx-ui shell scripts...'
 SCRIPTS=(
   rpitx-ui
   fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
@@ -97,7 +98,7 @@ done
 echo "${INFO} Shell scripts removed!"
 
 # Remove rpitx-ui resource files from /usr/share/rpitx-ui
-print_banner "$COLOR_YELLOW" 'Removing rpitx-ui resources...'
+print_banner "$COLOR_CYAN" 'Removing rpitx-ui resources...'
 if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
   sudo rm -rf "${RESOURCE_INSTALL_DIR}"
   echo "${INFO} Resources removed from ${RESOURCE_INSTALL_DIR}"
@@ -105,7 +106,7 @@ fi
 
 # Remove runtime dependencies only when --purge-deps is specified
 if [ "$PURGE_DEPS" = true ]; then
-  print_banner "$COLOR_YELLOW" 'Removing runtime third-party dependencies (--purge-deps)...'
+  print_banner "$COLOR_CYAN" 'Removing runtime third-party dependencies (--purge-deps)...'
 
   # Remove csdr
   echo "${INFO} Removing csdr..."
@@ -131,7 +132,7 @@ else
 fi
 
 # Revert boot configuration changes
-print_banner "$COLOR_YELLOW" 'Reverting boot configuration...'
+print_banner "$COLOR_CYAN" 'Reverting boot configuration...'
 if [ ! -f /boot/firmware/config.txt ]; then
   FILE='/boot/config.txt'
 else
