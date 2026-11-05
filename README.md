@@ -31,7 +31,7 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 | BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
 | Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |
 
-The Raspberry Pi 5 family routes its GPIO through the separate RP1 south bridge, and other single-board computers use entirely different clock and DMA hardware: **rpitx-ui** still compiles there, but cannot work. The same applies to compute-module devices such as the ClockworkPi uConsole - the Raspberry Pi CM4 core is supported, while the Raspberry Pi CM5 and non-Broadcom cores (_ClockworkPi A-06 / R-01, Radxa CM5_) are not. To prevent such installations, [`install.sh`](./install.sh) identifies the SoC from the device tree before making any change to the system and aborts the installation on unsupported hardware.
+The Raspberry Pi 5 family routes its GPIO through the separate RP1 south bridge, and other single-board computers use entirely different clock and DMA hardware: **rpitx-ui** still compiles there, but cannot work. To prevent such installations, [`install.sh`](./install.sh) identifies the SoC from the device tree before making any change to the system and aborts the installation on unsupported hardware.
 
 ## Installation process
 Clone the **rpitx-ui** repository:
