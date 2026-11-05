@@ -59,12 +59,13 @@ jobs:
             #    chroot exposes no Raspberry Pi device tree)
             # ==============================================================
             echo "::group::Verify hardware compatibility check"
+            HW_CHECK_LOG=$(mktemp)
             HW_CHECK_STATUS=0
-            HW_CHECK_OUTPUT=$(bash ./install.sh 2>&1) || HW_CHECK_STATUS=$?
-            echo "${HW_CHECK_OUTPUT}"
+            bash ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
+            cat "${HW_CHECK_LOG}"
             test "${HW_CHECK_STATUS}" -eq 1 || { echo "FAIL: install.sh exited with status ${HW_CHECK_STATUS} instead of 1"; exit 1; }
-            grep -qF 'Unsupported hardware detected - installation aborted!' <<< "${HW_CHECK_OUTPUT}" || { echo "FAIL: unsupported hardware banner not printed"; exit 1; }
-            if grep -qF 'Installing system dependencies' <<< "${HW_CHECK_OUTPUT}"; then
+            grep -qF 'Unsupported hardware detected - installation aborted!' "${HW_CHECK_LOG}" || { echo "FAIL: unsupported hardware banner not printed"; exit 1; }
+            if grep -qF 'Installing system dependencies' "${HW_CHECK_LOG}"; then
               echo "FAIL: install.sh started installing system dependencies before aborting"
               exit 1
             fi
