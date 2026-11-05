@@ -47,7 +47,7 @@ endif()
 # built for (e.g. the emulated Raspberry Pi OS chroot used by CI).
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
     message(FATAL_ERROR
-        "rpitx-ui requires a Raspberry Pi (ARM). "
+        "rpitx-ui requires an ARM target architecture (arm / aarch64). "
         "Detected processor: ${CMAKE_SYSTEM_PROCESSOR}"
     )
 endif()
