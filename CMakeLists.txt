@@ -37,28 +37,17 @@ else()
 endif()
 
 # ----------------------------------------------------------
-# Raspberry Pi platform check
+# Target architecture check
 # ----------------------------------------------------------
+# Only the target architecture is checked at configure time. Board / SoC
+# compatibility is checked by install.sh before it makes any change to the
+# system: probing /proc here would describe the build host rather than the
+# target, and would only run after install.sh has already installed the
+# system dependencies (CMake itself included).
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
     message(FATAL_ERROR
         "rpitx-ui requires a Raspberry Pi (ARM). "
         "Detected processor: ${CMAKE_SYSTEM_PROCESSOR}"
-    )
-endif()
-
-if(EXISTS "/proc/device-tree/model")
-    file(READ "/proc/device-tree/model" RPI_MODEL)
-    if(NOT RPI_MODEL MATCHES "Raspberry Pi")
-        message(FATAL_ERROR
-            "rpitx-ui requires a Raspberry Pi. "
-            "Detected board: ${RPI_MODEL}"
-        )
-    endif()
-    message(STATUS "Board: ${RPI_MODEL}")
-else()
-    message(WARNING
-        "/proc/device-tree/model not found - cannot verify Raspberry Pi board. "
-        "Build may fail at runtime on non-RPi ARM hardware."
     )
 endif()
 
