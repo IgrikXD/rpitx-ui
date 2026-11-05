@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # Re-run under bash when started by another shell (e.g. `sh install.sh`)
-if [ -z "${BASH_VERSION:-}" ]; then
+if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = install.sh ]; then
   exec bash "$0" "$@"
 fi
 
