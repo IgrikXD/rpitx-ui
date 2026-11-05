@@ -54,14 +54,10 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 1. Verify the hardware compatibility check: device tree
-            #    fixtures of supported SoCs pass it, unsupported ones fail
-            #    it, and without a device tree (the emulated chroot exposes
-            #    none) install.sh aborts before any system change
+            # 1. Verify the hardware compatibility check
             # ==============================================================
             echo "::group::Verify hardware compatibility check"
-            # Sourcing install.sh only defines its constants and functions, the installation itself does not
-            # run; xtrace is disabled in the sourcing subshell to keep the log readable
+            # Sourcing install.sh only defines its constants and functions
             HW_CHECK_FIXTURE_DIR=$(mktemp -d)
             expect_hardware_check() {
               local expected_status=$1
