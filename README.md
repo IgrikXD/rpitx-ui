@@ -15,7 +15,23 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.13-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.14-blue.svg?longCache=true&style=for-the-badge)
+
+## Supported hardware
+**rpitx-ui** works only on Raspberry Pi boards built on the SoCs supported by the `librpitx` backend:
+
+| SoC | Raspberry Pi boards | Status |
+|:---|:---|:---:|
+| BCM2835 | Raspberry Pi 1 Model A / A+ / B / B+, Zero, Zero W, Compute Module 1 | Supported |
+| BCM2836 | Raspberry Pi 2 Model B (_v1.0 / v1.1_) | Supported |
+| BCM2837 | Raspberry Pi 2 Model B (_v1.2_), Raspberry Pi 3 Model B, Compute Module 3 | Supported |
+| BCM2837B0 | Raspberry Pi 3 Model A+ / B+, Compute Module 3+ (_and later Raspberry Pi 2 Model B / 3 Model B revisions_) | Supported |
+| BCM2710A1 (_RP3A0_) | Raspberry Pi Zero 2 W, Compute Module 0 | Supported |
+| BCM2711 | Raspberry Pi 4 Model B, Raspberry Pi 400, Compute Module 4 / 4S | Supported |
+| BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
+| Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |
+
+[`install.sh`](./install.sh) detects the SoC from the device tree and aborts the installation on unsupported hardware before any change is made to the system.
 
 ## Installation process
 Clone the **rpitx-ui** repository:
@@ -38,6 +54,11 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 To run the tests for the shared `audio` / `cli` / `dsp` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
+```
+
+Before making any change to the system, the installer checks that it is running on [supported hardware](#supported-hardware) and aborts the installation otherwise. To skip this check (_e.g. in an emulated build environment or on unsupported hardware_), use the `--skip-hardware-check` flag:
+```sh
+./install.sh --skip-hardware-check
 ```
 
 To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.

@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.26)
 project(rpitx-ui
-    VERSION 1.13
+    VERSION 1.14
     DESCRIPTION "RF transmitter for Raspberry Pi with improved UI functionality, built with CMake."
     LANGUAGES C CXX ASM
 )
@@ -37,28 +37,12 @@ else()
 endif()
 
 # ----------------------------------------------------------
-# Raspberry Pi platform check
+# Target architecture check
 # ----------------------------------------------------------
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
     message(FATAL_ERROR
-        "rpitx-ui requires a Raspberry Pi (ARM). "
+        "rpitx-ui requires an ARM target architecture (arm / aarch64). "
         "Detected processor: ${CMAKE_SYSTEM_PROCESSOR}"
-    )
-endif()
-
-if(EXISTS "/proc/device-tree/model")
-    file(READ "/proc/device-tree/model" RPI_MODEL)
-    if(NOT RPI_MODEL MATCHES "Raspberry Pi")
-        message(FATAL_ERROR
-            "rpitx-ui requires a Raspberry Pi. "
-            "Detected board: ${RPI_MODEL}"
-        )
-    endif()
-    message(STATUS "Board: ${RPI_MODEL}")
-else()
-    message(WARNING
-        "/proc/device-tree/model not found - cannot verify Raspberry Pi board. "
-        "Build may fail at runtime on non-RPi ARM hardware."
     )
 endif()
 
