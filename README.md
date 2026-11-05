@@ -18,7 +18,7 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 [![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.14-blue.svg?longCache=true&style=for-the-badge)
 
 ## Supported hardware
-**rpitx-ui** generates RF by programming the clock, DMA and GPIO peripherals of the Raspberry Pi SoC directly (_via `librpitx`_), so it works only on Raspberry Pi boards built on the following Broadcom SoCs:
+**rpitx-ui** generates RF by programming the clock, DMA and GPIO peripherals of the Raspberry Pi SoC directly (_via `librpitx`_), so it works only on Raspberry Pi boards built on one of the supported SoCs listed below:
 
 | SoC | Raspberry Pi boards | Status |
 |:---|:---|:---:|
@@ -31,7 +31,7 @@ Your support helps me continue developing open-source projects like [WSPR-beacon
 | BCM2712 | Raspberry Pi 5, Raspberry Pi 500 / 500+, Compute Module 5 | **Not supported** |
 | Non-Broadcom SoCs | Orange Pi, Radxa / Rock Pi, Banana Pi, ODROID, Libre Computer and other single-board computers | **Not supported** |
 
-The Raspberry Pi 5 family routes its GPIO through the separate RP1 south bridge, and other single-board computers use entirely different clock and DMA hardware: **rpitx-ui** still compiles there, but cannot transmit, and transmission attempts may freeze or reboot the system. The same applies to compute-module devices such as the ClockworkPi uConsole - the CM4 core is supported, while the CM5 and third-party cores (_e.g. Radxa CM5_) are not. To prevent such installations, [`install.sh`](./install.sh) identifies the SoC from the device tree before making any change to the system and aborts the installation on unsupported hardware.
+The Raspberry Pi 5 family routes its GPIO through the separate RP1 south bridge, and other single-board computers use entirely different clock and DMA hardware: **rpitx-ui** still compiles there, but cannot transmit, and transmission attempts may freeze or reboot the system. The same applies to compute-module devices such as the ClockworkPi uConsole - the Raspberry Pi CM4 core is supported, while the Raspberry Pi CM5 and non-Broadcom cores (_ClockworkPi A-06 / R-01, Radxa CM5_) are not. To prevent such installations, [`install.sh`](./install.sh) identifies the SoC from the device tree before making any change to the system and aborts the installation on unsupported hardware.
 
 ## Installation process
 Clone the **rpitx-ui** repository:
