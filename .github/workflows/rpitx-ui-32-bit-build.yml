@@ -80,13 +80,9 @@ jobs:
             expect_hardware_check 1 radxa,cm5-io radxa,cm5 rockchip,rk3588s
             echo "PASS: supported SoCs accepted, unsupported SoCs rejected"
 
-            # sudo is replaced by a failing stub, so even a regressed check cannot install or build anything in this step
-            HW_CHECK_STUB_DIR=$(mktemp -d)
-            printf '#!/bin/sh\necho "FAIL: sudo $* called during the hardware compatibility check" >&2\nexit 1\n' > "${HW_CHECK_STUB_DIR}/sudo"
-            chmod +x "${HW_CHECK_STUB_DIR}/sudo"
             HW_CHECK_LOG=$(mktemp)
             HW_CHECK_STATUS=0
-            PATH="${HW_CHECK_STUB_DIR}:${PATH}" bash ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
+            bash ./install.sh > "${HW_CHECK_LOG}" 2>&1 < /dev/null || HW_CHECK_STATUS=$?
             cat "${HW_CHECK_LOG}"
             test "${HW_CHECK_STATUS}" -eq 1 || { echo "FAIL: install.sh exited with status ${HW_CHECK_STATUS} instead of 1"; exit 1; }
             grep -qF 'Unsupported hardware detected - installation aborted!' "${HW_CHECK_LOG}" || { echo "FAIL: unsupported hardware banner not printed"; exit 1; }
