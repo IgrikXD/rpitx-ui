@@ -20,7 +20,7 @@ RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 # Device tree directory exposing the board model and its compatible strings
 DEVICE_TREE_DIR='/proc/device-tree'
 
-# Device tree compatible strings of the SoCs whose clock, DMA and GPIO peripherals librpitx drives
+# Device tree compatible strings of the SoCs supported by the librpitx backend
 SUPPORTED_SOCS=(
   'brcm,bcm2835' # Raspberry Pi 1, Zero, Zero W, Compute Module 1
   'brcm,bcm2836' # Raspberry Pi 2 Model B v1.0 / v1.1
@@ -83,7 +83,7 @@ check_hardware_compatibility() {
     echo "${INFO} Detected board: ${model} (${compatibles[*]})"
   fi
   echo "${INFO} rpitx-ui runs only on Raspberry Pi boards built on the BCM2835, BCM2836, BCM2837 (BCM2837B0, BCM2710A1) or BCM2711 SoC."
-  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) do not provide the clock, DMA and GPIO hardware librpitx drives, so rpitx-ui cannot work on them."
+  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) are not supported by the librpitx backend, so rpitx-ui cannot work on them."
   echo "${INFO} Supported hardware list: https://github.com/IgrikXD/rpitx-ui#supported-hardware"
   echo "${INFO} No changes have been made to the system."
   echo "${INFO} To install anyway at your own risk, re-run rpitx-ui installation with the --skip-hardware-check flag."
