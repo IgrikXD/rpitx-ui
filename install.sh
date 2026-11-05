@@ -12,6 +12,17 @@ PACKAGE_VERSION='1.13'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
+# Device tree directory exposing the board model and its compatible strings
+DEVICE_TREE_DIR='/proc/device-tree'
+
+# Device tree compatible strings of the SoCs whose clock, DMA and GPIO peripherals librpitx drives
+SUPPORTED_SOCS=(
+  'brcm,bcm2835' # Raspberry Pi 1, Zero, Zero W, Compute Module 1
+  'brcm,bcm2836' # Raspberry Pi 2 Model B v1.1
+  'brcm,bcm2837' # Raspberry Pi 2 Model B v1.2, 3, Zero 2 W, Compute Module 3 / 3+ (BCM2837, BCM2837B0, BCM2710A1)
+  'brcm,bcm2711' # Raspberry Pi 4, 400, Compute Module 4 / 4S
+)
+
 # Terminal color helpers (ANSI escape sequences)
 COLOR_GREEN=$'\033[32m'
 COLOR_YELLOW=$'\033[33m'
@@ -21,6 +32,7 @@ COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_YELLOW}[INFO]${COLOR_RESET}"
+WARNING="${COLOR_RED}[WARNING]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
 
@@ -33,6 +45,48 @@ print_banner() {
   echo "${color}${SEPARATOR}${COLOR_RESET}"
 }
 
+# Check that the board is built on one of SUPPORTED_SOCS: check_hardware_compatibility
+# librpitx programs the clock, DMA and GPIO registers of these SoCs directly through /dev/mem.
+# Other SoCs (BCM2712 in Raspberry Pi 5 / 500 / CM5, non-Broadcom boards) lay out different
+# peripherals at different addresses, so rpitx-ui builds there but cannot transmit, and its
+# register writes may freeze or reboot the system. The SoC is matched against the device tree
+# compatible list instead of the model string, so new boards on a supported SoC pass unchanged.
+check_hardware_compatibility() {
+  local model='unknown model'
+  local compatibles=()
+  local compatible soc
+
+  if [ -r "${DEVICE_TREE_DIR}/model" ]; then
+    model=$(tr -d '\0' < "${DEVICE_TREE_DIR}/model")
+  fi
+  if [ -r "${DEVICE_TREE_DIR}/compatible" ]; then
+    mapfile -d '' -t compatibles < "${DEVICE_TREE_DIR}/compatible"
+  fi
+
+  for compatible in "${compatibles[@]}"; do
+    for soc in "${SUPPORTED_SOCS[@]}"; do
+      if [ "${compatible}" = "${soc}" ]; then
+        echo "${INFO} Detected board: ${model} (${soc})"
+        echo "${INFO} Hardware compatibility check passed!"
+        return 0
+      fi
+    done
+  done
+
+  print_banner "$COLOR_RED" 'Unsupported hardware detected - installation aborted!'
+  if [ "${#compatibles[@]}" -eq 0 ]; then
+    echo "${INFO} Unable to identify the board: ${DEVICE_TREE_DIR}/compatible is not available."
+  else
+    echo "${INFO} Detected board: ${model} (${compatibles[*]})"
+  fi
+  echo "${INFO} rpitx-ui runs only on Raspberry Pi boards built on the BCM2835, BCM2836, BCM2837 (BCM2837B0, BCM2710A1) or BCM2711 SoC."
+  echo "${INFO} Other boards (Raspberry Pi 5 / 500 / CM5, Orange Pi, Radxa, etc.) do not provide the clock, DMA and GPIO hardware librpitx drives: transmission does not work and may freeze or reboot the system."
+  echo "${INFO} Supported hardware list: https://github.com/IgrikXD/rpitx-ui#supported-hardware"
+  echo "${INFO} No changes have been made to the system."
+  echo "${INFO} To install anyway at your own risk, re-run rpitx-ui installation with the --skip-hardware-check flag."
+  return 1
+}
+
 # ----------------------------------------------------------
 # Command-line options
 # ----------------------------------------------------------
@@ -40,15 +94,19 @@ print_banner() {
 BUILD_OPTIONAL_TARGETS=true
 # Default: do not build or run tests
 ENABLE_TESTING=false
+# Default: abort the installation on boards without a supported Raspberry Pi SoC
+SKIP_HARDWARE_CHECK=false
 
 for arg in "$@"; do
   case "$arg" in
     --skip-optional) BUILD_OPTIONAL_TARGETS=false ;;
     --enable-testing) ENABLE_TESTING=true ;;
+    --skip-hardware-check) SKIP_HARDWARE_CHECK=true ;;
     -h|--help)
-      echo "Usage: $0 [--skip-optional] [--enable-testing]"
-      echo "  --skip-optional   Build only targets used directly by easytest.sh and available through the UI"
-      echo "  --enable-testing  Build and execute tests during installation"
+      echo "Usage: $0 [--skip-optional] [--enable-testing] [--skip-hardware-check]"
+      echo "  --skip-optional        Build only targets used directly by easytest.sh and available through the UI"
+      echo "  --enable-testing       Build and execute tests during installation"
+      echo "  --skip-hardware-check  Install without checking for a supported Raspberry Pi SoC (at your own risk)"
       exit 0
       ;;
     *) echo "Unknown option: $arg" >&2; exit 1 ;;
@@ -62,6 +120,15 @@ done
 set -e
 
 print_banner "$COLOR_GREEN" "Installing rpitx-ui-${PACKAGE_VERSION}!"
+
+# Hardware compatibility check - runs before any change is made to the system
+print_banner "$COLOR_YELLOW" 'Checking hardware compatibility...'
+if [ "${SKIP_HARDWARE_CHECK}" = true ]; then
+  echo "${WARNING} Hardware compatibility check skipped (--skip-hardware-check)!"
+  echo "${WARNING} On unsupported hardware rpitx-ui cannot transmit, and transmission attempts may freeze or reboot the system."
+elif ! check_hardware_compatibility; then
+  exit 1
+fi
 
 # System dependency installation via package manager
 print_banner "$COLOR_YELLOW" 'Installing system dependencies...'
