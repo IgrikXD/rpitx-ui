@@ -40,6 +40,7 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
 
 namespace piam {
@@ -112,6 +113,9 @@ namespace piam {
         std::signal(SIGINT, handleSignal);
         // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
         std::signal(SIGPIPE, handleSignal);
+
+        // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
+        enableFlushToZero();
 
         auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
