@@ -99,7 +99,17 @@ jobs:
               local fixture_cpu_cores=$2
               local fixture_available_mib=$3
               printf 'MemTotal: 3887800 kB\nMemAvailable: %d kB\nSwapFree: 2097148 kB\n' "$(( fixture_available_mib * 1024 ))" > "${MEMINFO_FIXTURE}"
-              ( set +x; source ./install.sh; MEMINFO_FILE="${MEMINFO_FIXTURE}"; nproc() { echo "${fixture_cpu_cores}"; }; set_build_jobs; test "${BUILD_JOBS}" -eq "${expected_jobs}" ) || { echo "FAIL: expected ${expected_jobs} build jobs for ${fixture_cpu_cores} CPU cores and ${fixture_available_mib} MiB of available memory"; exit 1; }
+              if ! (
+                set +x
+                source ./install.sh
+                MEMINFO_FILE="${MEMINFO_FIXTURE}"
+                nproc() { echo "${fixture_cpu_cores}"; }
+                set_build_jobs
+                test "${BUILD_JOBS}" -eq "${expected_jobs}"
+              ); then
+                echo "FAIL: expected ${expected_jobs} build jobs for ${fixture_cpu_cores} CPU cores and ${fixture_available_mib} MiB of available memory"
+                exit 1
+              fi
             }
             expect_build_jobs 1 4 340
             expect_build_jobs 1 4 1023
