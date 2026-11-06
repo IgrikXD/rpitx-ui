@@ -9,13 +9,12 @@
 # ----------------------------------------------------------
 # Provides the lightweight signal-processing primitives shared by every
 # transmitter binary: an envelope-tracking automatic gain control (AGC) that
-# is usable with both IqSample pairs and scalar audio, a Direct-Form-I
+# usable with both IqSample pairs and scalar audio, a Direct-Form-I
 # second-order IIR Biquad with Butterworth high/low-pass and FM
 # pre-emphasis factories, a Blackman-windowed Hilbert FIR transformer that
-# turns a real input into a delay-aligned analytic (I/Q) signal, the
+# turns a real input into a delay-aligned analytic (I/Q) signal, and the
 # common IqSample value type that ties these stages together into a
-# pipeline, and the flush-to-zero floating-point mode switch for the
-# thread that runs it.
+# pipeline.
 # ----------------------------------------------------------
 add_library(rpitx_dsp_utils STATIC
     biquad.cpp
