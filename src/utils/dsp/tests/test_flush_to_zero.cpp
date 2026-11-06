@@ -108,16 +108,17 @@ private:
  * default mode must return that bit pattern - the leading assertion proves that the target
  * underflows gradually and that the mode change is observable at all. After
  * enableFlushToZero() the same product must carry no magnitude bits; an implementation
- * that sets the wrong control bit, or none, still returns 0x00400000.
+ * that sets a neighbouring control bit, or none, still returns 0x00400000.
  */
 TEST_F(EnableFlushToZeroTest, SubnormalResultIsFlushedToZero) {
+    constexpr float kHalf{0.5F};
     constexpr std::uint32_t kHalfMinNormalBits{0x0040'0000U};
 
-    ASSERT_EQ(magnitudeBits(multiplyAtRuntime(kMinNormal, 0.5F)), kHalfMinNormalBits);
+    ASSERT_EQ(magnitudeBits(multiplyAtRuntime(kMinNormal, kHalf)), kHalfMinNormalBits);
 
     enableFlushToZero();
 
-    EXPECT_EQ(magnitudeBits(multiplyAtRuntime(kMinNormal, 0.5F)), 0U);
+    EXPECT_EQ(magnitudeBits(multiplyAtRuntime(kMinNormal, kHalf)), 0U);
 }
 
 /**
@@ -160,12 +161,12 @@ TEST_F(EnableFlushToZeroTest, RoundingModeIsPreserved) {
 /**
  * @brief The decaying tail of a silent filter never enters the subnormal range.
  *
- * Reproduces the silence slowdown: after a unit impulse the pole pair of the pifmrds DC
- * blocker (radius ~0.9994 per sample) first drops below kMinNormal after ~126 000 samples
- * of silence and stays there from ~136 000 samples on. In the default mode about 92 000 of
- * the 228 000 outputs are therefore subnormal - the leading assertion, which also proves
- * that the run is long enough to expose the defect. In flush-to-zero mode not a single
- * output of the same run may be subnormal.
+ * Reproduces the cause of the silence slowdown: after a unit impulse the tail of the pifmrds
+ * DC blocker (pole radius ~0.9994 per sample) first drops below kMinNormal after ~126 000
+ * samples of silence and stays there from ~136 000 samples on. In the default mode about
+ * 92 000 of the 228 000 outputs are therefore subnormal - the leading assertion, which also
+ * proves that the run is long enough to expose the defect. In flush-to-zero mode not a
+ * single output of the same run may be subnormal.
  */
 TEST_F(EnableFlushToZeroTest, SilentFilterTailStaysOutOfSubnormalRange) {
     ASSERT_GT(countSubnormalTailSamples(), 0);
