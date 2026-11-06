@@ -10,6 +10,7 @@
 add_executable(rpitx_dsp_utils_tests
     test_agc.cpp
     test_biquad.cpp
+    test_flush_to_zero.cpp
     test_hilbert.cpp
     test_iq_sample.cpp
 )
