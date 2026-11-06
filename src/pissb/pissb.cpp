@@ -43,6 +43,7 @@
 #include "cli_validators.h"
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
+#include "realtime_scheduling.h"
 
 namespace pissb {
     namespace {
@@ -136,6 +137,8 @@ namespace pissb {
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
+        // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
+        enableRealtimeScheduling();
 
         auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {

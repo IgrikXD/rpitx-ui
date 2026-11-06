@@ -54,6 +54,7 @@
 #include "fmrds_processor.h"
 #include "libsndfile_audio_source.h"
 #include "rds_encoder.h"
+#include "realtime_scheduling.h"
 
 namespace pifmrds {
     namespace {
@@ -243,6 +244,8 @@ namespace pifmrds {
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
+        // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
+        enableRealtimeScheduling();
 
         auto source{makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
