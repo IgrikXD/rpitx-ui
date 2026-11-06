@@ -76,8 +76,7 @@ private:
  * the fixture probes it and the test checks the complete outcome that belongs to the probed
  * case: the FIFO policy at the lowest real-time priority with an empty stderr, or the saved
  * policy and priority together with the [WARNING] diagnostic on stderr. Stdout stays empty
- * in both cases. The lowest priority already runs ahead of every normally scheduled process
- * and keeps the transmitter behind the real-time threads of the system itself.
+ * in both cases.
  *
  * An implementation that never makes the request, makes one the kernel rejects, or asks for
  * another policy or priority fails where the request is granted; one that hides the refusal
