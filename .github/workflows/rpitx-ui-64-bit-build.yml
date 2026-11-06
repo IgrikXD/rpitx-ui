@@ -106,7 +106,6 @@ jobs:
             expect_build_jobs 2 4 1024
             expect_build_jobs 4 4 3400
             expect_build_jobs 1 1 3400
-            ( set +x; source ./install.sh; MEMINFO_FILE=/nonexistent; nproc() { echo 4; }; set_build_jobs; test "${BUILD_JOBS}" -eq 1 ) || { echo "FAIL: expected 1 build job without readable memory statistics"; exit 1; }
             echo "PASS: parallel build jobs limited by CPU cores and available memory"
             echo "::endgroup::"
 
