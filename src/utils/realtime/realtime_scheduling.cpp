@@ -21,7 +21,8 @@ void enableRealtimeScheduling() {
     const sched_param parameters{.sched_priority = sched_get_priority_min(SCHED_FIFO)};
 
     if (sched_setscheduler(0, SCHED_FIFO, &parameters) != 0) {
-        std::cerr << "[WARNING] Real-time scheduling is unavailable (" << std::strerror(errno)
+        const int requestError{errno};
+        std::cerr << "[WARNING] Real-time scheduling is unavailable (" << std::strerror(requestError)
                   << "); the transmission may glitch while other processes load the CPU." << std::endl;
     }
 }
