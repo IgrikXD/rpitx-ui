@@ -173,6 +173,7 @@ sudo apt-get install -y \
   rtl-sdr
 print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 
+# Parallel build jobs - limited by the available memory, so boards with little RAM do not run out of it while compiling
 set_build_jobs
 
 # Build the csdr runtime dependency in a temporary directory to keep the source tree clean
