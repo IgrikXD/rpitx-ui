@@ -39,6 +39,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "realtime_scheduling.h"
 
 namespace pirfgen {
     namespace {
@@ -166,6 +167,9 @@ namespace pirfgen {
         std::signal(SIGTERM, handleSignal);
         // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
+
+        // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
+        enableRealtimeScheduling();
 
         std::cout << "pirfgen: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, mode=" << modeName(params.mode) << ", rate=" << params.sampleRate << " Hz";
