@@ -19,6 +19,15 @@
 #include "soxr_resampler.h"
 
 /**
+ * @brief Outcome of feeding one input block to an AudioRateConverter.
+ */
+enum class AudioRateConverterStatus {
+    Ok,          ///< A full output block was written.
+    NeedsInput,  ///< The input was consumed; the output block needs a further input block.
+    Error,       ///< Invalid buffer geometry or a libsoxr processing error.
+};
+
+/**
  * @brief Single-channel streaming rate converter with a fixed output block contract.
  *
  * Wraps SoxrResampler so callers see a uniform fixed-size output block
@@ -26,10 +35,15 @@
  * between calls via a Bresenham accumulator that tracks the rate ratio
  * exactly - the backend halts on either input exhaustion or output cap, so a
  * constant ceil()-rounded input with a tight output buffer
- * would drop samples or grow an internal spill unbounded. With Bresenham
+ * would drop samples or grow an internal queue unbounded. With Bresenham
  * sizing and an oversized staging buffer, libsoxr always consumes the full
- * input span and the per-call output jitter (one or two samples) is absorbed
- * by an internal spill.
+ * input span.
+ *
+ * libsoxr delivers its output in bursts, so the converted samples are queued
+ * and an output block is handed out only when the queue can fill it
+ * completely. Until then process() asks for a further input block. The extra
+ * blocks stay queued as a reserve, so the requests end shortly after the
+ * start and every input block yields one output block from then on.
  *
  * When sourceRateHz == targetRateHz no soxr instance is created and process()
  * degrades to a memory copy.
@@ -104,16 +118,18 @@ public:
      * @brief Process one block of audio.
      *
      * @param in  Input frames; size must equal peekNextInputFrames().
-     * @param out Output frames; size must equal outputFrames().
-     * @return true on success, false when the buffer geometry is invalid
-     *         or soxr reports a processing error.
+     * @param out Output frames; size must equal outputFrames(). Written only
+     *            when Ok is returned.
+     * @return Ok when out holds a full block, NeedsInput when the caller has
+     *         to pass the next input block to complete it, Error when the
+     *         buffer geometry is invalid or soxr reports a processing error.
      */
-    [[nodiscard]] bool process(std::span<const float> in, std::span<float> out);
+    [[nodiscard]] AudioRateConverterStatus process(std::span<const float> in, std::span<float> out);
 
     /**
      * @brief Reset filter state for a loop boundary.
      *
-     * Empties the soxr filter delay line and drops any spilled output samples
+     * Empties the soxr filter delay line and drops any queued output samples
      * so the end-of-file filter tail does not smear into the start of the
      * next iteration. The Bresenham accumulator is deliberately preserved
      * across the boundary: the loop wraps the source content but the
@@ -123,8 +139,8 @@ public:
      * looped playbacks do not accumulate sample-count drift.
      */
     void reset() {
-        spill_.clear();
-        spillReadPos_ = 0;
+        pendingOutput_.clear();
+        pendingReadPos_ = 0;
         if (resampler_ != std::nullopt) {
             resampler_.value().clear();
         }
@@ -134,7 +150,7 @@ public:
     /**
      * @brief Pull the converter's tail into out at end-of-stream.
      *
-     * Drains spilled output samples first, then feeds soxr the documented
+     * Drains queued output samples first, then feeds soxr the documented
      * end-of-stream flush form (empty input span) to recover any samples
      * still buffered in the filter delay line.
      *
@@ -170,14 +186,14 @@ private:
     std::vector<float> stagingBuffer_;
 
     /**
-     * @brief Pending output samples not yet returned to the caller.
+     * @brief Converted samples not yet returned to the caller.
      *
-     * soxr's per-call output count jitters by one or two samples around
-     * the rate ratio even with Bresenham input sizing; the surplus is
-     * stashed here and drained at the head of the next process() call.
-     * Stored as a flat vector with a separate read offset so we can
-     * pop from the front in O(1) without a deque's per-element allocation.
+     * soxr's per-call output count swings between nothing and more than a
+     * block; every converted sample is queued here and leaves in full
+     * output blocks. Stored as a flat vector with a separate read offset
+     * so we can pop from the front in O(1) without a deque's per-element
+     * allocation.
      */
-    std::vector<float> spill_;
-    std::size_t spillReadPos_;
+    std::vector<float> pendingOutput_;
+    std::size_t pendingReadPos_;
 };

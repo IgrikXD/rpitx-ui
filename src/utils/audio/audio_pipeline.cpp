@@ -269,62 +269,69 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
         return drainBlock(out);
     }
 
-    // All converters share the same rate parameters and Bresenham state so
-    // they require the same input frame count on every call; query just one.
-    const std::size_t inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
-    const std::size_t interleavedSize{inputFramesThisCall * static_cast<std::size_t>(sourceFormat_.channels)};
-    // Internal invariant: AudioRateConverter must never request more than
-    // maxInputFrames_ per call, which is exactly what interleavedInput_ is
-    // sized for. A future contract drift would be a logic bug, not a
-    // runtime IO failure - surface it as such.
-    if (interleavedSize > interleavedInput_.size()) {
-        throw std::logic_error{"AudioPipeline::read: rate converter requested " + std::to_string(interleavedSize) +
-                               " interleaved samples, exceeding buffer capacity " +
-                               std::to_string(interleavedInput_.size())};
-    }
-
-    const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};
-    if (status == AudioPipelineStatus::Error) {
-        return AudioPipelineStatus::Error;
-    }
-    if (status == AudioPipelineStatus::End) {
-        // Source ran out before yielding any new samples. Switch to drain
-        // mode so the converter tails surface in subsequent calls instead
-        // of being discarded together with the input stream.
-        draining_ = true;
-        return drainBlock(out);
-    }
-
-    // The reader may have just performed a deferred rewind to start a fresh
-    // loop iteration. Reset filter state on every converter (preserving the
-    // Bresenham accumulator) so the previous iteration's filter tail does
-    // not smear into the start of this block.
-    if (reader_->consumeLoopBoundary()) {
-        for (auto& converter: rateConverters_) {
-            converter.reset();
+    // One input block yields one output block once the converters hold
+    // their start-up reserve; until then they ask for a further input block
+    // instead of padding the output. The per-channel converters run in
+    // lockstep, so the status of the last one stands for all of them.
+    AudioRateConverterStatus converted{AudioRateConverterStatus::NeedsInput};
+    while (converted == AudioRateConverterStatus::NeedsInput) {
+        // All converters share the same rate parameters and Bresenham state so
+        // they require the same input frame count on every call; query just one.
+        const std::size_t inputFramesThisCall{rateConverters_.front().peekNextInputFrames()};
+        const std::size_t interleavedSize{inputFramesThisCall * static_cast<std::size_t>(sourceFormat_.channels)};
+        // Internal invariant: AudioRateConverter must never request more than
+        // maxInputFrames_ per call, which is exactly what interleavedInput_ is
+        // sized for. A future contract drift would be a logic bug, not a
+        // runtime IO failure - surface it as such.
+        if (interleavedSize > interleavedInput_.size()) {
+            throw std::logic_error{"AudioPipeline::read: rate converter requested " + std::to_string(interleavedSize) +
+                                   " interleaved samples, exceeding buffer capacity " +
+                                   std::to_string(interleavedInput_.size())};
         }
-    }
 
-    if (config_.channelMode == AudioChannelMode::Mono) {
-        downmixInterleavedToMono(std::span<const float>{interleavedInput_.data(), interleavedSize},
-                                 sourceFormat_.channels,
-                                 std::span<float>{channelInput_[0].data(), inputFramesThisCall});
-    } else {
-        for (int c{0}; c < outputChannels_; ++c) {
-            auto& channel{channelInput_[static_cast<std::size_t>(c)]};
-            for (std::size_t i{0}; i < inputFramesThisCall; ++i) {
-                channel[i] = interleavedInput_[i * static_cast<std::size_t>(sourceFormat_.channels) +
-                                               static_cast<std::size_t>(c)];
+        const auto status{reader_->read({interleavedInput_.data(), interleavedSize})};
+        if (status == AudioPipelineStatus::Error) {
+            return AudioPipelineStatus::Error;
+        }
+        if (status == AudioPipelineStatus::End) {
+            // Source ran out before yielding any new samples. Switch to drain
+            // mode so the converter tails surface in subsequent calls instead
+            // of being discarded together with the input stream.
+            draining_ = true;
+            return drainBlock(out);
+        }
+
+        // The reader may have just performed a deferred rewind to start a fresh
+        // loop iteration. Reset filter state on every converter (preserving the
+        // Bresenham accumulator) so the previous iteration's filter tail does
+        // not smear into the start of this block.
+        if (reader_->consumeLoopBoundary()) {
+            for (auto& converter: rateConverters_) {
+                converter.reset();
             }
         }
-    }
 
-    for (int c{0}; c < outputChannels_; ++c) {
-        const bool converted{rateConverters_[static_cast<std::size_t>(c)].process(
-            std::span<const float>{channelInput_[static_cast<std::size_t>(c)].data(), inputFramesThisCall},
-            std::span<float>{channelOutput_[static_cast<std::size_t>(c)].data(), outputFrames_})};
-        if (converted == false) {
-            return AudioPipelineStatus::Error;
+        if (config_.channelMode == AudioChannelMode::Mono) {
+            downmixInterleavedToMono(std::span<const float>{interleavedInput_.data(), interleavedSize},
+                                     sourceFormat_.channels,
+                                     std::span<float>{channelInput_[0].data(), inputFramesThisCall});
+        } else {
+            for (int c{0}; c < outputChannels_; ++c) {
+                auto& channel{channelInput_[static_cast<std::size_t>(c)]};
+                for (std::size_t i{0}; i < inputFramesThisCall; ++i) {
+                    channel[i] = interleavedInput_[i * static_cast<std::size_t>(sourceFormat_.channels) +
+                                                   static_cast<std::size_t>(c)];
+                }
+            }
+        }
+
+        for (int c{0}; c < outputChannels_; ++c) {
+            converted = rateConverters_[static_cast<std::size_t>(c)].process(
+                std::span<const float>{channelInput_[static_cast<std::size_t>(c)].data(), inputFramesThisCall},
+                std::span<float>{channelOutput_[static_cast<std::size_t>(c)].data(), outputFrames_});
+            if (converted == AudioRateConverterStatus::Error) {
+                return AudioPipelineStatus::Error;
+            }
         }
     }
 
@@ -343,7 +350,7 @@ AudioPipelineStatus AudioPipeline::read(std::span<float> out) {
 }
 
 AudioPipelineStatus AudioPipeline::drainBlock(std::span<float> out) {
-    // Pull each converter's tail (spilled samples plus libsoxr filter
+    // Pull each converter's tail (queued samples plus libsoxr filter
     // residue) into its channel buffer and zero-pad the unused slots so
     // the interleave step below treats every channel uniformly. All
     // converters share the same filter geometry and processed history, so
