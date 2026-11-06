@@ -28,13 +28,13 @@ namespace {
     /**
      * @brief Bit pattern of kMinNormal - the lower bound of the normal magnitudes.
      */
-    constexpr std::uint32_t kMinNormalBits{0x0080'0000U};
+    constexpr std::uint32_t kMinNormalBits{std::bit_cast<std::uint32_t>(kMinNormal)};
 
     /**
      * @brief Bit pattern of value without the sign bit.
      *
-     * Results are inspected through their bits because a floating-point comparison in
-     * flush-to-zero mode reads a subnormal operand as zero and could not tell the two apart.
+     * Results are inspected through their bits: in flush-to-zero mode a floating-point
+     * comparison may read a subnormal operand as zero and then cannot tell the two apart.
      */
     std::uint32_t magnitudeBits(float value) {
         constexpr std::uint32_t kMagnitudeMask{0x7FFF'FFFFU};
@@ -42,20 +42,25 @@ namespace {
     }
 
     /**
-     * @brief Multiply through volatile operands, so the product is computed at run time
-     *        under the floating-point mode that is active at the call.
+     * @brief Multiply under the floating-point mode that is active during the call.
+     *
+     * The compiler is not aware of mode changes: it may fold the product at build time or
+     * move the multiplication past a later mode switch. Passing the operands and the product
+     * through volatiles pins the multiplication to this call.
      */
     float multiplyAtRuntime(float left, float right) {
         volatile float runtimeLeft{left};
         volatile float runtimeRight{right};
-        return runtimeLeft * runtimeRight;
+        volatile float runtimeProduct{runtimeLeft * runtimeRight};
+        return runtimeProduct;
     }
 
     /**
      * @brief Count the subnormal outputs of the pifmrds DC blocker (30 Hz high-pass at the
      *        228 kHz MPX rate) after a unit impulse followed by one second of silence.
      *
-     * The impulse is read through a volatile for the same reason as in multiplyAtRuntime().
+     * The impulse and the count pass through volatiles for the same reason as the operands
+     * and the product of multiplyAtRuntime().
      */
     int countSubnormalTailSamples() {
         constexpr float kCutoffHz{30.0F};
@@ -73,7 +78,8 @@ namespace {
                 ++subnormalSamples;
             }
         }
-        return subnormalSamples;
+        volatile int runtimeCount{subnormalSamples};
+        return runtimeCount;
     }
 }  // namespace
 
@@ -136,13 +142,30 @@ TEST_F(EnableFlushToZeroTest, SubnormalOperandIsReadAsZero) {
 }
 
 /**
+ * @brief Enabling the mode does not disturb the rounding mode of the thread.
+ *
+ * The rounding mode lives in the same control register as the flush-to-zero bit, and a
+ * change to it would alter every DSP result. FE_UPWARD is selected first because it is not
+ * the default: an implementation that overwrites the register instead of adding the bit
+ * falls back to round-to-nearest and fails the final check.
+ */
+TEST_F(EnableFlushToZeroTest, RoundingModeIsPreserved) {
+    ASSERT_EQ(std::fesetround(FE_UPWARD), 0);
+
+    enableFlushToZero();
+
+    EXPECT_EQ(std::fegetround(), FE_UPWARD);
+}
+
+/**
  * @brief The decaying tail of a silent filter never enters the subnormal range.
  *
- * Reproduces the silence slowdown: the pole pair of the pifmrds DC blocker (radius ~0.9994
- * per sample) takes a unit impulse below kMinNormal after ~126 000 samples of silence. In
- * the default mode the tail then stays subnormal for the rest of the second - the leading
- * assertion, which also proves that the run is long enough to expose the defect. In
- * flush-to-zero mode not a single output of the same run may be subnormal.
+ * Reproduces the silence slowdown: after a unit impulse the pole pair of the pifmrds DC
+ * blocker (radius ~0.9994 per sample) first drops below kMinNormal after ~126 000 samples
+ * of silence and stays there from ~136 000 samples on. In the default mode about 92 000 of
+ * the 228 000 outputs are therefore subnormal - the leading assertion, which also proves
+ * that the run is long enough to expose the defect. In flush-to-zero mode not a single
+ * output of the same run may be subnormal.
  */
 TEST_F(EnableFlushToZeroTest, SilentFilterTailStaysOutOfSubnormalRange) {
     ASSERT_GT(countSubnormalTailSamples(), 0);
