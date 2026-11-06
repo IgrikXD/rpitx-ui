@@ -9,7 +9,7 @@
 # ----------------------------------------------------------
 # Provides the lightweight signal-processing primitives shared by every
 # transmitter binary: an envelope-tracking automatic gain control (AGC) that
-# usable with both IqSample pairs and scalar audio, a Direct-Form-I
+# is usable with both IqSample pairs and scalar audio, a Direct-Form-I
 # second-order IIR Biquad with Butterworth high/low-pass and FM
 # pre-emphasis factories, a Blackman-windowed Hilbert FIR transformer that
 # turns a real input into a delay-aligned analytic (I/Q) signal, the

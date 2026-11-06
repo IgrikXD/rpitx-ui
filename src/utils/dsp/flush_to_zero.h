@@ -17,7 +17,7 @@
  * @brief Enable flush-to-zero mode for floating-point arithmetic on the calling thread.
  *
  * Subnormal operands and results are replaced by zero, so a decaying filter
- * state settles to silence instead of lingering in the subnormal range.
+ * state cannot linger in the subnormal range.
  */
 inline void enableFlushToZero() noexcept {
     // FZ bit, at the same position in the AArch32 FPSCR and the AArch64 FPCR.
