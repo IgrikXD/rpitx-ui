@@ -41,7 +41,7 @@ protected:
     }
 
     /**
-     * @brief Whether the kernel lets the test process use real-time scheduling (root or CAP_SYS_NICE).
+     * @brief Whether the kernel lets the test process use real-time scheduling.
      */
     bool realtimePermitted() const {
         return realtimePermitted_;
@@ -75,23 +75,28 @@ private:
  * Whether the kernel grants the request depends on the privileges of the test process, so
  * the fixture probes it and the test checks the complete outcome that belongs to the probed
  * case: the FIFO policy at the lowest real-time priority with an empty stderr, or the saved
- * policy and priority together with the [WARNING] diagnostic. The lowest priority already
- * runs ahead of every normally scheduled process and keeps the transmitter behind the
- * real-time threads of the system itself. An implementation that never makes the request,
- * makes one the kernel rejects, or asks for another policy or priority fails the privileged
- * run; one that hides the refusal or changes the scheduling anyway fails the unprivileged run.
+ * policy and priority together with the [WARNING] diagnostic on stderr. Stdout stays empty
+ * in both cases. The lowest priority already runs ahead of every normally scheduled process
+ * and keeps the transmitter behind the real-time threads of the system itself.
+ *
+ * An implementation that never makes the request, makes one the kernel rejects, or asks for
+ * another policy or priority fails where the request is granted; one that hides the refusal
+ * or changes the policy or priority anyway fails where it is refused. Both captures are read
+ * before the first expectation, so the message of a failed expectation reaches the console.
  */
 TEST_F(EnableRealtimeSchedulingTest, GrantsLowestRealtimePriorityOrWarns) {
     enableRealtimeScheduling();
 
+    const std::string& diagnostics{capturedStderr()};
+    const std::string& standardOutput{capturedStdout()};
     const int currentPolicy{sched_getscheduler(0)};
     sched_param currentParameters{};
     ASSERT_EQ(sched_getparam(0, &currentParameters), 0);
-    const std::string& diagnostics{capturedStderr()};
 
     EXPECT_EQ(currentPolicy, realtimePermitted() ? SCHED_FIFO : savedPolicy());
     EXPECT_EQ(currentParameters.sched_priority,
               realtimePermitted() ? sched_get_priority_min(SCHED_FIFO) : savedPriority());
     EXPECT_EQ(diagnostics.empty(), realtimePermitted());
     EXPECT_EQ(diagnostics.starts_with("[WARNING]"), realtimePermitted() == false);
+    EXPECT_TRUE(standardOutput.empty());
 }
