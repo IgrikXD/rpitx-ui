@@ -122,12 +122,16 @@ private:
      * sample sees gain = 1.0 and stays within the clamp - a small seed
      * would saturate the opening milliseconds into a +-peakDeviation
      * square wave (audible thump + broad spectral content).
+     * Below the gate of -50 dBFS the envelope holds, so a pause is not
+     * raised to the target level; the gain is limited to +20 dB.
      */
     static constexpr AgcConfig NFM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
         .initialEnvelope = 0.8f,
+        .maxGain         = 10.0f,
+        .gate            = 0.003f,
     };
 
     Biquad hpf_;                                  ///< DC block.

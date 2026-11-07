@@ -112,12 +112,16 @@ private:
      * and stays within the envelope clamp - a small seed (as SSB uses) would
      * saturate into a startup pop. Convergence to steady-state voice level
      * is a ~500 ms gentle fade-in governed by the decay time constant.
+     * Below the gate of -50 dBFS the envelope holds, so a pause is not
+     * raised to the target level; the gain is limited to +20 dB.
      */
     static constexpr AgcConfig AM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
         .initialEnvelope = 0.8f,
+        .maxGain         = 10.0f,
+        .gate            = 0.003f,
     };
 
     Biquad hpf_;              ///< DC block.
