@@ -21,8 +21,8 @@ namespace {
     /**
      * @brief Input blocks one read() may feed the rate converters before giving up.
      *
-     * libsoxr holds back a few input blocks at most - seven at 8 kHz -> 228 kHz, the
-     * largest supported ratio - so a converter that still asks for input after this
+     * libsoxr holds back a few input blocks at most - six in a row at 8 kHz -> 228 kHz,
+     * the largest supported ratio - so a converter that still asks for input after this
      * many of them is broken, and a real-time thread must not spin on it.
      */
     constexpr int MAX_INPUT_BLOCKS_PER_READ{32};

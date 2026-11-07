@@ -120,7 +120,9 @@ public:
      *         outputSamplesPerBlock() (caller contract violation).
      * @throws std::logic_error on an internal invariant violation
      *         (e.g. converter requesting more input than the buffer can
-     *         hold, source returning a partial frame).
+     *         hold or still needing input after MAX_INPUT_BLOCKS_PER_READ
+     *         blocks, converters out of step, source returning a partial
+     *         frame).
      */
     [[nodiscard]] AudioPipelineStatus read(std::span<float> out);
 

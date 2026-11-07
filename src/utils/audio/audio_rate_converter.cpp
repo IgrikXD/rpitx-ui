@@ -108,7 +108,7 @@ std::optional<std::size_t> AudioRateConverter::drain(std::span<float> out) {
 
     // 2. Pull soxr's filter tail with the documented end-of-stream flush
     // form (empty input span). After this call libsoxr is in its post-flush
-    // state; reset() must be invoked before resuming normal process() use.
+    // state and takes no further process() calls.
     const auto result{resampler_.value().process(std::span<const float>{}, out.subspan(outIdx))};
     if (result == std::nullopt) {
         // Surface the libsoxr failure as nullopt so the pipeline reports

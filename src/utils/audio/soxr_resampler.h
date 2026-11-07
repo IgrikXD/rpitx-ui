@@ -98,9 +98,7 @@ public:
      * @brief Reset the internal filter delay line and phase.
      *
      * Leaves the configured rate / quality untouched but empties any sample
-     * buffered inside the resampler. Use this at loop boundaries so the filter
-     * tail of the previous file iteration does not smear into the start of the
-     * next one.
+     * buffered inside the resampler, so the next input starts a fresh stream.
      */
     void clear() noexcept;
 
