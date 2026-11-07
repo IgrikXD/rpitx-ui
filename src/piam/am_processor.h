@@ -55,9 +55,10 @@ public:
     /**
      * @brief Process a single normalized audio sample into an AM envelope.
      *
-     * The AGC stage normalises whatever it receives, so the input magnitude
+     * The AGC stage levels whatever it receives, so the input magnitude
      * is a convention (typically PCM16 scaled to [-1, 1]) rather than a
-     * hard precondition - larger or smaller values are renormalised, not rejected.
+     * hard precondition - larger values are attenuated to the target,
+     * smaller ones raised by at most the configured gain limit.
      *
      * @param sample Input audio sample (normalised float, conventionally in [-1, 1]).
      * @return AM envelope in [0.0, 1.0] (clamped for safety).
@@ -112,12 +113,17 @@ private:
      * and stays within the envelope clamp - a small seed (as SSB uses) would
      * saturate into a startup pop. Convergence to steady-state voice level
      * is a ~500 ms gentle fade-in governed by the decay time constant.
+     * Below the gate of -50 dBFS the envelope does not decay, so the noise
+     * of a pause is not raised to the target level; the gain is limited to
+     * +20 dB.
      */
     static constexpr AgcConfig AM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
         .initialEnvelope = 0.8f,
+        .maxGain         = 10.0f,
+        .gate            = 0.003f,
     };
 
     Biquad hpf_;              ///< DC block.

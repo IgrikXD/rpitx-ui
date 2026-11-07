@@ -135,12 +135,17 @@ private:
      * (attack=0.003, decay=0.0001) to preserve the same approximate
      * time constants after AudioPipeline has resampled input audio to
      * the 228 kHz MPX rate before this processor runs.
+     * Below the gate of -50 dBFS the envelope does not decay, so the noise
+     * of a pause is not raised to the target level; the gain is limited to
+     * +20 dB.
      */
     static constexpr AgcConfig FMRDS_AGC_CONFIG{
         .target          = 0.8F,
         .attack          = 0.00063158F,
         .decay           = 0.00002105F,
         .initialEnvelope = 0.8F,
+        .maxGain         = 10.0F,
+        .gate            = 0.003F,
     };
 
     /**

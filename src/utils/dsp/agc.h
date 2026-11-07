@@ -11,7 +11,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 #include "iq_sample.h"
 
@@ -21,7 +24,8 @@
  * All fields must be explicitly provided - no domain-specific defaults.
  *
  * @code
- * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f, .initialEnvelope = 1e-4f}};
+ * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f,
+ *          .initialEnvelope = 1e-4f, .maxGain = 10.0f, .gate = 0.003f}};
  * @endcode
  */
 struct AgcConfig {
@@ -29,18 +33,24 @@ struct AgcConfig {
     float attack;           ///< Envelope attack coefficient (fast response to level increase).
     float decay;            ///< Envelope decay coefficient (slow response to level decrease).
     float initialEnvelope;  ///< Initial envelope estimate.
+    float maxGain;          ///< Upper bound of the gain (>= 1).
+    float gate;             ///< Magnitude below which the envelope holds instead of decaying (>= 0).
 };
 
 /**
  * @brief Fast envelope-tracking AGC for IQ sample pairs or scalar audio samples.
  *
  * Tracks the signal envelope with asymmetric attack/decay smoothing
- * and applies gain to maintain a constant output amplitude. The internal
- * envelope state is shared between the IQ and scalar overloads, so a
- * single instance is intended to be used for one signal domain at a time.
+ * and applies gain to maintain a constant output amplitude. While the
+ * input magnitude stays below the gate the envelope holds, so a pause does
+ * not raise the gain and amplify whatever noise the pause contains; the
+ * gain never exceeds maxGain. The internal envelope state is shared
+ * between the IQ and scalar overloads, so a single instance is intended
+ * to be used for one signal domain at a time.
  *
  * @code
- * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f, .initialEnvelope = 1e-4f}};
+ * Agc agc{{.target = 0.8f, .attack = 0.1f, .decay = 0.001f,
+ *          .initialEnvelope = 1e-4f, .maxGain = 10.0f, .gate = 0.003f}};
  * auto normalized{agc.process(iq)};
  * @endcode
  */
@@ -55,9 +65,21 @@ public:
     /**
      * @brief Construct an AGC with the given configuration.
      * @param config AGC parameters.
+     * @throws std::invalid_argument when maxGain is below 1 or the gate is negative.
      */
-    explicit Agc(AgcConfig config) noexcept
-        : target_{config.target}, attack_{config.attack}, decay_{config.decay}, env_{config.initialEnvelope} {
+    explicit Agc(AgcConfig config)
+        : target_{config.target},
+          attack_{config.attack},
+          decay_{config.decay},
+          maxGain_{config.maxGain},
+          gate_{config.gate},
+          env_{config.initialEnvelope} {
+        // Negated comparisons, so that a NaN is rejected as well.
+        if (!(config.maxGain >= 1.0f) || !(config.gate >= 0.0f)) {
+            throw std::invalid_argument{
+                "Agc: maxGain must be at least 1 and the gate must not be negative, got maxGain " +
+                std::to_string(config.maxGain) + ", gate " + std::to_string(config.gate)};
+        }
     }
 
     /**
@@ -95,25 +117,28 @@ public:
      *
      * @param mag Current sample magnitude (|i+jq| for IQ, |x| for scalar,
      *            max(|L|, |R|) for shared-gain stereo). Must be >= 0.
-     * @return Gain factor target / env, clamped to 1.0 when env is near zero.
+     * @return Gain factor target / env, at most maxGain, and 1.0 when env
+     *         is near zero.
      */
     [[nodiscard]] float updateGain(float mag) noexcept {
-        // Asymmetric attack/decay envelope tracker.
+        // Asymmetric attack/decay envelope tracker; below the gate the envelope does not decay.
         if (mag > env_) {
             env_ += attack_ * (mag - env_);
-        } else {
+        } else if (mag >= gate_) {
             env_ += decay_ * (mag - env_);
         }
 
         if (env_ > ENVELOPE_FLOOR) {
-            return target_ / env_;
+            return std::min(target_ / env_, maxGain_);
         }
         return 1.0f;
     }
 
 private:
-    float target_;  ///< Target output amplitude.
-    float attack_;  ///< Envelope attack coefficient.
-    float decay_;   ///< Envelope decay coefficient.
-    float env_;     ///< Current envelope estimate.
+    float target_;   ///< Target output amplitude.
+    float attack_;   ///< Envelope attack coefficient.
+    float decay_;    ///< Envelope decay coefficient.
+    float maxGain_;  ///< Upper bound of the gain.
+    float gate_;     ///< Magnitude below which the envelope holds.
+    float env_;      ///< Current envelope estimate.
 };
