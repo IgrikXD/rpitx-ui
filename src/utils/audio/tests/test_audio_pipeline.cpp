@@ -25,6 +25,7 @@
 #include "captured_streams_mixin.h"
 #include "fake_audio_source.h"
 #include "mock_audio_source.h"
+#include "signal_continuity.h"
 
 namespace {
     /**
@@ -834,7 +835,7 @@ TEST(AudioPipelineReadTest, ReportsErrorWhenLoopRewindFails) {
  * @brief Passthrough emits exactly the source frame count.
  *
  * Equal source/target rate routes AudioRateConverter to its passthrough fast path - no
- * libsoxr, no warmup / drain padding. With kSourceFrames a multiple of targetOutputFrames
+ * libsoxr, no drain padding. With kSourceFrames a multiple of targetOutputFrames
  * block-rounding adds nothing either, pinning the total to kSourceFrames bit-for-bit -
  * a regression that spuriously built soxr on an equal-rate config trips the EXPECT_EQ that
  * AudioPipelineResampleSweepTest's 10% tolerance would mask.
@@ -871,6 +872,113 @@ TEST(AudioPipelineReadTest, PassthroughEmitsExactSourceFrameCount) {
     EXPECT_EQ(totalSamples, kSourceFrames);
 }
 
+/**
+ * @brief Resampling returns both stereo channels without silence, from the first frame on and in step.
+ *
+ * The source carries the offset tone on the left channel and its mirror image on the right one,
+ * so neither channel ever comes near zero and a zero in the output can only be padding. 40
+ * blocks at 44.1 -> 48 kHz span the first 0.85 s, in which a pipeline that pads the blocks
+ * libsoxr leaves short inserts silence more than ten times. The source is longer than that, so
+ * the end-of-stream padding stays out of the picture.
+ *
+ * The first frame has to be signal already: a pipeline that hands out a block while its
+ * converters still ask for input - instead of feeding them - returns the untouched block
+ * buffer, i.e. silence. The right channel has to be the exact negation of the left one in every frame:
+ * the converters run the same arithmetic on negated input, so any frame that breaks the mirror
+ * image means one channel got its input a block early or late.
+ */
+TEST(AudioPipelineReadTest, ResampledStereoCarriesNoSilenceFromFirstFrame) {
+    constexpr std::size_t kSourceFrames{44'100};
+    constexpr std::size_t kTargetOutputFrames{1'024};
+    constexpr std::size_t kBlocks{40};
+    const std::vector<float> tone{makeOffsetTone(kCdAudioRateHz, kSourceFrames)};
+    std::vector<float> samples;
+    samples.reserve(2 * kSourceFrames);
+    for (const float toneSample: tone) {
+        samples.push_back(toneSample);
+        samples.push_back(-toneSample);
+    }
+    FakeAudioSource source{AudioFormat{
+                               .channels   = 2,
+                               .sampleRate = kCdAudioRateHz,
+                           },
+                           std::move(samples),
+                           true};
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = false,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = kTargetOutputFrames,
+                               .channelMode        = AudioChannelMode::Preserve,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+    std::vector<float> leftSignal;
+    std::vector<float> rightSignal;
+    for (std::size_t blockIdx{0}; blockIdx < kBlocks; ++blockIdx) {
+        ASSERT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Ok);
+        for (std::size_t frame{0}; frame < kTargetOutputFrames; ++frame) {
+            leftSignal.push_back(outputBlock[2 * frame]);
+            rightSignal.push_back(outputBlock[2 * frame + 1]);
+        }
+    }
+
+    std::size_t framesOutOfStep{0};
+    for (std::size_t frame{0}; frame < leftSignal.size(); ++frame) {
+        if (leftSignal[frame] != -rightSignal[frame]) {
+            ++framesOutOfStep;
+        }
+    }
+
+    EXPECT_NE(leftSignal.front(), 0.0F);
+    EXPECT_NE(rightSignal.front(), 0.0F);
+    EXPECT_EQ(countSilenceInsideSignal(leftSignal), 0U);
+    EXPECT_EQ(countSilenceInsideSignal(rightSignal), 0U);
+    EXPECT_EQ(framesOutOfStep, 0U);
+}
+
+/**
+ * @brief Looping a file that ends on an input block boundary keeps delivering the tone seamlessly.
+ *
+ * 512 frames of the tone at 8 kHz are 64 whole periods and, at 8 -> 48 kHz with 1024-frame
+ * blocks, exactly three input blocks: every loop iteration ends on a block boundary, the seam
+ * gets no crossfade, and the converters see one endless periodic tone. Each of the 200 reads
+ * (4.3 s, about 65 iterations) has to deliver a block, and after the start transient every
+ * sample has to match the tone. A pipeline that empties its converters at the boundary either
+ * never completes a block again - the input-block limit turns that into a logic_error instead
+ * of a hang - or cuts the end of the file out of every iteration, which shifts the tone's phase.
+ */
+TEST(AudioPipelineReadTest, LoopedBlockAlignedSourceKeepsDeliveringTheTone) {
+    constexpr int kVoiceRateHz{8'000};
+    constexpr std::size_t kSourceFrames{512};
+    constexpr std::size_t kTargetOutputFrames{1'024};
+    constexpr std::size_t kBlocks{200};
+    constexpr std::size_t kSkipFrames{2'400};  // 50 ms at 48 kHz
+    constexpr float kToneTolerance{1e-3F};
+    FakeAudioSource source{AudioFormat{
+                               .channels   = 1,
+                               .sampleRate = kVoiceRateHz,
+                           },
+                           makeOffsetTone(kVoiceRateHz, kSourceFrames),
+                           true};
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = true,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = kTargetOutputFrames,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+    std::vector<float> convertedSignal;
+    for (std::size_t blockIdx{0}; blockIdx < kBlocks; ++blockIdx) {
+        ASSERT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Ok);
+        convertedSignal.insert(convertedSignal.end(), outputBlock.begin(), outputBlock.end());
+    }
+
+    EXPECT_EQ(countSamplesOffTone(convertedSignal, kBroadcastRateHz, kSkipFrames, kToneTolerance), 0U);
+}
+
 namespace {
     struct ResampleTestCase {
         std::string_view name;
@@ -892,7 +1000,7 @@ namespace {
      *        project's broadcast ceiling. Same canonical pairing as the SoxrResampler and
      *        AudioRateConverter test suites. The same-rate passthrough configuration is
      *        covered exact-match by PassthroughEmitsExactSourceFrameCount instead - libsoxr is
-     *        never instantiated on that path, so the 10% warmup / drain budget carried by the
+     *        never instantiated on that path, so the 10% drain budget carried by the
      *        sweep below would be meaninglessly generous there.
      */
     std::vector<ResampleTestCase> makeResampleTestCases() {
@@ -910,10 +1018,9 @@ class AudioPipelineResampleSweepTest : public ::testing::TestWithParam<ResampleT
  * @brief Total output sample count is approximately sourceFrames * targetRate / sourceRate.
  *
  * The expected count derives from the rate ratio applied to the source frame budget; the 10%
- * tolerance absorbs libsoxr's warmup padding on the first block and drain padding on the
- * last block (each up to outputFrames silence samples). A regression that dropped input
- * mid-stream or emitted runaway blocks would exceed the tolerance and surface on the
- * EXPECT_NEAR.
+ * tolerance absorbs the zero padding of the last input block and the drain padding of the
+ * last output block (each up to one block). A regression that dropped input mid-stream or
+ * emitted runaway blocks would exceed the tolerance and surface on the EXPECT_NEAR.
  */
 TEST_P(AudioPipelineResampleSweepTest, EmitsTargetRateBlocksWithoutInputDrop) {
     constexpr std::size_t kSourceFrames{16'384};
