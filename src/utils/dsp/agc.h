@@ -74,7 +74,8 @@ public:
           maxGain_{config.maxGain},
           gate_{config.gate},
           env_{config.initialEnvelope} {
-        if (config.maxGain < 1.0F || config.gate < 0.0F) {
+        // Negated comparisons, so that a NaN is rejected as well.
+        if (!(config.maxGain >= 1.0f) || !(config.gate >= 0.0f)) {
             throw std::invalid_argument{
                 "Agc: maxGain must be at least 1 and the gate must not be negative, got maxGain " +
                 std::to_string(config.maxGain) + ", gate " + std::to_string(config.gate)};
