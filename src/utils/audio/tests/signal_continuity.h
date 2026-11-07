@@ -1,6 +1,6 @@
 /**
  * @file signal_continuity.h
- * @brief Test helpers that expose silence inserted into a converted signal.
+ * @brief Test helpers that expose silence, drops and repeats in a converted signal.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 06.11.2026
@@ -20,23 +20,30 @@
 #include <vector>
 
 /**
- * @brief Build a 1 kHz tone on a DC offset that keeps every sample between 0.25 and 0.75.
+ * @brief Sample of a 1 kHz tone on a DC offset that keeps every sample between 0.25 and 0.75.
  *
  * The signal never comes near zero, so a zero sample in anything derived from it by rate
- * conversion can only be padding.
+ * conversion can only be padding. The phase is computed in double, so the samples of a signal
+ * at the target rate serve as the exact reference for the converted samples.
  *
  * @param sampleRateHz Sample rate of the tone in Hz.
- * @param frames       Number of samples to generate.
+ * @param index        Index of the sample.
+ */
+[[nodiscard]] inline float offsetToneSample(int sampleRateHz, std::size_t index) {
+    constexpr double kOffset{0.5};
+    constexpr double kAmplitude{0.25};
+    constexpr double kToneHz{1'000.0};
+    const double phase{2.0 * std::numbers::pi * kToneHz * static_cast<double>(index) / sampleRateHz};
+    return static_cast<float>(kOffset + kAmplitude * std::sin(phase));
+}
+
+/**
+ * @brief Build frames samples of the offset tone at sampleRateHz.
  */
 [[nodiscard]] inline std::vector<float> makeOffsetTone(int sampleRateHz, std::size_t frames) {
-    constexpr float kOffset{0.5F};
-    constexpr float kAmplitude{0.25F};
-    constexpr float kToneHz{1'000.0F};
-    const float omega{2.0F * std::numbers::pi_v<float> * kToneHz / static_cast<float>(sampleRateHz)};
-
     std::vector<float> tone(frames);
     for (std::size_t n{0}; n < frames; ++n) {
-        tone[n] = kOffset + kAmplitude * std::sin(omega * static_cast<float>(n));
+        tone[n] = offsetToneSample(sampleRateHz, n);
     }
     return tone;
 }
@@ -55,4 +62,26 @@
         return 0;
     }
     return static_cast<std::size_t>(std::ranges::count(firstSignal, afterLastSignal, 0.0F));
+}
+
+/**
+ * @brief Count the samples that differ from the offset tone at sampleRateHz by more than tolerance.
+ *
+ * Sample i of a converted signal is compared with sample i of the tone at the target rate,
+ * so a dropped, repeated or reordered sample shows as a phase error from that point on. The
+ * first and the last skipFrames samples are left out, where the filter transients of the
+ * start and of the end of the input dominate.
+ */
+[[nodiscard]] inline std::size_t countSamplesOffTone(std::span<const float> samples, int sampleRateHz,
+                                                     std::size_t skipFrames, float tolerance) {
+    if (samples.size() <= 2 * skipFrames) {
+        return 0;
+    }
+    std::size_t offTone{0};
+    for (std::size_t i{skipFrames}; i < samples.size() - skipFrames; ++i) {
+        if (std::abs(samples[i] - offsetToneSample(sampleRateHz, i)) > tolerance) {
+            ++offTone;
+        }
+    }
+    return offTone;
 }
