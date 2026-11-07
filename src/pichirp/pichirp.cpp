@@ -37,6 +37,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "realtime_scheduling.h"
 
 namespace pichirp {
     namespace {
@@ -122,6 +123,9 @@ namespace pichirp {
         std::signal(SIGTERM, handleSignal);
         // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
+
+        // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
+        enableRealtimeScheduling();
 
         std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
