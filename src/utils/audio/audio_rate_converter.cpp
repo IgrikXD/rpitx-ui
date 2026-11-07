@@ -73,8 +73,9 @@ AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, std::
     stagingBuffer_.assign(static_cast<std::size_t>(maxStagingLL) + STAGING_HEADROOM_SAMPLES, 0.0F);
 
     // The queue holds the start-up reserve plus the latest burst - up to
-    // 3.3 staging buffers at 44.1 -> 48 kHz; reserve enough up front so it
-    // never reallocates while the transmission runs.
+    // 3.2 staging buffers measured across the supported rates; reserve
+    // for that up front so it does not reallocate while the transmission
+    // runs.
     pendingOutput_.reserve(4 * stagingBuffer_.size());
 
     resampler_.emplace(sourceRateHz, targetRateHz);
