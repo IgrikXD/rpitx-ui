@@ -55,9 +55,10 @@ public:
     /**
      * @brief Process a single normalized audio sample into an AM envelope.
      *
-     * The AGC stage normalises whatever it receives, so the input magnitude
+     * The AGC stage levels whatever it receives, so the input magnitude
      * is a convention (typically PCM16 scaled to [-1, 1]) rather than a
-     * hard precondition - larger or smaller values are renormalised, not rejected.
+     * hard precondition - larger values are attenuated to the target,
+     * smaller ones raised by at most the configured gain limit.
      *
      * @param sample Input audio sample (normalised float, conventionally in [-1, 1]).
      * @return AM envelope in [0.0, 1.0] (clamped for safety).
