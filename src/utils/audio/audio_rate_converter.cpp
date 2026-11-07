@@ -72,9 +72,10 @@ AudioRateConverter::AudioRateConverter(int sourceRateHz, int targetRateHz, std::
     }
     stagingBuffer_.assign(static_cast<std::size_t>(maxStagingLL) + STAGING_HEADROOM_SAMPLES, 0.0F);
 
-    // The queue holds the start-up reserve plus the latest burst; reserve
-    // room for the common case up front.
-    pendingOutput_.reserve(2 * stagingBuffer_.size());
+    // The queue holds the start-up reserve plus the latest burst - up to
+    // 3.3 staging buffers at 44.1 -> 48 kHz; reserve enough up front so it
+    // never reallocates while the transmission runs.
+    pendingOutput_.reserve(4 * stagingBuffer_.size());
 
     resampler_.emplace(sourceRateHz, targetRateHz);
 }
@@ -149,10 +150,10 @@ AudioRateConverterStatus AudioRateConverter::process(std::span<const float> in, 
                                     static_cast<long long>(expectedIn) * static_cast<long long>(targetRate_)};
 
     // 1. Run soxr into the staging buffer. The staging buffer is sized so
-    // soxr stops on input exhaustion rather than the output cap; verify
-    // that invariant at runtime as a cheap guard against any future libsoxr
-    // version where the bound is no longer tight - silently dropping input
-    // samples here would degrade the output to carrier-only RF.
+    // soxr accepts the whole input block; verify that invariant at runtime
+    // as a cheap guard against any future libsoxr version where the bound
+    // is no longer tight - silently dropping input samples here would
+    // degrade the output to carrier-only RF.
     const auto result{resampler_.value().process(in, std::span<float>{stagingBuffer_})};
     if (result == std::nullopt) {
         return AudioRateConverterStatus::Error;

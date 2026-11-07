@@ -142,9 +142,8 @@ private:
          *
          * In loop mode reads are gap-free: on EOF the source is rewound
          * in place and the same block keeps filling. A short linear
-         * crossfade (kCrossfadeFrames) smooths mid-block seams; on a
-         * block-aligned EOF consumeLoopBoundary() reports true so the
-         * converter filter state can be reset cleanly.
+         * crossfade (kCrossfadeFrames) smooths mid-block seams; a
+         * block-aligned EOF continues with the first frames of the file.
          *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.
@@ -154,23 +153,6 @@ private:
          * @throws std::logic_error if the source returns a partial frame.
          */
         [[nodiscard]] AudioPipelineStatus read(std::span<float> dst);
-
-        /**
-         * @brief Whether the most recent read() began at a clean loop boundary.
-         *
-         * Returns true exactly once when the block whose conversion is
-         * about to start contains no pre-rewind tail - either because the
-         * read() filled it from scratch after a block-aligned EOF, or
-         * because a previous read() rewound the source after emitting its
-         * trailing tail and the current read() is the first one to carry
-         * post-rewind data. The caller should reset rate-converter filter
-         * state for such a block.
-         */
-        [[nodiscard]] bool consumeLoopBoundary() noexcept {
-            const bool result{restartedThisRead_};
-            restartedThisRead_ = false;
-            return result;
-        }
 
     private:
         /// Crossfade window in frames used to smooth mid-block loop seams.
@@ -182,20 +164,6 @@ private:
         AudioSource& source_;
         int channels_;
         bool loop_;
-        bool restartedThisRead_{
-            false};  ///< Set when the current block began at a loop boundary (visible to consumeLoopBoundary()).
-        /// Carries an unsignalled rewind from one read() into the next.
-        ///
-        /// Set when read() had to exit with pre-rewind tail in the block
-        /// (Ok + zero pad) before any post-rewind samples were available.
-        /// The next read() promotes it into restartedThisRead_ on entry,
-        /// so the converter reset surfaces on the call that first
-        /// processes post-rewind data, not on the same call that set it.
-        /// Promoting on entry (rather than OR-ing into
-        /// consumeLoopBoundary()) is what makes the deferral observable
-        /// on the *next* AudioPipeline::read() iteration instead of the
-        /// same one that triggered the rewind.
-        bool pendingLoopBoundary_{false};
         std::vector<float> crossfadeBuffer_;  ///< Scratch for post-rewind head samples (loop mode only).
     };
 
@@ -203,10 +171,10 @@ private:
      * @brief Drive a draining block: pull each converter's tail into out.
      *
      * Called after the block reader has reported End in non-loop mode so
-     * libsoxr's filter delay line is recovered instead of being discarded
-     * with the source. Returns Ok with a partial-then-padded block while
-     * any converter still has tail samples, End once all converters are
-     * fully drained.
+     * the queued samples and libsoxr's filter delay line are recovered
+     * instead of being discarded with the source. Returns Ok with a
+     * partial-then-padded block while any converter still has tail
+     * samples, End once all converters are fully drained.
      */
     [[nodiscard]] AudioPipelineStatus drainBlock(std::span<float> out);
 
