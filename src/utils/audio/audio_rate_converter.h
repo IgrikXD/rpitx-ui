@@ -42,8 +42,9 @@ enum class AudioRateConverterStatus {
  * libsoxr delivers its output in bursts, so the converted samples are queued
  * and an output block is handed out only when the queue can fill it
  * completely. Until then process() asks for a further input block. The extra
- * blocks stay queued as a reserve, so the requests end shortly after the
- * start and every input block yields one output block from then on.
+ * blocks stay queued as a reserve; for the supported rates the requests end
+ * within the first seconds, after which every input block yields one output
+ * block.
  *
  * When sourceRateHz == targetRateHz no soxr instance is created and process()
  * degrades to a memory copy.
@@ -59,10 +60,7 @@ public:
      *
      * @param sourceRateHz       Input sample rate in Hz (> 0).
      * @param targetRateHz       Output sample rate in Hz (> 0).
-     * @param targetOutputFrames Output frames produced per process() call (> 0).
-     *                           Sets the latency budget at the output rate;
-     *                           in seconds this is targetOutputFrames /
-     *                           targetRateHz.
+     * @param targetOutputFrames Frames in every output block (> 0).
      *
      * @throws std::invalid_argument when any parameter is non-positive or when
      *         the derived per-call input frame count overflows std::size_t.
@@ -76,7 +74,7 @@ public:
     AudioRateConverter& operator=(AudioRateConverter&&)      = default;
 
     /**
-     * @brief Output frames produced per process() call (constant).
+     * @brief Frames in every output block (constant).
      */
     [[nodiscard]] std::size_t outputFrames() const noexcept {
         return outputFrames_;
@@ -127,27 +125,6 @@ public:
     [[nodiscard]] AudioRateConverterStatus process(std::span<const float> in, std::span<float> out);
 
     /**
-     * @brief Reset filter state for a loop boundary.
-     *
-     * Empties the soxr filter delay line and drops any queued output samples
-     * so the end-of-file filter tail does not smear into the start of the
-     * next iteration. The Bresenham accumulator is deliberately preserved
-     * across the boundary: the loop wraps the source content but the
-     * cumulative input/output rate ratio must keep tracking the target so
-     * peekNextInputFrames() of the call that triggered this reset still
-     * matches the input span the caller has already fetched, and longer
-     * looped playbacks do not accumulate sample-count drift.
-     */
-    void reset() {
-        pendingOutput_.clear();
-        pendingReadPos_ = 0;
-        if (resampler_ != std::nullopt) {
-            resampler_.value().clear();
-        }
-        // inputAccumulator_ deliberately preserved across the boundary.
-    }
-
-    /**
      * @brief Pull the converter's tail into out at end-of-stream.
      *
      * Drains queued output samples first, then feeds soxr the documented
@@ -155,7 +132,7 @@ public:
      * still buffered in the filter delay line.
      *
      * Once drain() has been called, the soxr instance is in libsoxr's
-     * post-flush state - call reset() before resuming normal process() use.
+     * post-flush state and takes no further process() calls.
      *
      * @param out Output buffer; size must not exceed outputFrames().
      * @return Number of frames written (0 .. out.size()) on success; 0 means
@@ -177,11 +154,10 @@ private:
     /**
      * @brief Staging buffer for soxr's output writes.
      *
-     * Sized to absorb the maximum number of output samples soxr can produce
-     * from maxInputFrames_ inputs (plus a small safety margin). Letting
-     * soxr fill a generous buffer guarantees idone == ilen on every call,
-     * so no input is silently dropped at the boundary where output would
-     * otherwise have filled first.
+     * Sized for the output maxInputFrames_ inputs amount to at the rate
+     * ratio, plus a margin that keeps libsoxr's input limit above the input
+     * block, so every call consumes its whole input (idone == ilen); output
+     * that does not fit stays inside libsoxr until the next call.
      */
     std::vector<float> stagingBuffer_;
 
@@ -190,9 +166,9 @@ private:
      *
      * soxr's per-call output count swings between nothing and more than a
      * block; every converted sample is queued here and leaves in full
-     * output blocks. Stored as a flat vector with a separate read offset
-     * so we can pop from the front in O(1) without a deque's per-element
-     * allocation.
+     * output blocks. Stored as a flat vector with a read offset: a block is
+     * handed out by advancing the offset, and the part already handed out
+     * is dropped before the next samples are appended.
      */
     std::vector<float> pendingOutput_;
     std::size_t pendingReadPos_;
