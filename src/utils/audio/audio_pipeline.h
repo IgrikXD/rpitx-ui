@@ -145,7 +145,8 @@ private:
          * In loop mode reads are gap-free: on EOF the source is rewound
          * in place and the same block keeps filling. A short linear
          * crossfade (kCrossfadeFrames) smooths mid-block seams; a
-         * block-aligned EOF continues with the first frames of the file.
+         * block-aligned EOF continues with the first frames of the file
+         * without one.
          *
          * @param dst Destination buffer; size must be a positive multiple
          *            of the channel count established at construction.

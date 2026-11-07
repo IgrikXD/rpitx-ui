@@ -881,9 +881,9 @@ TEST(AudioPipelineReadTest, PassthroughEmitsExactSourceFrameCount) {
  * libsoxr leaves short inserts silence more than ten times. The source is longer than that, so
  * the end-of-stream padding stays out of the picture.
  *
- * The first frame has to be signal already: a pipeline that hands out a block before its
- * converters have completed one - instead of feeding them further input - starts with a block
- * of silence. The right channel has to be the exact negation of the left one in every frame:
+ * The first frame has to be signal already: a pipeline that hands out a block while its
+ * converters still ask for input - instead of feeding them - returns the untouched block
+ * buffer, i.e. silence. The right channel has to be the exact negation of the left one in every frame:
  * the converters run the same arithmetic on negated input, so any frame that breaks the mirror
  * image means one channel got its input a block early or late.
  */
