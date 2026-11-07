@@ -12,7 +12,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,6 +22,17 @@
 #include "agc.h"
 
 namespace {
+    /**
+     * @brief Gain limit that never binds - keeps the gain = target / envelope arithmetic of the
+     *        basic tests free of the limit.
+     */
+    constexpr float kNoGainLimit{std::numeric_limits<float>::infinity()};
+
+    /**
+     * @brief Gate at zero magnitude - every input decays the envelope, nothing holds it.
+     */
+    constexpr float kNoGate{0.0F};
+
     /**
      * @brief Snaps the envelope to |input| in one step (attack=decay=1) - simplifies analytical
      *        expectations across most basic tests by removing transient settling behavior.
@@ -29,6 +42,8 @@ namespace {
         .attack          = 1.0F,
         .decay           = 1.0F,
         .initialEnvelope = 1e-4F,
+        .maxGain         = kNoGainLimit,
+        .gate            = kNoGate,
     };
 
     /**
@@ -40,6 +55,8 @@ namespace {
         .attack          = 0.5F,
         .decay           = 0.01F,
         .initialEnvelope = 1e-4F,
+        .maxGain         = kNoGainLimit,
+        .gate            = kNoGate,
     };
 
     /**
@@ -51,6 +68,8 @@ namespace {
         .attack          = 1.0F,
         .decay           = 1.0F,
         .initialEnvelope = 0.0F,
+        .maxGain         = kNoGainLimit,
+        .gate            = kNoGate,
     };
 
     /**
@@ -62,6 +81,34 @@ namespace {
         .attack          = 1.0F,
         .decay           = 1.0F,
         .initialEnvelope = 1e-4F,
+        .maxGain         = kNoGainLimit,
+        .gate            = kNoGate,
+    };
+
+    /**
+     * @brief Snapping tracker whose gain may not exceed 4 - distinguishes the limit from the
+     *        target / envelope arithmetic, which asks for 10 at |input| = 0.1.
+     */
+    constexpr AgcConfig kLimitedGainConfig{
+        .target          = 1.0F,
+        .attack          = 1.0F,
+        .decay           = 1.0F,
+        .initialEnvelope = 1e-4F,
+        .maxGain         = 4.0F,
+        .gate            = kNoGate,
+    };
+
+    /**
+     * @brief Peak-hold tracker with a gate at 0.01: magnitudes below it leave the envelope where
+     *        it is, so a pause does not raise the gain.
+     */
+    constexpr AgcConfig kGatedConfig{
+        .target          = 0.8F,
+        .attack          = 0.5F,
+        .decay           = 0.01F,
+        .initialEnvelope = 1e-4F,
+        .maxGain         = kNoGainLimit,
+        .gate            = 0.01F,
     };
 }  // namespace
 
@@ -150,6 +197,116 @@ TEST(AgcTest, AsymmetricAttackDecayCausesFastRiseSlowFall) {
 
     EXPECT_NEAR(gainAfterDrop, gainAtFullScale, 0.02F);
 }
+
+/**
+ * @brief The gain never exceeds maxGain, however small the envelope is.
+ *
+ * With kLimitedGainConfig the envelope snaps to |input| = 0.1 and target / envelope asks for a
+ * gain of 10; the limit of 4 has to win. An implementation that ignores the limit returns 10,
+ * one that applies it to the envelope instead of the gain returns a different value again.
+ */
+TEST(AgcTest, GainIsLimitedToMaxGain) {
+    Agc agc{kLimitedGainConfig};
+    const float gain{agc.updateGain(0.1F)};
+
+    EXPECT_FLOAT_EQ(gain, 4.0F);
+}
+
+/**
+ * @brief While the magnitude stays below the gate the envelope holds and the gain does not rise.
+ *
+ * The tracker settles at full scale (gain 0.8), then sees 50 samples of 0.001 - a pause below
+ * the gate of 0.01. Without the gate the envelope would decay by 1 - 0.99^50 = 39 % and the
+ * gain would rise to 1.3; with it the gain has to stay at exactly 0.8. The first sample above
+ * the gate (0.05) advances the envelope by one decay step again, so the gain rises above 0.8.
+ */
+TEST(AgcTest, EnvelopeHoldsWhileMagnitudeIsBelowGate) {
+    Agc agc{kGatedConfig};
+
+    constexpr int kEnvelopeSettleSamples{50};
+    for (int i{0}; i < kEnvelopeSettleSamples; ++i) {
+        [[maybe_unused]] const float warmupGain{agc.updateGain(1.0F)};
+    }
+    const float gainAtFullScale{agc.updateGain(1.0F)};
+    constexpr int kPauseSamples{50};
+    float gainInPause{gainAtFullScale};
+    for (int i{0}; i < kPauseSamples; ++i) {
+        gainInPause = agc.updateGain(0.001F);
+    }
+    const float gainAfterPause{agc.updateGain(0.05F)};
+
+    EXPECT_FLOAT_EQ(gainInPause, gainAtFullScale);
+    EXPECT_GT(gainAfterPause, gainAtFullScale);
+}
+
+/**
+ * @brief The gate holds only the decay: a magnitude above the envelope attacks even below the gate.
+ *
+ * kGatedConfig starts with an envelope of 1e-4 and a gate of 0.01. A magnitude of 0.005 lies
+ * below the gate but above the envelope, so the attack step applies:
+ * env = 1e-4 + 0.5 * (0.005 - 1e-4) = 0.00255 and gain = 0.8 / 0.00255 = 313.7. A gate that
+ * froze the envelope for every magnitude below it would leave the gain at 8000.
+ */
+TEST(AgcTest, AttackAppliesBelowTheGate) {
+    Agc agc{kGatedConfig};
+    const float gain{agc.updateGain(0.005F)};
+
+    EXPECT_NEAR(gain, 313.7F, 0.5F);
+}
+
+namespace {
+    struct AgcConfigRejectionTestCase {
+        std::string_view name;
+        float maxGain;
+        float gate;
+    };
+
+    /**
+     * @brief Render a rejection case as its name plus the offending limit and gate for gtest
+     *        listings and failure messages.
+     */
+    void PrintTo(const AgcConfigRejectionTestCase& testCase, std::ostream* os) {
+        *os << testCase.name << " {maxGain=" << testCase.maxGain << ", gate=" << testCase.gate << "}";
+    }
+
+    /**
+     * @brief Limits and gates the constructor must reject: a gain limit below unity would
+     *        attenuate every signal (a missing field reads as 0 and would mute the transmitter),
+     *        a negative gate can never hold.
+     */
+    std::vector<AgcConfigRejectionTestCase> makeAgcConfigRejectionTestCases() {
+        return {
+            AgcConfigRejectionTestCase{"MaxGainBelowUnity", 0.5F, kNoGate},
+            AgcConfigRejectionTestCase{"MaxGainZero", 0.0F, kNoGate},
+            AgcConfigRejectionTestCase{"NegativeGate", kNoGainLimit, -0.1F},
+        };
+    }
+}  // namespace
+
+class AgcConfigRejectionTest : public ::testing::TestWithParam<AgcConfigRejectionTestCase> {};
+
+/**
+ * @brief A gain limit below 1 or a negative gate raises std::invalid_argument.
+ */
+TEST_P(AgcConfigRejectionTest, ThrowsInvalidArgument) {
+    const auto& testCase{GetParam()};
+    const AgcConfig config{
+        .target          = kFastConfig.target,
+        .attack          = kFastConfig.attack,
+        .decay           = kFastConfig.decay,
+        .initialEnvelope = kFastConfig.initialEnvelope,
+        .maxGain         = testCase.maxGain,
+        .gate            = testCase.gate,
+    };
+
+    EXPECT_THROW(Agc{config}, std::invalid_argument);
+}
+
+INSTANTIATE_TEST_SUITE_P(InvalidLimitOrGate, AgcConfigRejectionTest,
+                         ::testing::ValuesIn(makeAgcConfigRejectionTestCases()),
+                         [](const ::testing::TestParamInfo<AgcConfigRejectionTestCase>& info) {
+                             return std::string{info.param.name};
+                         });
 
 namespace {
     struct AgcUpdateGainTestCase {
