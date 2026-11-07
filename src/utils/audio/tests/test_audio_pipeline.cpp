@@ -873,7 +873,7 @@ TEST(AudioPipelineReadTest, PassthroughEmitsExactSourceFrameCount) {
 }
 
 /**
- * @brief Resampling returns both stereo channels without silence, from the first frame on.
+ * @brief Resampling returns both stereo channels without silence, from the first frame on and in step.
  *
  * The source carries the offset tone on the left channel and its mirror image on the right one,
  * so neither channel ever comes near zero and a zero in the output can only be padding. 40
@@ -883,8 +883,9 @@ TEST(AudioPipelineReadTest, PassthroughEmitsExactSourceFrameCount) {
  *
  * The first frame has to be signal already: a pipeline that hands out a block before its
  * converters have completed one - instead of feeding them further input - starts with a block
- * of silence. Reading both channels checks that the per-channel converters stay in step while
- * they ask for that input.
+ * of silence. The right channel has to be the exact negation of the left one in every frame:
+ * the converters run the same arithmetic on negated input, so any frame that breaks the mirror
+ * image means one channel got its input a block early or late.
  */
 TEST(AudioPipelineReadTest, ResampledStereoCarriesNoSilenceFromFirstFrame) {
     constexpr std::size_t kSourceFrames{44'100};
@@ -922,10 +923,60 @@ TEST(AudioPipelineReadTest, ResampledStereoCarriesNoSilenceFromFirstFrame) {
         }
     }
 
+    std::size_t framesOutOfStep{0};
+    for (std::size_t frame{0}; frame < leftSignal.size(); ++frame) {
+        if (leftSignal[frame] != -rightSignal[frame]) {
+            ++framesOutOfStep;
+        }
+    }
+
     EXPECT_NE(leftSignal.front(), 0.0F);
     EXPECT_NE(rightSignal.front(), 0.0F);
     EXPECT_EQ(countSilenceInsideSignal(leftSignal), 0U);
     EXPECT_EQ(countSilenceInsideSignal(rightSignal), 0U);
+    EXPECT_EQ(framesOutOfStep, 0U);
+}
+
+/**
+ * @brief Looping a file that ends on an input block boundary keeps delivering the tone seamlessly.
+ *
+ * 512 frames of the tone at 8 kHz are 64 whole periods and, at 8 -> 48 kHz with 1024-frame
+ * blocks, exactly three input blocks: every loop iteration ends on a block boundary, the seam
+ * gets no crossfade, and the converters see one endless periodic tone. Each of the 200 reads
+ * (4.3 s, about 65 iterations) has to deliver a block, and after the start transient every
+ * sample has to match the tone. A pipeline that empties its converters at the boundary either
+ * never completes a block again - the input-block limit turns that into a logic_error instead
+ * of a hang - or cuts the end of the file out of every iteration, which shifts the tone's phase.
+ */
+TEST(AudioPipelineReadTest, LoopedBlockAlignedSourceKeepsDeliveringTheTone) {
+    constexpr int kVoiceRateHz{8'000};
+    constexpr std::size_t kSourceFrames{512};
+    constexpr std::size_t kTargetOutputFrames{1'024};
+    constexpr std::size_t kBlocks{200};
+    constexpr std::size_t kSkipFrames{2'400};  // 50 ms at 48 kHz
+    constexpr float kToneTolerance{1e-3F};
+    FakeAudioSource source{AudioFormat{
+                               .channels   = 1,
+                               .sampleRate = kVoiceRateHz,
+                           },
+                           makeOffsetTone(kVoiceRateHz, kSourceFrames),
+                           true};
+    AudioPipeline pipeline(source,
+                           AudioPipelineConfig{
+                               .loop               = true,
+                               .targetSampleRate   = kBroadcastRateHz,
+                               .targetOutputFrames = kTargetOutputFrames,
+                               .channelMode        = AudioChannelMode::Mono,
+                           });
+
+    std::vector<float> outputBlock(pipeline.outputSamplesPerBlock(), 0.0F);
+    std::vector<float> convertedSignal;
+    for (std::size_t blockIdx{0}; blockIdx < kBlocks; ++blockIdx) {
+        ASSERT_EQ(pipeline.read(outputBlock), AudioPipelineStatus::Ok);
+        convertedSignal.insert(convertedSignal.end(), outputBlock.begin(), outputBlock.end());
+    }
+
+    EXPECT_EQ(countSamplesOffTone(convertedSignal, kBroadcastRateHz, kSkipFrames, kToneTolerance), 0U);
 }
 
 namespace {

@@ -198,27 +198,6 @@ TEST(AudioRateConverterTest, DrainSucceedsAfterRealConversion) {
     EXPECT_LE(produced.value(), outputSamples.size());
 }
 
-/**
- * @brief reset() preserves the Bresenham accumulator across a loop boundary.
- *
- * Discarding the filter delay line and queue is necessary so the end-of-file tail does not
- * smear into the next iteration. Preserving the Bresenham accumulator is necessary so
- * peekNextInputFrames after the reset still names the same input-frame count the caller has
- * already fetched at the boundary - otherwise a looped playback accumulates sample-count
- * drift across iterations.
- */
-TEST(AudioRateConverterTest, ResetPreservesPeekAcrossLoopBoundary) {
-    AudioRateConverter audioRateConverter{kCdAudioRateHz, kBroadcastRateHz, kDefaultOutputFrames};
-    std::vector<float> inputSamples(audioRateConverter.peekNextInputFrames(), 1.0F);
-    std::vector<float> outputSamples(audioRateConverter.outputFrames(), 0.0F);
-    ASSERT_NE(audioRateConverter.process(inputSamples, outputSamples), AudioRateConverterStatus::Error);
-
-    const std::size_t peekBeforeReset{audioRateConverter.peekNextInputFrames()};
-    audioRateConverter.reset();
-
-    EXPECT_EQ(audioRateConverter.peekNextInputFrames(), peekBeforeReset);
-}
-
 namespace {
     struct AudioRateConverterCtorRejectionTestCase {
         std::string_view name;
@@ -401,22 +380,28 @@ TEST_P(AudioRateConverterContinuityTest, EmitsNoSilenceInsideSignal) {
 }
 
 /**
- * @brief Output blocks and drained tail together return the input length times the rate ratio.
+ * @brief Output blocks and drained tail together return every input sample once and in order.
  *
- * Every input sample has to come out exactly once: the frames of all Ok blocks plus the frames
- * drain() returns add up to consumedFrames * targetRate / sourceRate, within one frame of
- * rounding. A converter that pads a block, hands queued samples out twice or drops them when
- * it compacts its queue misses that bound by hundreds of frames.
+ * The frames of all Ok blocks plus the frames drain() returns have to add up to
+ * consumedFrames * targetRate / sourceRate within one frame of rounding, and sample i of the
+ * output has to be sample i of the tone at the target rate: libsoxr compensates its own delay,
+ * so a dropped, repeated or reordered sample shifts the tone's phase from that point on, which
+ * the 1e-3 tolerance exposes (one sample at 228 kHz already moves the tone by 7e-3). The first
+ * and the last 50 ms are left out, where the transients of the start and of the end dominate.
+ * A converter that pads a block, hands queued samples out twice, drops them when it compacts
+ * its queue or queues a burst in front of the older samples fails one of the two checks.
  */
-TEST_P(AudioRateConverterContinuityTest, ReturnsInputLengthTimesRateRatio) {
+TEST_P(AudioRateConverterContinuityTest, ReturnsEverySampleOnceAndInOrder) {
+    constexpr float kToneTolerance{1e-3F};
+    constexpr double kSkipSeconds{0.05};
     const auto& testCase{GetParam()};
     AudioRateConverter audioRateConverter{testCase.sourceRateHz, testCase.targetRateHz, testCase.outputFrames};
     const std::vector<float> sourceSignal{
         makeOffsetTone(testCase.sourceRateHz, static_cast<std::size_t>(testCase.sourceRateHz))};
     std::vector<float> outputSamples(audioRateConverter.outputFrames(), 0.0F);
+    std::vector<float> convertedSignal;
 
     std::size_t consumedFrames{0};
-    std::size_t returnedFrames{0};
     while (consumedFrames + audioRateConverter.peekNextInputFrames() <= sourceSignal.size()) {
         const std::span<const float> inputSamples{sourceSignal.data() + consumedFrames,
                                                   audioRateConverter.peekNextInputFrames()};
@@ -424,7 +409,7 @@ TEST_P(AudioRateConverterContinuityTest, ReturnsInputLengthTimesRateRatio) {
         const AudioRateConverterStatus status{audioRateConverter.process(inputSamples, outputSamples)};
         ASSERT_NE(status, AudioRateConverterStatus::Error);
         if (status == AudioRateConverterStatus::Ok) {
-            returnedFrames += outputSamples.size();
+            convertedSignal.insert(convertedSignal.end(), outputSamples.begin(), outputSamples.end());
         }
     }
     while (true) {
@@ -433,11 +418,14 @@ TEST_P(AudioRateConverterContinuityTest, ReturnsInputLengthTimesRateRatio) {
         if (drainedFrames.value() == 0) {
             break;
         }
-        returnedFrames += drainedFrames.value();
+        convertedSignal.insert(
+            convertedSignal.end(), outputSamples.begin(), outputSamples.begin() + drainedFrames.value());
     }
 
     const double expectedFrames{static_cast<double>(consumedFrames) * testCase.targetRateHz / testCase.sourceRateHz};
-    EXPECT_NEAR(static_cast<double>(returnedFrames), expectedFrames, 1.0);
+    const auto skipFrames{static_cast<std::size_t>(kSkipSeconds * testCase.targetRateHz)};
+    EXPECT_NEAR(static_cast<double>(convertedSignal.size()), expectedFrames, 1.0);
+    EXPECT_EQ(countSamplesOffTone(convertedSignal, testCase.targetRateHz, skipFrames, kToneTolerance), 0U);
 }
 
 INSTANTIATE_TEST_SUITE_P(TransmitterRatePairs, AudioRateConverterContinuityTest,
