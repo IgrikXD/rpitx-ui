@@ -82,8 +82,9 @@ private:
     /**
      * @brief AGC configuration tuned for SSB voice transmission.
      *
-     * Below the gate of -50 dBFS the envelope holds, so a pause is not
-     * raised to the target level; the gain is limited to +20 dB.
+     * Below the gate of -50 dBFS the envelope does not decay, so the noise
+     * of a pause is not raised to the target level; the gain is limited to
+     * +20 dB.
      */
     static constexpr AgcConfig SSB_AGC_CONFIG{
         .target          = 0.8f,

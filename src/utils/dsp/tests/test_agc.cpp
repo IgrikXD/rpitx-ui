@@ -99,6 +99,19 @@ namespace {
     };
 
     /**
+     * @brief Snapping tracker with the smallest accepted limit, 1 - a pure attenuator that may
+     *        never amplify.
+     */
+    constexpr AgcConfig kUnityGainLimitConfig{
+        .target          = 1.0F,
+        .attack          = 1.0F,
+        .decay           = 1.0F,
+        .initialEnvelope = 1e-4F,
+        .maxGain         = 1.0F,
+        .gate            = kNoGate,
+    };
+
+    /**
      * @brief Peak-hold tracker with a gate at 0.01: magnitudes below it leave the envelope where
      *        it is, so a pause does not raise the gain.
      */
@@ -202,14 +215,27 @@ TEST(AgcTest, AsymmetricAttackDecayCausesFastRiseSlowFall) {
  * @brief The gain never exceeds maxGain, however small the envelope is.
  *
  * With kLimitedGainConfig the envelope snaps to |input| = 0.1 and target / envelope asks for a
- * gain of 10; the limit of 4 has to win. An implementation that ignores the limit returns 10,
- * one that applies it to the envelope instead of the gain returns a different value again.
+ * gain of 10; the limit of 4 has to win. An implementation that ignores the limit returns 10.
  */
 TEST(AgcTest, GainIsLimitedToMaxGain) {
     Agc agc{kLimitedGainConfig};
     const float gain{agc.updateGain(0.1F)};
 
     EXPECT_FLOAT_EQ(gain, 4.0F);
+}
+
+/**
+ * @brief A limit of exactly 1 is accepted and turns the AGC into an attenuator.
+ *
+ * kUnityGainLimitConfig sits on the boundary of the validation (maxGain >= 1). The envelope
+ * snaps to |input| = 0.1 and target / envelope asks for 10, but the gain has to stay at 1; a
+ * validation that rejected 1, or a limit applied with the wrong comparison, fails here.
+ */
+TEST(AgcTest, UnityMaxGainNeverAmplifies) {
+    Agc agc{kUnityGainLimitConfig};
+    const float gain{agc.updateGain(0.1F)};
+
+    EXPECT_FLOAT_EQ(gain, 1.0F);
 }
 
 /**
