@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <string>
 
 #include "iq_sample.h"
 
@@ -74,7 +75,9 @@ public:
           gate_{config.gate},
           env_{config.initialEnvelope} {
         if (config.maxGain < 1.0F || config.gate < 0.0F) {
-            throw std::invalid_argument{"Agc: maxGain must be at least 1 and the gate must not be negative"};
+            throw std::invalid_argument{
+                "Agc: maxGain must be at least 1 and the gate must not be negative, got maxGain " +
+                std::to_string(config.maxGain) + ", gate " + std::to_string(config.gate)};
         }
     }
 
@@ -117,7 +120,7 @@ public:
      *         is near zero.
      */
     [[nodiscard]] float updateGain(float mag) noexcept {
-        // Asymmetric attack/decay envelope tracker; below the gate the envelope holds.
+        // Asymmetric attack/decay envelope tracker; below the gate the envelope does not decay.
         if (mag > env_) {
             env_ += attack_ * (mag - env_);
         } else if (mag >= gate_) {
