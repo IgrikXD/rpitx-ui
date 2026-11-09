@@ -37,7 +37,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
-#include "dma_start.h"
+#include "dma_transmission.h"
 #include "realtime_scheduling.h"
 
 namespace pichirp {

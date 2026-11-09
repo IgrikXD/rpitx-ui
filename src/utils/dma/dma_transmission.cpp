@@ -1,6 +1,6 @@
 /**
- * @file dma_start.cpp
- * @brief Start of a librpitx DMA transmission for the three sample-setter APIs.
+ * @file dma_transmission.cpp
+ * @brief Start and stop of a librpitx DMA transmission for the three sample-setter APIs.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 10.11.2026
@@ -9,9 +9,7 @@
  * @note RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
  */
 
-#include "dma_start.h"
-
-#include <vector>
+#include "dma_transmission.h"
 
 void startTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic) {
     dma.disableclk(CARRIER_GPIO);
@@ -35,4 +33,31 @@ void startTransmission(amdmasync& dma, float idleSample) {
     dma.SetAmSample(0, idleSample);
     std::vector<float> lead(PCM_FIFO_DEPTH, idleSample);
     dma.SetAmSamples(lead.data(), lead.size());
+}
+
+void stopTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic, bool inputEnded) {
+    if (inputEnded) {
+        queueDrainTail(dma.buffersize, idleSample, [&dma, harmonic](std::vector<std::complex<float>>& tail) {
+            dma.SetIQSamples(tail.data(), tail.size(), harmonic);
+        });
+    }
+    dma.stop();
+}
+
+void stopTransmission(ngfmdmasync& dma, float idleSample, bool inputEnded) {
+    if (inputEnded) {
+        queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
+            dma.SetFrequencySamples(tail.data(), tail.size());
+        });
+    }
+    dma.stop();
+}
+
+void stopTransmission(amdmasync& dma, float idleSample, bool inputEnded) {
+    if (inputEnded) {
+        queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
+            dma.SetAmSamples(tail.data(), tail.size());
+        });
+    }
+    dma.stop();
 }

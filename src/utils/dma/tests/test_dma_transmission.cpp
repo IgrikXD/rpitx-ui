@@ -1,5 +1,5 @@
 /**
- * @file test_dma_stop.cpp
+ * @file test_dma_transmission.cpp
  * @brief Unit tests for the drain tail queued before a librpitx DMA engine stops.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -20,7 +20,7 @@
 #include <string_view>
 #include <vector>
 
-#include "dma_stop.h"
+#include "dma_transmission.h"
 
 namespace {
     /**

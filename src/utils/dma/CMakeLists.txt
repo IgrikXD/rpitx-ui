@@ -13,8 +13,7 @@
 # in the ring are played before the engine stops instead of being cut.
 # ----------------------------------------------------------
 add_library(rpitx_dma_utils STATIC
-    dma_start.cpp
-    dma_stop.cpp
+    dma_transmission.cpp
 )
 target_include_directories(rpitx_dma_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rpitx_dma_utils PUBLIC librpitx::librpitx)
