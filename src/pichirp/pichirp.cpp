@@ -134,7 +134,7 @@ namespace pichirp {
         // that any librpitx-side failure (DMA setup, register access, ...)
         // surfaces on stderr and main returns 1 instead of std::terminate.
         try {
-            ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+            ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
 
             // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
             const float deviation{params.bandwidth * 0.5F};

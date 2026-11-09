@@ -293,7 +293,7 @@ namespace pifmrds {
             proc.encoder().setRt(params.rt);
 
             ngfmdmasync dma{
-                params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+                params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
 
             // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
             // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS

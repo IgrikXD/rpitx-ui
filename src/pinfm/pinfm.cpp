@@ -191,7 +191,7 @@ namespace pinfm {
 
             NfmProcessor nfm{static_cast<float>(TARGET_SAMPLE_RATE), peakDeviation};
             ngfmdmasync dma{
-                params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+                params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused

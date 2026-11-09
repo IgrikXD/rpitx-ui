@@ -194,7 +194,7 @@ namespace pirfgen {
             }};
 
             ngfmdmasync dma{
-                params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_BIT_DEPTH, DMA_FIFO_SIZE};
+                params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};
 
             // SetFrequencySamples blocks until the whole block is in the DMA FIFO
             // (see ngfmdmasync.cpp upstream), so no manual usleep / GetBufferAvailable

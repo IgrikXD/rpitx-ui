@@ -25,9 +25,9 @@ namespace pissb {
     inline constexpr uint32_t DMA_FIFO_SIZE{8192};
 
     /**
-     * @brief DMA time-register precision in bits (matches sendiq / other rpitx modules).
+     * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
      */
-    inline constexpr int DMA_BIT_DEPTH{14};
+    inline constexpr int DMA_CHANNEL{14};
 
     /**
      * @brief Internal SSB audio / IQ sample rate in Hz.
