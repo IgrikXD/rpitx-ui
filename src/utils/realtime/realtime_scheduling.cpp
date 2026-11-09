@@ -18,6 +18,12 @@
 #include <system_error>
 
 void enableRealtimeScheduling() {
+    // Keep a real-time policy chosen before the start (chrt, systemd CPUSchedulingPolicy=).
+    const int currentPolicy{sched_getscheduler(0) & ~SCHED_RESET_ON_FORK};
+    if (currentPolicy == SCHED_FIFO || currentPolicy == SCHED_RR) {
+        return;
+    }
+
     const sched_param parameters{.sched_priority = sched_get_priority_min(SCHED_FIFO)};
 
     if (sched_setscheduler(0, SCHED_FIFO, &parameters) != 0) {
