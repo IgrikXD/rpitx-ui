@@ -175,7 +175,7 @@ namespace pissb {
             SsbProcessor ssb{params.mode};
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(TARGET_SAMPLE_RATE),
-                          DMA_BIT_DEPTH,
+                          DMA_CHANNEL,
                           DMA_FIFO_SIZE,
                           MODE_IQ};
             dma.SetPLLMasterLoop(PLL_PROPORTIONAL_GAIN, PLL_INTEGRAL_GAIN, PLL_FRACTIONAL_DIVIDER);
