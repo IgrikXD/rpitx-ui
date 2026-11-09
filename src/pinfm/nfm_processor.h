@@ -60,9 +60,10 @@ public:
     /**
      * @brief Process a single normalized audio sample into an NBFM frequency offset.
      *
-     * The AGC stage normalises whatever it receives, so the input magnitude
+     * The AGC stage levels whatever it receives, so the input magnitude
      * is a convention (typically PCM16 scaled to [-1, 1]) rather than a
-     * hard precondition - larger or smaller values are renormalised, not rejected.
+     * hard precondition - larger values are attenuated to the target,
+     * smaller ones raised by at most the configured gain limit.
      *
      * @param sample Input audio sample (normalised float, conventionally in [-1, 1]).
      * @return Instantaneous frequency offset in Hz, clamped to [-peakDeviation, +peakDeviation].
@@ -122,12 +123,17 @@ private:
      * sample sees gain = 1.0 and stays within the clamp - a small seed
      * would saturate the opening milliseconds into a +-peakDeviation
      * square wave (audible thump + broad spectral content).
+     * Below the gate of -50 dBFS the envelope does not decay, so the noise
+     * of a pause is not raised to the target level; the gain is limited to
+     * +20 dB.
      */
     static constexpr AgcConfig NFM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
         .initialEnvelope = 0.8f,
+        .maxGain         = 10.0f,
+        .gate            = 0.003f,
     };
 
     Biquad hpf_;                                  ///< DC block.

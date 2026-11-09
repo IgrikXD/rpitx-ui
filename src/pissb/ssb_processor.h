@@ -81,12 +81,18 @@ private:
     static constexpr float LPF_CUTOFF{3000.0f};
     /**
      * @brief AGC configuration tuned for SSB voice transmission.
+     *
+     * Below the gate of -50 dBFS the envelope does not decay, so the noise
+     * of a pause is not raised to the target level; the gain is limited to
+     * +20 dB.
      */
     static constexpr AgcConfig SSB_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.1f,
         .decay           = 0.001f,
         .initialEnvelope = 1e-4f,
+        .maxGain         = 10.0f,
+        .gate            = 0.003f,
     };
     Biquad hpf_{
         Biquad::highPass(HPF_CUTOFF, SAMPLE_RATE)};  ///< High-pass filter (removes DC and sub-voice frequencies).
