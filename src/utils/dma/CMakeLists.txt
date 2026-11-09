@@ -7,12 +7,12 @@
 # ----------------------------------------------------------
 # Shared DMA utility library
 # ----------------------------------------------------------
-# Provides the clean end of a librpitx DMA transmission: the samples still
-# queued in the ring are played before the engine stops, instead of being
-# cut together with the ring when the input ends.
+# Provides what every transmitter needs around the librpitx DMA engine beyond
+# its own samples: the channel it requests, and a stop that plays the samples
+# still queued in the ring when the input has ended instead of cutting them.
 # ----------------------------------------------------------
 add_library(rpitx_dma_utils STATIC
-    dma_drain.cpp
+    dma_stop.cpp
 )
 target_include_directories(rpitx_dma_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rpitx_dma_utils PUBLIC librpitx::librpitx)

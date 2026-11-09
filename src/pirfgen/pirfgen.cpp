@@ -39,6 +39,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_channel.h"
 #include "realtime_scheduling.h"
 
 namespace pirfgen {

@@ -8,7 +8,7 @@
 # Unit tests for the shared DMA utility library
 # ----------------------------------------------------------
 add_executable(rpitx_dma_utils_tests
-    test_dma_drain.cpp
+    test_dma_stop.cpp
 )
 
 target_link_libraries(rpitx_dma_utils_tests

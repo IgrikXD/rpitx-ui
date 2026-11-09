@@ -24,11 +24,6 @@ namespace pinfm {
     inline constexpr uint32_t DMA_FIFO_SIZE{8192};
 
     /**
-     * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
-     */
-    inline constexpr int DMA_CHANNEL{14};
-
-    /**
      * @brief Internal NBFM processing rate in Hz (also the DMA rate).
      */
     inline constexpr int TARGET_SAMPLE_RATE{48'000};

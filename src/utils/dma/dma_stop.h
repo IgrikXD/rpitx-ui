@@ -1,6 +1,6 @@
 /**
- * @file dma_drain.h
- * @brief Clean end of a librpitx DMA transmission: play the queued samples, then stop the engine.
+ * @file dma_stop.h
+ * @brief Stop of a librpitx DMA transmission that plays the queued samples when the input has ended.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 10.11.2026
@@ -41,26 +41,27 @@ void queueDrainTail(uint32_t fifoSize, const Sample& idleSample, Push&& push) {
 }
 
 /**
- * @brief Transmit every queued IQ sample, then stop the DMA engine.
+ * @brief Stop the DMA engine of an IQ transmission.
+ *
+ * When the input ended by itself, the samples still queued in the ring are
+ * transmitted first; on a stop request they are discarded so the stop is immediate.
+ *
  * @param dma        iqdmasync engine, started or not.
  * @param fifoSize   Ring size the engine was constructed with.
- * @param idleSample Sample the tail is filled with ({0, 0} switches the carrier off).
+ * @param idleSample Sample the drain tail is filled with ({0, 0} switches the carrier off).
  * @param harmonic   Harmonic passed to SetIQSamples().
+ * @param inputEnded True when the input ended by itself, false on a stop request.
  */
-void drainAndStop(iqdmasync& dma, uint32_t fifoSize, std::complex<float> idleSample, int harmonic);
+void stopTransmission(iqdmasync& dma, uint32_t fifoSize, std::complex<float> idleSample, int harmonic, bool inputEnded);
 
 /**
- * @brief Transmit every queued frequency sample, then stop the DMA engine.
- * @param dma        ngfmdmasync engine, started or not.
- * @param fifoSize   Ring size the engine was constructed with.
- * @param idleSample Frequency deviation of the tail in Hz (0 keeps the unmodulated carrier).
+ * @brief Stop the DMA engine of an FM transmission; see the iqdmasync overload.
+ * @param idleSample Frequency deviation of the drain tail in Hz (0 keeps the unmodulated carrier).
  */
-void drainAndStop(ngfmdmasync& dma, uint32_t fifoSize, float idleSample);
+void stopTransmission(ngfmdmasync& dma, uint32_t fifoSize, float idleSample, bool inputEnded);
 
 /**
- * @brief Transmit every queued envelope sample, then stop the DMA engine.
- * @param dma        amdmasync engine, started or not.
- * @param fifoSize   Ring size the engine was constructed with.
- * @param idleSample Envelope of the tail (the unmodulated carrier level for AM).
+ * @brief Stop the DMA engine of an AM transmission; see the iqdmasync overload.
+ * @param idleSample Envelope of the drain tail (the unmodulated carrier level for AM).
  */
-void drainAndStop(amdmasync& dma, uint32_t fifoSize, float idleSample);
+void stopTransmission(amdmasync& dma, uint32_t fifoSize, float idleSample, bool inputEnded);
