@@ -41,6 +41,7 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_drain.h"
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
 #include "realtime_scheduling.h"
@@ -204,7 +205,12 @@ namespace pissb {
                 dma.SetIQSamples(iqBuf.data(), iqBuf.size(), DEFAULT_HARMONIC);
             }
 
-            dma.stop();
+            // The audio ended by itself: transmit the queued blocks before the engine stops.
+            if (running.load(std::memory_order_relaxed)) {
+                drainAndStop(dma, DMA_FIFO_SIZE, std::complex<float>{0.0F, 0.0F}, DEFAULT_HARMONIC);
+            } else {
+                dma.stop();
+            }
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pissb: " << e.what() << std::endl;
             return 1;

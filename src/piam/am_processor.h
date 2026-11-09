@@ -65,6 +65,11 @@ public:
      */
     [[nodiscard]] float process(float sample);
 
+    /**
+     * @brief Envelope of digital silence: the unmodulated carrier, 0.5 * (1 + m * 0).
+     */
+    static constexpr float CARRIER_ENVELOPE{0.5f};
+
 private:
     /**
      * @brief High-pass cutoff frequency in Hz (removes DC and sub-audio rumble).

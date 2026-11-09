@@ -24,6 +24,7 @@ add_executable(piam
 target_link_libraries(piam
     PRIVATE
         rpitx_audio_utils
+        rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_cli_utils
         rpitx_realtime_utils
@@ -46,6 +47,7 @@ target_link_libraries(pifmrds
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils
         librpitx::librpitx
@@ -67,6 +69,7 @@ target_link_libraries(pinfm
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils
         librpitx::librpitx
@@ -100,6 +103,7 @@ target_link_libraries(pissb
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils
         librpitx::librpitx
