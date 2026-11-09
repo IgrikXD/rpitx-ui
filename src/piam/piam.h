@@ -24,6 +24,11 @@ namespace piam {
     inline constexpr uint32_t DMA_FIFO_SIZE{8192};
 
     /**
+     * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
+     */
+    inline constexpr int DMA_CHANNEL{14};
+
+    /**
      * @brief Internal AM processing rate in Hz (also the DMA rate).
      *
      * 48 kHz is the rate the AM processor's HPF / LPF / AGC are designed

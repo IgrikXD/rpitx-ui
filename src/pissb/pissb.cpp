@@ -41,7 +41,6 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
-#include "dma_channel.h"
 #include "dma_stop.h"
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"

@@ -7,9 +7,9 @@
 # ----------------------------------------------------------
 # Shared DMA utility library
 # ----------------------------------------------------------
-# Provides what every transmitter needs around the librpitx DMA engine beyond
-# its own samples: the channel it requests, and a stop that plays the samples
-# still queued in the ring when the input has ended instead of cutting them.
+# Provides the stop of a librpitx DMA transmission: when the input has ended,
+# the samples still queued in the ring are played before the engine stops
+# instead of being cut together with the ring.
 # ----------------------------------------------------------
 add_library(rpitx_dma_utils STATIC
     dma_stop.cpp

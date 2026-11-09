@@ -33,6 +33,11 @@ namespace pirfgen {
     inline constexpr std::size_t DMA_BLOCK_SAMPLES{DMA_FIFO_SIZE / 2};
 
     /**
+     * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
+     */
+    inline constexpr int DMA_CHANNEL{14};
+
+    /**
      * @brief Default DMA sample rate in Hz.
      */
     inline constexpr int DEFAULT_SAMPLE_RATE{500'000};
