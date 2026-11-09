@@ -26,6 +26,7 @@ target_link_libraries(piam
         rpitx_audio_utils
         rpitx_dsp_utils
         rpitx_cli_utils
+        rpitx_realtime_utils
         librpitx::librpitx
 )
 
@@ -46,6 +47,7 @@ target_link_libraries(pifmrds
         rpitx_audio_utils
         rpitx_cli_utils
         rpitx_dsp_utils
+        rpitx_realtime_utils
         librpitx::librpitx
 )
 
@@ -66,6 +68,7 @@ target_link_libraries(pinfm
         rpitx_audio_utils
         rpitx_cli_utils
         rpitx_dsp_utils
+        rpitx_realtime_utils
         librpitx::librpitx
 )
 
@@ -98,6 +101,7 @@ target_link_libraries(pissb
         rpitx_audio_utils
         rpitx_cli_utils
         rpitx_dsp_utils
+        rpitx_realtime_utils
         librpitx::librpitx
 )
 
