@@ -41,6 +41,7 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_start.h"
 #include "dma_stop.h"
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
@@ -180,6 +181,8 @@ namespace pissb {
                           DMA_FIFO_SIZE,
                           MODE_IQ};
             dma.SetPLLMasterLoop(PLL_PROPORTIONAL_GAIN, PLL_INTEGRAL_GAIN, PLL_FRACTIONAL_DIVIDER);
+            // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
+            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
@@ -207,7 +210,7 @@ namespace pissb {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, DMA_FIFO_SIZE, std::complex<float>{0.0F, 0.0F}, DEFAULT_HARMONIC, inputEnded);
+            stopTransmission(dma, DMA_FIFO_SIZE, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pissb: " << e.what() << std::endl;
             return 1;

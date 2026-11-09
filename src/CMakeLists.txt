@@ -33,7 +33,7 @@ target_link_libraries(piam
 
 # --- pichirp ---
 add_executable(pichirp pichirp/pichirp.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_cli_utils rpitx_realtime_utils librpitx::librpitx)
+target_link_libraries(pichirp PRIVATE rpitx_cli_utils rpitx_dma_utils rpitx_realtime_utils librpitx::librpitx)
 
 # --- pifmrds (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
@@ -88,7 +88,7 @@ add_executable(pirfgen
     pirfgen/generators/sawtooth.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_cli_utils rpitx_realtime_utils librpitx::librpitx)
+target_link_libraries(pirfgen PRIVATE rpitx_cli_utils rpitx_dma_utils rpitx_realtime_utils librpitx::librpitx)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)

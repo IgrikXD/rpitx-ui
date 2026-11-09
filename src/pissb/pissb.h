@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -48,6 +49,11 @@ namespace pissb {
      * @brief Maximum accepted input sample rate in Hz.
      */
     inline constexpr int MAX_INPUT_RATE{192'000};
+
+    /**
+     * @brief IQ sample that keeps the carrier off around the transmission.
+     */
+    inline constexpr std::complex<float> CARRIER_OFF_SAMPLE{0.0F, 0.0F};
 
     /**
      * @brief Default harmonic passed to iqdmasync.

@@ -40,6 +40,7 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_start.h"
 #include "dma_stop.h"
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
@@ -155,6 +156,8 @@ namespace piam {
             AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
             amdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
+            // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
+            startTransmission(dma, AmProcessor::CARRIER_ENVELOPE);
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused

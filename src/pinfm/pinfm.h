@@ -29,6 +29,11 @@ namespace pinfm {
     inline constexpr int DMA_CHANNEL{14};
 
     /**
+     * @brief Frequency deviation of the idle samples around the transmission: the unmodulated carrier.
+     */
+    inline constexpr float IDLE_DEVIATION_HZ{0.0F};
+
+    /**
      * @brief Internal NBFM processing rate in Hz (also the DMA rate).
      */
     inline constexpr int TARGET_SAMPLE_RATE{48'000};
