@@ -210,7 +210,7 @@ namespace pissb {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, DMA_FIFO_SIZE, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
+            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pissb: " << e.what() << std::endl;
             return 1;

@@ -183,7 +183,7 @@ namespace piam {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, DMA_FIFO_SIZE, AmProcessor::CARRIER_ENVELOPE, inputEnded);
+            stopTransmission(dma, AmProcessor::CARRIER_ENVELOPE, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] piam: " << e.what() << std::endl;
             return 1;

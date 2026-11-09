@@ -21,11 +21,12 @@
  * @brief Queue one DMA ring of idle samples, in two halves, through push.
  *
  * The librpitx Set*Samples() methods return as soon as their samples are in
- * the ring, not when the engine has played them, and the ring holds up to
- * three quarters of its size ahead of the engine. Once the engine runs, a
+ * the ring, not when the engine has played them; they wait until a quarter of
+ * the ring is left to play and then write the next block, so a quarter ring
+ * plus one block stays queued ahead of the engine. Once the engine runs, a
  * slot can only be rewritten after it has been played, so after a whole ring
- * of idle samples every earlier sample has been transmitted. The tail goes
- * in two halves: the engine starts once a quarter of the ring is queued, and
+ * of idle samples every earlier sample has been transmitted. The tail goes in
+ * two halves: the engine starts once a quarter of the ring is queued, and
  * before that the whole ring counts as free, so a single write of a whole
  * ring would wrap onto an input shorter than that quarter.
  *
@@ -47,21 +48,32 @@ void queueDrainTail(uint32_t fifoSize, const Sample& idleSample, Push&& push) {
  * transmitted first; on a stop request they are discarded so the stop is immediate.
  *
  * @param dma        iqdmasync engine, started or not.
- * @param fifoSize   Ring size the engine was constructed with.
  * @param idleSample Sample the drain tail is filled with ({0, 0} switches the carrier off).
  * @param harmonic   Harmonic passed to SetIQSamples().
  * @param inputEnded True when the input ended by itself, false on a stop request.
  */
-void stopTransmission(iqdmasync& dma, uint32_t fifoSize, std::complex<float> idleSample, int harmonic, bool inputEnded);
+void stopTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic, bool inputEnded);
 
 /**
- * @brief Stop the DMA engine of an FM transmission; see the iqdmasync overload.
+ * @brief Stop the DMA engine of an FM transmission.
+ *
+ * When the input ended by itself, the samples still queued in the ring are
+ * transmitted first; on a stop request they are discarded so the stop is immediate.
+ *
+ * @param dma        ngfmdmasync engine, started or not.
  * @param idleSample Frequency deviation of the drain tail in Hz (0 keeps the unmodulated carrier).
+ * @param inputEnded True when the input ended by itself, false on a stop request.
  */
-void stopTransmission(ngfmdmasync& dma, uint32_t fifoSize, float idleSample, bool inputEnded);
+void stopTransmission(ngfmdmasync& dma, float idleSample, bool inputEnded);
 
 /**
- * @brief Stop the DMA engine of an AM transmission; see the iqdmasync overload.
+ * @brief Stop the DMA engine of an AM transmission.
+ *
+ * When the input ended by itself, the samples still queued in the ring are
+ * transmitted first; on a stop request they are discarded so the stop is immediate.
+ *
+ * @param dma        amdmasync engine, started or not.
  * @param idleSample Envelope of the drain tail (the unmodulated carrier level for AM).
+ * @param inputEnded True when the input ended by itself, false on a stop request.
  */
-void stopTransmission(amdmasync& dma, uint32_t fifoSize, float idleSample, bool inputEnded);
+void stopTransmission(amdmasync& dma, float idleSample, bool inputEnded);

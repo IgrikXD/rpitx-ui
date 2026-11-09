@@ -321,7 +321,7 @@ namespace pifmrds {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, DMA_FIFO_SIZE, IDLE_DEVIATION_HZ, inputEnded);
+            stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pifmrds: " << e.what() << std::endl;
             return 1;

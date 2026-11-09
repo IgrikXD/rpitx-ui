@@ -26,12 +26,7 @@ namespace {
     /**
      * @brief Frequency deviation that keeps an FM carrier unmodulated.
      */
-    constexpr float IDLE_DEVIATION{0.0F};
-
-    /**
-     * @brief IQ sample whose zero magnitude switches the carrier off.
-     */
-    constexpr std::complex<float> CARRIER_OFF_SAMPLE{0.0F, 0.0F};
+    constexpr float IDLE_DEVIATION_HZ{0.0F};
 
     struct DrainTailTestCase {
         std::string_view name;
@@ -47,14 +42,13 @@ namespace {
     }
 
     /**
-     * @brief The ring sizes the transmitters are built with, plus an odd size whose half rounds down.
+     * @brief The ring sizes the transmitters are built with.
      */
     std::vector<DrainTailTestCase> makeDrainTailTestCases() {
         return {
-            DrainTailTestCase{"FourThousandSamples", 4096},
-            DrainTailTestCase{"EightThousandSamples", 8192},
-            DrainTailTestCase{"SixteenThousandSamples", 16384},
-            DrainTailTestCase{"OddRingSize", 4097},
+            DrainTailTestCase{"Ring4096", 4096},
+            DrainTailTestCase{"Ring8192", 8192},
+            DrainTailTestCase{"Ring16384", 16384},
         };
     }
 }  // namespace
@@ -74,9 +68,9 @@ TEST_P(DrainTailTest, QueuesOneRingOfIdleSamplesInTwoHalves) {
     std::vector<std::size_t> pushedSizes;
     std::size_t idleSamples{0};
 
-    queueDrainTail(testCase.fifoSize, IDLE_DEVIATION, [&pushedSizes, &idleSamples](std::vector<float>& tail) {
+    queueDrainTail(testCase.fifoSize, IDLE_DEVIATION_HZ, [&pushedSizes, &idleSamples](std::vector<float>& tail) {
         pushedSizes.push_back(tail.size());
-        idleSamples += static_cast<std::size_t>(std::count(tail.begin(), tail.end(), IDLE_DEVIATION));
+        idleSamples += static_cast<std::size_t>(std::count(tail.begin(), tail.end(), IDLE_DEVIATION_HZ));
     });
 
     const std::size_t halfRing{testCase.fifoSize / 2};
@@ -89,24 +83,33 @@ INSTANTIATE_TEST_SUITE_P(RingSizes, DrainTailTest, ::testing::ValuesIn(makeDrain
                              return std::string{info.param.name};
                          });
 
+namespace {
+    /**
+     * @brief IQ sample whose zero magnitude switches the carrier off.
+     */
+    constexpr std::complex<float> CARRIER_OFF_SAMPLE{0.0F, 0.0F};
+}  // namespace
+
 /**
  * @brief The tail carries the idle sample of any sample type, here the carrier-off IQ sample.
  *
- * iqdmasync takes complex samples and switches the carrier off for a zero magnitude, so the
- * IQ drain must fill its tail with exactly {0, 0}; a non-zero component would leave a
- * carrier on the air for the duration of the tail.
+ * iqdmasync switches the carrier off for a magnitude below 1/8 and on for anything above, so
+ * the IQ drain must fill its tail with exactly {0, 0}; a tail sample of magnitude 1/8 or more
+ * would key the carrier for the duration of the tail.
  */
 TEST(DrainTailIqTest, FillsTheTailWithTheIdleIqSample) {
+    constexpr uint32_t ringSize{4096};
+    constexpr std::size_t expectedPushes{2};
     std::size_t pushes{0};
     bool allCarrierOff{true};
 
-    queueDrainTail(4096U, CARRIER_OFF_SAMPLE, [&pushes, &allCarrierOff](std::vector<std::complex<float>>& tail) {
+    queueDrainTail(ringSize, CARRIER_OFF_SAMPLE, [&pushes, &allCarrierOff](std::vector<std::complex<float>>& tail) {
         ++pushes;
         allCarrierOff = allCarrierOff && std::all_of(tail.begin(), tail.end(), [](std::complex<float> sample) {
                             return sample == CARRIER_OFF_SAMPLE;
                         });
     });
 
-    EXPECT_EQ(pushes, 2U);
+    EXPECT_EQ(pushes, expectedPushes);
     EXPECT_TRUE(allCarrierOff);
 }

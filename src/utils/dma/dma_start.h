@@ -32,10 +32,11 @@ inline constexpr int CARRIER_GPIO{4};
 /**
  * @brief Prepare an IQ transmission so that its first sample is the first one on the air.
  *
- * Slot 0 of the DMA ring is executed first but never written by librpitx
- * before the start, and the engine plays the PCM_FIFO_DEPTH samples that fill
- * its empty pacing FIFO back to back: both get the idle sample, so the first
- * sample of the transmission is the first one held for a whole sample period.
+ * The engine plays the PCM_FIFO_DEPTH samples that fill its empty pacing FIFO
+ * back to back, starting with ring slot 0, which librpitx never writes before
+ * the start; slot 0 and one FIFO depth of lead get the idle sample, so the
+ * first sample of the transmission is the first one held for a whole sample
+ * period.
  * The engine rewrites the function of the carrier GPIO with every sample, so
  * the carrier that the constructor switched on is switched off here and
  * returns with the first carrier-on sample.

@@ -38,7 +38,7 @@ namespace pirfgen {
     inline constexpr int DMA_CHANNEL{14};
 
     /**
-     * @brief Frequency deviation of the idle samples around the transmission: the unmodulated carrier.
+     * @brief Frequency deviation of the idle samples at the start of the transmission: the unmodulated carrier.
      */
     inline constexpr float IDLE_DEVIATION_HZ{0.0F};
 
