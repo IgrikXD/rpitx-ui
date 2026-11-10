@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.20-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.21-blue.svg?longCache=true&style=for-the-badge)
 
 ## Supported hardware
 **rpitx-ui** works only on Raspberry Pi boards built on the SoCs supported by the `librpitx` backend:
@@ -51,7 +51,7 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 ./install.sh --skip-optional
 ```
 
-To run the tests for the shared `audio` / `cli` / `dma` / `dsp` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
+To run the tests for the shared `audio` / `cli` / `dma` / `dsp` / `image` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
 ```
@@ -91,10 +91,11 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 
 [`easytest.sh`](./easytest.sh) now has a friendlier user interface and lets you select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode:
 - "_**WFM**_" / "_**NFM**_" / "_**SSB**_" / "_**AM**_" - any libsndfile-supported audio file (`.aif`, `.aiff`, `.caf`, `.flac`, `.mp3`, `.wav`)
-- "_**SSTV**_" - `.jpg`
+- "_**Spectrum**_" - `.jpg` (_pictures larger than 320x256 are scaled down_)
+- "_**SSTV**_" - 320x256 `.jpg`
 - "_**FreeDV**_" - `.rf`
 
-After selecting a file, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
+After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
 
 Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.  
@@ -126,11 +127,12 @@ Fixed the "_Bye bye_" exit message not being displayed correctly when leaving th
 Most transmit modes have been rewritten from scratch as standalone C++20 binaries that share a common foundation:
 
 - **Audio I/O.** Mono or stereo audio at any libsndfile-supported sample rate is accepted via the shared [`AudioPipeline`](./src/utils/audio/audio_pipeline.h) / [`AudioRateConverter`](./src/utils/audio/audio_rate_converter.h) (_[libsndfile](https://github.com/libsndfile/libsndfile) + [libsoxr](https://github.com/chirlu/soxr/)_), which downmixes and resamples to the rate required by each modulator. The audio source can be either a file `--audio` or stdin `--stdin`, so the binaries can be driven from a live capture or an external DSP chain without intermediate temporary files.
+- **Picture I/O.** Pictures are read as binary PGM (_P5_) images through the shared [`PgmReader`](./src/utils/image/pgm_reader.h): the helper scripts convert the selected file with ImageMagick, so the binaries parse a trivial text header instead of linking an image-decoding library. 8- and 16-bit samples and streams of concatenated images (_e.g. `ffmpeg -f image2pipe -vcodec pgm`_) are accepted, from a file `--image` or from stdin `--stdin`.
 - **CLI.** Argument parsing is delegated to the shared [`cli`](./src/utils/cli/) helpers built on top of [CLI11](https://github.com/CLIUtils/CLI11) (_locale-independent numeric conversion, type-checked option binding, mutually exclusive option groups, uniform help/parse-error reporting_), replacing the legacy `atof` / `strtol` parsing that silently accepted invalid input.
 - **Error handling.** Resource construction and the streaming loop are wrapped in `try`/`catch` so failures (_invalid arguments, missing audio file, DMA bring-up errors, runtime DSP errors_) are reported as a single human-readable diagnostic instead of an uncaught exception terminating the process.
 - **DMA integration via librpitx.** The new binaries call into `librpitx` (_`iqdmasync`, `amdmasync`, `ngfmdmasync`_) directly instead of pipelining audio through external `csdr` stages, eliminating intermediate format conversions and the long start-up delays of the original shell pipelines.
 - **Clean start and end of transmission.** The new binaries transmit the input from its first sample to its last (_shared [`dma`](./src/utils/dma/) helpers_): they absorb the 64 samples that the DMA engine of `librpitx` plays back to back while its pacing FIFO fills at the start, and let it play the samples still queued at the end - about 60 ms of audio at 48 kHz - before it stops, instead of discarding them.
-- **Real-time operation.** The new binaries run with real-time scheduling, the audio ones also in flush-to-zero floating-point mode (_shared [`realtime`](./src/utils/realtime/) helpers_), so the DMA buffer stays fed while other processes load the CPU and during digital silence. On single-core boards those processes run only in the CPU time the transmitter leaves unused.
+- **Real-time operation.** The new binaries run with real-time scheduling, the audio ones also in flush-to-zero floating-point mode (_shared [`realtime`](./src/utils/realtime/) helpers_), so the DMA buffer stays fed while other processes load the CPU and during digital silence. On single-core boards those processes run only in the CPU time the transmitter leaves unused. A `--stdin` producer has to deliver its data at least as fast as it is transmitted: while a binary waits for input, the DMA engine repeats the samples it already holds.
 
 #### Per-mode changes
 
@@ -150,6 +152,8 @@ Most transmit modes have been rewritten from scratch as standalone C++20 binarie
 **NFM ([`pinfm`](./src/pinfm/)) - rewritten.** The original NFM mode had no dedicated binary at all - it converted PCM audio through several external `csdr` stages and fed the result into the generic `rpitx` raw-RF entry point, with no built-in deviation presets, AGC, or audio-bandwidth guard. The new standalone binary drives `librpitx::ngfmdmasync` directly with per-sample frequency-deviation values, and its [`NfmProcessor`](./src/pinfm/nfm_processor.h) chain applies a 30 Hz HPF, a cascaded 4th-order 3000 Hz Butterworth LPF, scalar AGC, and a hard clamp before scaling to the selected peak deviation (_+-5 kHz wide / +-2.5 kHz narrow_).
 
 **WFM + RDS ([`pifmrds`](./src/pifmrds/)) - rewritten.** Replaces the legacy PiFmRds stack (_mixed C/C++ sources, separate control-pipe path, `atof` / `strtol` parsing, auxiliary `rds_wav` helper_) with a self-contained C++20 binary. Audio is resampled to the 228 kHz MPX rate; the [`FmRdsProcessor`](./src/pifmrds/fmrds_processor.h) chain applies a 30 Hz HPF, selectable 50 us / 75 us broadcast pre-emphasis, a cascaded 4th-order 15 kHz Butterworth LPF, joint AGC, and MPX composition (_mono + RDS, or stereo `(L+R) + 19 kHz pilot + 38 kHz DSB-SC (L-R) + 57 kHz RDS`_), clamped to 75 kHz peak deviation. RDS generation is split into reusable [`RdsEncoder`](./src/pifmrds/rds_encoder.h) (_EN 50067 PI / PS / RT / CT groups with CRC and block offset words_) and [`RdsModulator`](./src/pifmrds/rds_modulator.h) (_differential encoding, RRC-shaped biphase pulse overlap-add, phase-locked 57 kHz subcarrier_) components. The RDS injection level is analytically normalized to 5 % of peak deviation (_3.75 kHz - the EN 50067 "high pilot level" preset_), instead of the empirically tuned scalar used in upstream PiFmRds.
+
+**Spectrum ([`pispectrumpaint`](./src/pispectrumpaint/)) - rewritten.** Renamed from `spectrumpaint` to align with the project's naming convention. The original binary stopped the DMA engine before the last ~0.9 s of every picture (_27 of 256 rows_) had been sent and lost the first 64 pixels in the start-up burst of the engine, hard-coded the picture width to 320 pixels, chose the PLL divider for a 10 kHz window while sweeping 100 kHz (_part of the sweep could wrap by a whole step of the PLL multiplier_), used only three of the eight GPIO pad drive strengths (_the brightest pixel 17.8 dB below the full drive_), and parsed its arguments with `atof` under a handler installed for all 64 signals. The new binary reads a binary PGM picture of any size from a file or stdin (_`--loop` to repaint it_), maps black to carrier-off and the gray levels onto the six strongest drive strengths, sizes the PLL guard band to the real bandwidth, switches the carrier off as soon as `librpitx` has set it up, absorbs the start-up burst with carrier-off samples and ends the transmission only after the engine has sent the last row. The helper scripts convert the picture with ImageMagick into a temporary PGM file instead of leaving `picture.Y` / `picture.U` / `picture.V` behind, and `snap2spectrum.sh` takes its snapshot with `rpicam-still` or `libcamera-still` where `raspistill` is gone.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
