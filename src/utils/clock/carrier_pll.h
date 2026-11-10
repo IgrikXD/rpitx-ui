@@ -14,12 +14,12 @@
 #include <librpitx/librpitx.h>
 
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 
 /**
- * @brief Highest carrier frequency librpitx has a PLL setting for on any board, in Hz.
- *
- * The limit of a BCM2711 is 1 GHz, found at run time; far above this one the
- * range check of librpitx overflows instead of failing.
+ * @brief Highest carrier frequency librpitx has a PLL setting for on any board, in Hz (1 GHz on BCM2711).
  */
 inline constexpr uint64_t MAX_CARRIER_FREQUENCY_HZ{2'000'000'000};
 
@@ -29,7 +29,7 @@ inline constexpr uint64_t MAX_CARRIER_FREQUENCY_HZ{2'000'000'000};
  * The BCM2835 / BCM2711 PLLs run from 600 MHz; librpitx accepts
  * dividers down to a 200 MHz PLL rate, and such a setting freezes the board.
  */
-inline constexpr double MIN_PLL_RATE_HZ{600e6};
+inline constexpr uint64_t MIN_PLL_RATE_HZ{600'000'000};
 
 /**
  * @brief Rate of the carrier PLL for a divider chosen by librpitx, in Hz.
@@ -39,24 +39,62 @@ inline constexpr double MIN_PLL_RATE_HZ{600e6};
  * @param pllFrequency Frequency the divider was chosen for: the carrier, twice the carrier on BCM2711.
  * @param divider      Divider chosen by clkgpio::ComputeBestLO (PllFixDivider).
  */
-[[nodiscard]] constexpr double pllRateHz(uint64_t pllFrequency, int divider) noexcept {
-    return static_cast<double>(pllFrequency) * static_cast<double>(divider == 1 ? 2 : divider);
+[[nodiscard]] constexpr uint64_t pllRateHz(uint64_t pllFrequency, int divider) noexcept {
+    return pllFrequency * static_cast<uint64_t>(divider == 1 ? 2 : divider);
+}
+
+/**
+ * @brief Choose the PLL divider of clock for a carrier, refusing the settings the board cannot run.
+ *
+ * ComputeBestLO is called as clkgpio::SetCenterFrequency calls it: with the PLL frequency, twice
+ * the carrier on BCM2711 (fixed post-divider), and the half-span guard band of librpitx.
+ *
+ * @tparam Clock    clkgpio, or any type with its pi_is_2711, PllFixDivider and ComputeBestLO().
+ * @param clock     Carrier clock the divider is chosen on.
+ * @param frequency Carrier frequency in Hz.
+ * @param guardBand Guard band passed to ComputeBestLO, in Hz as librpitx counts it.
+ * @param subject   What the setting does, named in the diagnostic (e.g. "generates a 50000 Hz carrier").
+ * @param advice    What else to change, appended to "use a higher carrier frequency" in the diagnostic.
+ *
+ * @throws std::runtime_error when frequency exceeds MAX_CARRIER_FREQUENCY_HZ, ComputeBestLO finds no
+ *         divider, or the chosen divider would run the PLL below MIN_PLL_RATE_HZ.
+ */
+template <typename Clock>
+void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::string_view subject,
+                      std::string_view advice) {
+    if (frequency > MAX_CARRIER_FREQUENCY_HZ) {
+        throw std::runtime_error{"no PLL setting generates a " + std::to_string(frequency) +
+                                 " Hz carrier on any board (the limit is " + std::to_string(MAX_CARRIER_FREQUENCY_HZ) +
+                                 " Hz)"};
+    }
+    const uint64_t pllFrequency{frequency * (clock.pi_is_2711 ? 2U : 1U)};
+    if (clock.ComputeBestLO(pllFrequency, guardBand) != 0) {
+        throw std::runtime_error{"no PLL setting generates a " + std::to_string(frequency) +
+                                 " Hz carrier on this board"};
+    }
+    const uint64_t pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
+    if (pllRate < MIN_PLL_RATE_HZ) {
+        std::string message{"no PLL setting "};
+        message += subject;
+        message += " on this board (the PLL would run at " + std::to_string(pllRate) + " Hz, below its " +
+                   std::to_string(MIN_PLL_RATE_HZ) + " Hz minimum); use a higher carrier frequency";
+        message += advice;
+        throw std::runtime_error{message};
+    }
 }
 
 /**
  * @brief Refuse a carrier the DMA engines of librpitx would program although the board cannot run it.
  *
- * The constructors of iqdmasync, ngfmdmasync and amdmasync program the carrier PLL
- * for the band of the sample rate, and ookburst for the carrier alone, through
- * clkgpio::SetCenterFrequency, which ignores a failed divider choice. This check
- * runs the same choice on a clock of its own before the engine is constructed, so
- * the refusal comes with a diagnostic instead.
+ * The constructors of iqdmasync, ngfmdmasync and amdmasync program the carrier PLL for
+ * the band of the sample rate, and ookburst for the carrier alone, through
+ * clkgpio::SetCenterFrequency, which ignores a failed divider choice; this check runs
+ * the same choice on a clock of its own before the engine is constructed.
  *
  * @param frequency  Carrier frequency in Hz.
  * @param sampleRate Sample rate the engine is constructed with, in Hz (0 for ookburst).
  *
- * @throws std::runtime_error when frequency exceeds MAX_CARRIER_FREQUENCY_HZ, librpitx finds no PLL
- *         setting for the carrier, or the setting would run the PLL below MIN_PLL_RATE_HZ.
+ * @throws std::runtime_error as choosePllDivider() does.
  */
 void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
 
@@ -72,8 +110,7 @@ void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
  * @param halfBandwidth Half the width of the band modulated around the carrier, in Hz (0 for an
  *                      unmodulated carrier).
  *
- * @throws std::runtime_error when frequency exceeds MAX_CARRIER_FREQUENCY_HZ, librpitx finds no PLL
- *         setting for the carrier, the setting would run the PLL below MIN_PLL_RATE_HZ, or the band
- *         crosses an integer step of the PLL multiplier.
+ * @throws std::runtime_error as choosePllDivider() does, or when the band crosses an integer step
+ *         of the PLL multiplier.
  */
 void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth);
