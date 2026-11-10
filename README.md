@@ -51,7 +51,7 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 ./install.sh --skip-optional
 ```
 
-To run the tests for the shared `audio` / `cli` / `dma` / `dsp` / `image` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
+To run the tests for the shared `audio` / `cli` / `clock` / `dma` / `dsp` / `image` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
 ```
@@ -133,6 +133,7 @@ Most transmit modes have been rewritten from scratch as standalone C++20 binarie
 - **DMA integration via librpitx.** The new binaries call into `librpitx` (_`iqdmasync`, `amdmasync`, `ngfmdmasync`_) directly instead of pipelining audio through external `csdr` stages, eliminating intermediate format conversions and the long start-up delays of the original shell pipelines.
 - **Clean start and end of transmission.** The new binaries transmit the input from its first sample to its last (_shared [`dma`](./src/utils/dma/) helpers_): they absorb the 64 samples that the DMA engine of `librpitx` plays back to back while its pacing FIFO fills at the start, and let it play the samples still queued at the end - about 60 ms of audio at 48 kHz - before it stops, instead of discarding them.
 - **Real-time operation.** The new binaries run with real-time scheduling, the audio ones also in flush-to-zero floating-point mode (_shared [`realtime`](./src/utils/realtime/) helpers_), so the DMA buffer stays fed while other processes load the CPU and during digital silence. On single-core boards those processes run only in the CPU time the transmitter leaves unused. A `--stdin` producer has to deliver its data at least as fast as it is transmitted: while a binary waits for input, the DMA engine repeats the samples it already holds.
+- **Carrier PLL setup.** The new binaries that program the carrier PLL themselves choose its divider for the whole modulated band through the shared [`clock`](./src/utils/clock/) helpers, which refuse the settings `librpitx` would program although the board cannot run them (_no setting for the carrier, a PLL rate below its 600 MHz minimum, a band crossing an integer step of the PLL multiplier_) and warn when the PLL reports no lock.
 
 #### Per-mode changes
 
