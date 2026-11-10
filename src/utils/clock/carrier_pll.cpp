@@ -22,11 +22,8 @@ namespace {
     /**
      * @brief Choose the PLL divider of clock for the carrier, refusing the settings the board cannot run.
      *
-     * clkgpio::SetCenterFrequency runs ComputeBestLO with a half-span guard band on the PLL
-     * frequency, which is twice the carrier on BCM2711 (fixed post-divider); ComputeBestLO only
-     * selects the divider and fails outside the carrier range of the PLL (keeping the previous
-     * divider), and for a low carrier its dividers run the PLL below the minimum - either setting
-     * freezes the board, so the refusal comes before the PLL is programmed.
+     * ComputeBestLO is called as clkgpio::SetCenterFrequency calls it: with the PLL frequency, which
+     * is twice the carrier on BCM2711 (fixed post-divider), and the half-span guard band.
      *
      * @param guardBand Guard band passed to ComputeBestLO, as librpitx counts it.
      * @param subject   What the carrier setting does, named in the diagnostic ("generates a ... carrier").
@@ -49,20 +46,23 @@ namespace {
         const double pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
         if (pllRate < MIN_PLL_RATE_HZ) {
             std::ostringstream message;
-            message << "no PLL setting " << subject << " on this board (the PLL would run at " << pllRate / 1e6
-                    << " MHz, below its " << MIN_PLL_RATE_HZ / 1e6 << " MHz minimum); use a higher carrier frequency"
-                    << advice;
+            message << "no PLL setting " << subject << " on this board (the PLL would run at "
+                    << static_cast<long long>(pllRate) << " Hz, below its " << static_cast<long long>(MIN_PLL_RATE_HZ)
+                    << " Hz minimum); use a higher carrier frequency" << advice;
             throw std::runtime_error{message.str()};
         }
     }
 }  // namespace
 
 void checkCarrierPll(uint64_t frequency, uint32_t sampleRate) {
-    // A clock of its own, set up as the engine will set it up; ComputeBestLO writes no register.
+    // A clock of its own: ComputeBestLO writes no register, SetPllNumber sets the source its destructor writes back.
     clkgpio clock;
-    clock.SetAdvancedPllMode(true);
+    clock.SetPllNumber(clk_pllc, 0);
     std::ostringstream subject;
-    subject << "generates a " << frequency << " Hz carrier at a " << sampleRate << " Hz sample rate";
+    subject << "generates a " << frequency << " Hz carrier";
+    if (sampleRate > 0) {
+        subject << " at a " << sampleRate << " Hz sample rate";
+    }
     choosePllDivider(clock, frequency, static_cast<int>(sampleRate), subject.str(), "");
 }
 

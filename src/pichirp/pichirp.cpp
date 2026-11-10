@@ -136,8 +136,7 @@ namespace pichirp {
         // that any librpitx-side failure (DMA setup, register access, ...)
         // surfaces on stderr and main returns 1 instead of std::terminate.
         try {
-            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
-            // first.
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.

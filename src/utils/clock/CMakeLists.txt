@@ -7,10 +7,11 @@
 # ----------------------------------------------------------
 # Shared clock utility library
 # ----------------------------------------------------------
-# Provides the setup of the carrier PLL shared by the transmitters that
-# program it themselves: the PLL divider is chosen for the whole modulated
-# band, and the settings librpitx would program although the board cannot
-# run them are refused before the PLL is programmed for the band.
+# Provides the carrier PLL setup shared by the transmitters: the settings
+# librpitx would program although the board cannot run them are refused
+# before the transmitter engine is constructed, and the transmitters that
+# program the PLL themselves get its divider chosen for the whole modulated
+# band.
 # ----------------------------------------------------------
 add_library(rpitx_clock_utils STATIC
     carrier_pll.cpp
