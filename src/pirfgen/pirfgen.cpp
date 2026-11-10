@@ -195,8 +195,7 @@ namespace pirfgen {
                 .toneCount = params.toneCount.value_or(0),
             }};
 
-            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
-            // first.
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};

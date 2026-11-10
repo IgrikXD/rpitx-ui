@@ -294,8 +294,7 @@ namespace pifmrds {
             proc.encoder().setPs(params.ps);
             proc.encoder().setRt(params.rt);
 
-            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
-            // first.
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
