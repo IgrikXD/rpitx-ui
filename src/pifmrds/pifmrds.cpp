@@ -48,6 +48,7 @@
 #include <vector>
 
 #include "audio_pipeline.h"
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -293,6 +294,8 @@ namespace pifmrds {
             proc.encoder().setPs(params.ps);
             proc.encoder().setRt(params.rt);
 
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.

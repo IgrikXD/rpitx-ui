@@ -24,16 +24,24 @@ add_executable(piam
 target_link_libraries(piam
     PRIVATE
         rpitx_audio_utils
+        rpitx_cli_utils
+        rpitx_clock_utils
         rpitx_dma_utils
         rpitx_dsp_utils
-        rpitx_cli_utils
         rpitx_realtime_utils
         librpitx::librpitx
 )
 
 # --- pichirp ---
 add_executable(pichirp pichirp/pichirp.cpp)
-target_link_libraries(pichirp PRIVATE rpitx_cli_utils rpitx_dma_utils rpitx_realtime_utils librpitx::librpitx)
+target_link_libraries(pichirp
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pifmrds (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pifmrds
@@ -47,6 +55,7 @@ target_link_libraries(pifmrds
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_clock_utils
         rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils
@@ -58,7 +67,7 @@ add_executable(pimorse
     pimorse/morse_encoder.cpp
     pimorse/pimorse.cpp
 )
-target_link_libraries(pimorse PRIVATE rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pimorse PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
 
 # --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm
@@ -69,6 +78,7 @@ target_link_libraries(pinfm
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_clock_utils
         rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils
@@ -88,7 +98,14 @@ add_executable(pirfgen
     pirfgen/generators/sawtooth.cpp
     pirfgen/generators/sweep_generator.cpp
 )
-target_link_libraries(pirfgen PRIVATE rpitx_cli_utils rpitx_dma_utils rpitx_realtime_utils librpitx::librpitx)
+target_link_libraries(pirfgen
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pirtty ---
 add_executable(pirtty pirtty/pirtty.cpp)
@@ -99,6 +116,7 @@ add_executable(pispectrumpaint pispectrumpaint/pispectrumpaint.cpp)
 target_link_libraries(pispectrumpaint
     PRIVATE
         rpitx_cli_utils
+        rpitx_clock_utils
         rpitx_dma_utils
         rpitx_image_utils
         rpitx_realtime_utils
@@ -114,6 +132,7 @@ target_link_libraries(pissb
     PRIVATE
         rpitx_audio_utils
         rpitx_cli_utils
+        rpitx_clock_utils
         rpitx_dma_utils
         rpitx_dsp_utils
         rpitx_realtime_utils

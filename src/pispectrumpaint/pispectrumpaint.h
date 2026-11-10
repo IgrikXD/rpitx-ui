@@ -53,14 +53,6 @@ namespace pispectrumpaint {
     inline constexpr int MAX_BANDWIDTH{2'000'000};
 
     /**
-     * @brief Minimum rate of the PLL that generates the carrier, in Hz.
-     *
-     * The BCM2835 / BCM2711 PLLs run from 600 MHz; librpitx accepts
-     * dividers down to a 200 MHz PLL rate, and such a setting freezes the board.
-     */
-    inline constexpr double MIN_PLL_RATE_HZ{600e6};
-
-    /**
      * @brief Default harmonic passed to iqdmasync.
      */
     inline constexpr int DEFAULT_HARMONIC{1};

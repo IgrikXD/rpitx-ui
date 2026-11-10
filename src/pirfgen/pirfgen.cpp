@@ -37,6 +37,7 @@
 #include <string>
 #include <vector>
 
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -194,6 +195,8 @@ namespace pirfgen {
                 .toneCount = params.toneCount.value_or(0),
             }};
 
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.

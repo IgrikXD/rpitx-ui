@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "audio_pipeline.h"
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -174,6 +175,8 @@ namespace pissb {
                       << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             SsbProcessor ssb{params.mode};
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(TARGET_SAMPLE_RATE),
                           DMA_CHANNEL,

@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "morse_encoder.h"
@@ -85,12 +86,14 @@ namespace pimorse {
         return encodedMessage;
     }
 
-    void sendCwOok(float transmissionFrequency, float symbolRate, std::string_view cw) {
+    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, std::string_view cw) {
         const auto fifoSize{static_cast<int>(cw.size()) - 1};
         if (fifoSize <= 0) {
             return;
         }
 
+        // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
+        checkCarrierPll(transmissionFrequency, 0);
         ookburst ook(transmissionFrequency, symbolRate, OOK_DMA_BITS, fifoSize, OOK_UPSAMPLE);
 
         std::vector<unsigned char> symbols(fifoSize);
@@ -119,12 +122,11 @@ namespace pimorse {
         const auto encodedMessage{encodeMessage(params.message)};
         const auto symbolRate{params.wpm / WPM_TO_SYMBOL_RATE_DIVISOR};
 
-        // ookburst takes the carrier frequency as float; --freq is parsed and
-        // validated as integer Hz per the CLI v2 contract, then narrowed at the
-        // call boundary. Any librpitx-side failure during DMA / OOK setup is
-        // surfaced to the user via the catch handler instead of std::terminate.
+        // Wrap the OOK setup in a try / catch: checkCarrierPll refuses the PLL
+        // settings the board cannot run with an exception, and a stray throw
+        // escaping main would terminate via std::terminate without the diagnostic.
         try {
-            sendCwOok(static_cast<float>(params.transmissionFrequency), symbolRate, encodedMessage);
+            sendCwOok(params.transmissionFrequency, symbolRate, encodedMessage);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;
             return 1;

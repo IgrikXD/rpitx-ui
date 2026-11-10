@@ -33,7 +33,6 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
-#include <cmath>
 #include <complex>
 #include <csignal>
 #include <cstddef>
@@ -43,6 +42,7 @@
 #include <string>
 #include <vector>
 
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -187,10 +187,13 @@ namespace pispectrumpaint {
                   << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         // Wrap DMA construction and the painting loop in a try / catch:
-        // iqdmasync surfaces DMA setup failures as exceptions and paintRow /
-        // PgmReader throw on contract violations. A stray throw escaping main
-        // would terminate via std::terminate without flushing the diagnostic.
+        // programCarrierPll refuses the PLL settings the board cannot run and
+        // paintRow / PgmReader throw on contract violations. A stray throw
+        // escaping main would terminate via std::terminate without flushing
+        // the diagnostic.
         try {
+            // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(params.sampleRate),
                           DMA_CHANNEL,
@@ -198,44 +201,8 @@ namespace pispectrumpaint {
                           MODE_FREQ_A};
             // The constructor switched the carrier on; keep it off while the PLL setup is checked.
             dma.disableclk(CARRIER_GPIO);
-
             // The constructor chose the PLL divider for the sample rate; the painted band is far wider.
-            // clkgpio::SetCenterFrequency runs ComputeBestLO with a half-span guard band on the PLL
-            // frequency, which is twice the carrier on BCM2711 (fixed post-divider), so the same
-            // arguments are prepared here to check the divider before the PLL is programmed.
-            const uint64_t pllFrequencyFactor{dma.clkgpio::pi_is_2711 ? 2U : 1U};
-            const double halfBandwidth{params.bandwidth / 2.0};
-            const int guardBand{static_cast<int>(std::ceil(halfBandwidth * static_cast<double>(pllFrequencyFactor)))};
-            const uint64_t pllFrequency{params.transmissionFrequency * pllFrequencyFactor};
-
-            // ComputeBestLO only selects the divider; it fails outside the carrier range of the PLL (and keeps
-            // the previous divider), and a wide band at a low carrier can only be swept with a small divider,
-            // whose PLL rate lies below the minimum - either setting freezes the board, so refuse before
-            // programming it.
-            if (dma.ComputeBestLO(pllFrequency, guardBand) != 0) {
-                std::cerr << "[ERROR] pispectrumpaint: no PLL setting generates a " << params.transmissionFrequency
-                          << " Hz carrier on this board." << std::endl;
-                return 1;
-            }
-            const double pllRate{static_cast<double>(pllFrequency) * dma.PllFixDivider};
-            if (dma.PllFixDivider > 1 && pllRate < MIN_PLL_RATE_HZ) {
-                std::cerr << "[ERROR] pispectrumpaint: no PLL setting sweeps a " << params.bandwidth << " Hz band at "
-                          << params.transmissionFrequency << " Hz (the PLL would run at " << pllRate / 1e6
-                          << " MHz, below its " << MIN_PLL_RATE_HZ / 1e6
-                          << " MHz minimum); use a higher --freq or a smaller --bandwidth." << std::endl;
-                return 1;
-            }
-            dma.SetCenterFrequency(params.transmissionFrequency, guardBand);
-
-            // The DMA writes only the 20-bit fractional part of the PLL multiplier: when no divider keeps the
-            // band between two integer steps, the fraction wraps across the band and so would the picture.
-            if (dma.GetMasterFrac(-halfBandwidth) > dma.GetMasterFrac(halfBandwidth)) {
-                std::cerr << "[ERROR] pispectrumpaint: the painted band crosses an integer step of the PLL "
-                             "multiplier at this carrier, part of the picture would wrap by a whole step; use a "
-                             "smaller --bandwidth or another --freq."
-                          << std::endl;
-                return 1;
-            }
+            programCarrierPll(dma, params.transmissionFrequency, params.bandwidth / 2.0);
 
             // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first pixel reaches the air.
             startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
