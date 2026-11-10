@@ -5,8 +5,9 @@
  * Switches on a continuous unmodulated carrier at the requested frequency.
  * librpitx::clkgpio programs the carrier straight into the PLL that feeds
  * the clock generator of the carrier GPIO, so no DMA engine is involved.
- * The carrier stays on until SIGTERM / SIGINT (the rpitx-ui launcher stops
- * the process centrally via killall when the user dismisses the dialog).
+ * The carrier stays on until SIGTERM / SIGINT, or SIGHUP when the terminal
+ * goes away (the rpitx-ui launcher stops the process centrally via killall
+ * when the user dismisses the dialog).
  *
  * @note Usage: pitune --freq <Hz> [--ppm <value>] [-h | --help]
  *   - --freq      Carrier frequency in Hz
@@ -30,6 +31,7 @@
 #include <cmath>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -59,10 +61,21 @@ namespace pitune {
             ""};
 
         /**
-         * @brief Choose the PLL divider for the carrier, refusing the settings the board cannot run.
-         * @return True when librpitx found a usable divider (the error is printed otherwise).
+         * @brief Carrier clock generator with read access to the clock correction it applies.
          */
-        [[nodiscard]] bool selectPllDivider(clkgpio& carrier, uint64_t frequency) {
+        class CarrierClock : public clkgpio {
+        public:
+            [[nodiscard]] double clockCorrectionPpm() const {
+                return clk_ppm;
+            }
+        };
+
+        /**
+         * @brief Choose the PLL divider for the carrier, refusing the settings the board cannot run.
+         * @return The PLL rate of the chosen setting in Hz, std::nullopt when the carrier was refused
+         *         (the error is printed).
+         */
+        [[nodiscard]] std::optional<double> choosePllSetting(clkgpio& carrier, uint64_t frequency) {
             // clkgpio::SetCenterFrequency runs ComputeBestLO on the PLL frequency, which is twice the
             // carrier on BCM2711 (fixed post-divider), so the same argument is prepared here to check
             // the divider before the PLL is programmed.
@@ -74,16 +87,34 @@ namespace pitune {
             if (carrier.ComputeBestLO(pllFrequency, PLL_GUARD_BAND_HZ) != 0) {
                 std::cerr << "[ERROR] pitune: no PLL setting generates a " << frequency << " Hz carrier on this board."
                           << std::endl;
-                return false;
+                return std::nullopt;
             }
-            const double pllRate{static_cast<double>(pllFrequency) * carrier.PllFixDivider};
-            if (carrier.PllFixDivider > 1 && pllRate < MIN_PLL_RATE_HZ) {
+            // Divider 1 stands for the feedback pre-divider of the PLL, which doubles its rate.
+            const int pllMultiplier{carrier.PllFixDivider == 1 ? 2 : carrier.PllFixDivider};
+            const double pllRate{static_cast<double>(pllFrequency) * pllMultiplier};
+            if (pllRate < MIN_PLL_RATE_HZ) {
                 std::cerr << "[ERROR] pitune: no PLL setting generates a " << frequency
                           << " Hz carrier on this board (the PLL would run at " << pllRate / 1e6 << " MHz, below its "
                           << MIN_PLL_RATE_HZ / 1e6 << " MHz minimum); use a higher --freq." << std::endl;
-                return false;
+                return std::nullopt;
             }
-            return true;
+            return pllRate;
+        }
+
+        /**
+         * @brief Signals that end the transmission: SIGTERM, SIGINT and, unless it is ignored (nohup), SIGHUP.
+         */
+        [[nodiscard]] sigset_t stopSignalSet() {
+            sigset_t stopSignals;
+            sigemptyset(&stopSignals);
+            sigaddset(&stopSignals, SIGTERM);
+            sigaddset(&stopSignals, SIGINT);
+            struct sigaction hangupAction{};
+            sigaction(SIGHUP, nullptr, &hangupAction);
+            if (hangupAction.sa_handler != SIG_IGN) {
+                sigaddset(&stopSignals, SIGHUP);
+            }
+            return stopSignals;
         }
 
         /**
@@ -119,7 +150,19 @@ namespace pitune {
             return result;
         }
 
-        return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
+        if (const auto result{rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency)};
+            result != rpitx::cli::ParseResult::Ok) {
+            return result;
+        }
+
+        // No board has a PLL setting above the limit, and the check of librpitx overflows far above it.
+        if (params.transmissionFrequency > MAX_FREQUENCY_HZ) {
+            std::cerr << "[ERROR] --freq (" << params.transmissionFrequency << " Hz) must not exceed "
+                      << MAX_FREQUENCY_HZ << " Hz!" << std::endl;
+            return rpitx::cli::ParseResult::Error;
+        }
+
+        return rpitx::cli::ParseResult::Ok;
     }
 
     int run(int argc, char* argv[]) {
@@ -135,42 +178,35 @@ namespace pitune {
                 return 1;
         }
 
-        // SIGTERM (rpitx-ui, service managers) and SIGINT (Ctrl+C) end the transmission. There is
-        // nothing to do while the carrier is on, so they are blocked here and taken with sigwait once
-        // it is on: no polling, and the clock setup is never cut short.
-        sigset_t stopSignals;
-        sigemptyset(&stopSignals);
-        sigaddset(&stopSignals, SIGTERM);
-        sigaddset(&stopSignals, SIGINT);
+        // There is nothing to do while the carrier is on, so the stop signals are blocked here and
+        // taken with sigwait once it is on: no polling, and the clock setup is never cut short.
+        const sigset_t stopSignals{stopSignalSet()};
         if (const int status{pthread_sigmask(SIG_BLOCK, &stopSignals, nullptr)}; status != 0) {
             std::cerr << "[ERROR] pitune: blocking the stop signals failed ("
                       << std::error_code{status, std::system_category()}.message() << ")." << std::endl;
             return 1;
         }
 
-        std::cout << "pitune: carrier=" << params.transmissionFrequency << " Hz, ppm=";
-        if (params.ppm == std::nullopt) {
-            std::cout << "ntp";
-        } else {
-            std::cout << params.ppm.value();
-        }
-        std::cout << std::endl;
-
         // Wrap the carrier setup in a try / catch so that an exception leaves through the destructor
         // of clkgpio, which stops the clock generator, instead of std::terminate.
         try {
-            clkgpio carrier;
+            CarrierClock carrier;
             // The PLL multiplier is programmed directly; the core and SD card clocks leave the PLL first.
             carrier.SetAdvancedPllMode(true);
-            // The constructor applied the NTP estimate; an explicit --ppm replaces it.
+            // SetAdvancedPllMode re-applied the NTP estimate; an explicit --ppm replaces it after that call.
             if (params.ppm != std::nullopt) {
                 carrier.Setppm(params.ppm.value());
             }
-            if (selectPllDivider(carrier, params.transmissionFrequency) == false) {
+            const auto pllRate{choosePllSetting(carrier, params.transmissionFrequency)};
+            if (pllRate == std::nullopt) {
                 return 1;
             }
             // Programs the PLL and starts the clock generator; the carrier GPIO is still an input.
             carrier.SetCenterFrequency(params.transmissionFrequency, PLL_GUARD_BAND_HZ);
+
+            std::cout << "pitune: carrier=" << params.transmissionFrequency
+                      << " Hz, ppm=" << carrier.clockCorrectionPpm() << (params.ppm == std::nullopt ? " (ntp)" : "")
+                      << ", pll_rate=" << pllRate.value() / 1e6 << " MHz" << std::endl;
             if ((carrier.gpioreg[CM_LOCK] & CM_LOCK_FLOCKC) == 0) {
                 std::cerr << "[WARNING] pitune: the carrier PLL reports no lock; the carrier may be off frequency."
                           << std::endl;

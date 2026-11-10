@@ -28,6 +28,14 @@ namespace pitune {
     inline constexpr int PLL_GUARD_BAND_HZ{0};
 
     /**
+     * @brief Highest carrier frequency accepted on the command line, in Hz.
+     *
+     * librpitx finds no PLL setting above it on any board (the limit of a
+     * BCM2711 is 1 GHz, found at run time), and its check overflows far above it.
+     */
+    inline constexpr uint64_t MAX_FREQUENCY_HZ{2'000'000'000};
+
+    /**
      * @brief Minimum rate of the PLL that generates the carrier, in Hz.
      *
      * The BCM2835 / BCM2711 PLLs run from 600 MHz; librpitx accepts
