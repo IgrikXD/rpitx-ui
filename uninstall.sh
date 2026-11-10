@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.22'
+PACKAGE_VERSION='1.23'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'

@@ -127,7 +127,7 @@ target_link_libraries(pisstv PRIVATE librpitx::librpitx)
 
 # --- pitune (unmodulated carrier -> librpitx clkgpio, self-contained) ---
 add_executable(pitune pitune/pitune.cpp)
-target_link_libraries(pitune PRIVATE rpitx_cli_utils librpitx::librpitx)
+target_link_libraries(pitune PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
 
 # --- pocsag ---
 add_executable(pocsag pocsag/pocsag.cpp)

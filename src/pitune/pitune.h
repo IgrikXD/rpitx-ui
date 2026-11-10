@@ -11,8 +11,8 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
-#include <optional>
 
 #include "cli_parse_result.h"
 
@@ -23,38 +23,26 @@ namespace pitune {
     inline constexpr int CARRIER_GPIO{4};
 
     /**
-     * @brief Guard band for the PLL divider choice of librpitx, in Hz: the carrier is not modulated.
+     * @brief Half the bandwidth around the carrier for the PLL setup, in Hz: the carrier is not modulated.
      */
-    inline constexpr int PLL_GUARD_BAND_HZ{0};
+    inline constexpr double CARRIER_HALF_BANDWIDTH_HZ{0.0};
 
     /**
-     * @brief Highest carrier frequency accepted on the command line, in Hz.
-     *
-     * librpitx finds no PLL setting above it on any board (the limit of a
-     * BCM2711 is 1 GHz, found at run time), and its check overflows far above it.
+     * @brief Interval between two checks of the stop flag while the carrier is on.
      */
-    inline constexpr uint64_t MAX_FREQUENCY_HZ{2'000'000'000};
-
-    /**
-     * @brief Minimum rate of the PLL that generates the carrier, in Hz.
-     *
-     * The BCM2835 / BCM2711 PLLs run from 600 MHz; librpitx accepts
-     * dividers down to a 200 MHz PLL rate, and such a setting freezes the board.
-     */
-    inline constexpr double MIN_PLL_RATE_HZ{600e6};
-
-    /**
-     * @brief Largest clock correction accepted by --ppm, in ppm either way (the limit of the kernel NTP correction).
-     */
-    inline constexpr int MAX_PPM{500};
+    inline constexpr std::chrono::milliseconds STOP_CHECK_INTERVAL{100};
 
     /**
      * @brief Carrier parameters extracted from argv.
      */
     struct TuneParameters {
         uint64_t transmissionFrequency{0};
-        std::optional<double> ppm;  ///< Engaged iff --ppm was given on the CLI.
     };
+
+    /**
+     * @brief Signal handler for SIGTERM and SIGINT.
+     */
+    void handleSignal(int sig);
 
     /**
      * @brief Parse and validate command-line arguments via CLI11.
