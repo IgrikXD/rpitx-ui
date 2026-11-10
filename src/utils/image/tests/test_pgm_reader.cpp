@@ -151,6 +151,26 @@ TEST(PgmReaderTest, SkipsCommentsAndWhitespaceInHeader) {
     EXPECT_EQ(pgmReader->readHeader(), PgmReadStatus::End);
 }
 
+/**
+ * @brief A CRLF after the maximum value is not one separator: the CR ends the header and the LF is raster data.
+ *
+ * netpbm defines exactly one whitespace character between the maximum value and the raster, and
+ * libnetpbm and ImageMagick read a CRLF-terminated header the same way, so such a file is
+ * malformed rather than a variant to tolerate. The 1x2 picture comes out shifted by one byte -
+ * the LF (10) is its first pixel - and the byte left over at the end is reported as a bad header,
+ * so the shift surfaces as a diagnostic instead of a silently displaced picture.
+ */
+TEST(PgmReaderTest, ReadsLineFeedAfterCarriageReturnAsRasterData) {
+    std::string pgm{"P5\n1 2\n255\r\n"};
+    pgm.append({'\x07', '\x08'});
+    const auto pgmReader{makeMemoryReader(pgm)};
+
+    ASSERT_EQ(pgmReader->readHeader(), PgmReadStatus::Ok);
+    EXPECT_EQ(readAllRows(*pgmReader), (std::vector<std::uint8_t>{10, 7}));
+    EXPECT_EQ(pgmReader->readHeader(), PgmReadStatus::Error);
+    EXPECT_NE(pgmReader->lastError().find("magic number P5 not found"), std::string_view::npos);
+}
+
 namespace {
     struct SampleRescalingTestCase {
         std::string_view name;
