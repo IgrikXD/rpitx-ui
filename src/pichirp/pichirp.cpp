@@ -37,6 +37,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_transmission.h"
 #include "realtime_scheduling.h"
 
 namespace pichirp {
@@ -135,6 +136,8 @@ namespace pichirp {
         // surfaces on stderr and main returns 1 instead of std::terminate.
         try {
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
+            // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
+            startTransmission(dma, IDLE_DEVIATION_HZ);
 
             // Peak frequency deviation in Hz (half the requested bandwidth, symmetric around carrier).
             const float deviation{params.bandwidth * 0.5F};

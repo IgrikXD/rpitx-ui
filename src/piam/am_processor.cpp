@@ -25,6 +25,6 @@ float AmProcessor::process(float sample) {
     // transient AGC gain overshoot (env_ briefly lagging a sudden level
     // jump) pushing the peak past unity, which would drive the amdmasync
     // pad quantizer into saturation.
-    const float envelope{0.5f * (1.0f + MODULATION_DEPTH * agcd)};
+    const float envelope{CARRIER_ENVELOPE * (1.0f + MODULATION_DEPTH * agcd)};
     return std::clamp(envelope, 0.0f, 1.0f);
 }

@@ -39,6 +39,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_transmission.h"
 #include "realtime_scheduling.h"
 
 namespace pirfgen {
@@ -195,6 +196,8 @@ namespace pirfgen {
 
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};
+            // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
+            startTransmission(dma, IDLE_DEVIATION_HZ);
 
             // SetFrequencySamples blocks until the whole block is in the DMA FIFO
             // (see ngfmdmasync.cpp upstream), so no manual usleep / GetBufferAvailable

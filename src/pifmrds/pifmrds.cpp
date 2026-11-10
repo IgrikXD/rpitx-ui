@@ -50,6 +50,7 @@
 #include "audio_pipeline.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_transmission.h"
 #include "flush_to_zero.h"
 #include "fmrds_processor.h"
 #include "libsndfile_audio_source.h"
@@ -294,6 +295,8 @@ namespace pifmrds {
 
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
+            // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
+            startTransmission(dma, IDLE_DEVIATION_HZ);
 
             // AudioPipeline owns source-rate input buffers, loop-aware EOF handling,
             // channel preservation, and source -> 228 kHz rate conversion. The FM-RDS
@@ -315,7 +318,9 @@ namespace pifmrds {
                 dma.SetFrequencySamples(mpxBuf.data(), mpxBuf.size());
             }
 
-            dma.stop();
+            // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
+            const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
+            stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pifmrds: " << e.what() << std::endl;
             return 1;

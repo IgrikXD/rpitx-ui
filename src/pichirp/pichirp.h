@@ -36,6 +36,11 @@ namespace pichirp {
     inline constexpr int DMA_CHANNEL{14};
 
     /**
+     * @brief Frequency deviation of the idle samples at the start of the transmission: the unmodulated carrier.
+     */
+    inline constexpr float IDLE_DEVIATION_HZ{0.0F};
+
+    /**
      * @brief DMA sample rate in Hz.
      */
     inline constexpr uint32_t SAMPLE_RATE{200'000};

@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.19-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.20-blue.svg?longCache=true&style=for-the-badge)
 
 ## Supported hardware
 **rpitx-ui** works only on Raspberry Pi boards built on the SoCs supported by the `librpitx` backend:
@@ -51,7 +51,7 @@ To build only the core targets used directly by the `rpitx-ui` interface (_skipp
 ./install.sh --skip-optional
 ```
 
-To run the tests for the shared `audio` / `cli` / `dsp` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
+To run the tests for the shared `audio` / `cli` / `dma` / `dsp` / `realtime` utility libraries during installation, use the `--enable-testing` flag. A failing test aborts the installation before any binaries are installed system-wide or the Raspberry Pi boot configuration is modified:
 ```sh
 ./install.sh --enable-testing
 ```
@@ -129,6 +129,7 @@ Most transmit modes have been rewritten from scratch as standalone C++20 binarie
 - **CLI.** Argument parsing is delegated to the shared [`cli`](./src/utils/cli/) helpers built on top of [CLI11](https://github.com/CLIUtils/CLI11) (_locale-independent numeric conversion, type-checked option binding, mutually exclusive option groups, uniform help/parse-error reporting_), replacing the legacy `atof` / `strtol` parsing that silently accepted invalid input.
 - **Error handling.** Resource construction and the streaming loop are wrapped in `try`/`catch` so failures (_invalid arguments, missing audio file, DMA bring-up errors, runtime DSP errors_) are reported as a single human-readable diagnostic instead of an uncaught exception terminating the process.
 - **DMA integration via librpitx.** The new binaries call into `librpitx` (_`iqdmasync`, `amdmasync`, `ngfmdmasync`_) directly instead of pipelining audio through external `csdr` stages, eliminating intermediate format conversions and the long start-up delays of the original shell pipelines.
+- **Clean start and end of transmission.** The new binaries transmit the input from its first sample to its last (_shared [`dma`](./src/utils/dma/) helpers_): they absorb the 64 samples that the DMA engine of `librpitx` plays back to back while its pacing FIFO fills at the start, and let it play the samples still queued at the end - about 60 ms of audio at 48 kHz - before it stops, instead of discarding them.
 - **Real-time operation.** The new binaries run with real-time scheduling, the audio ones also in flush-to-zero floating-point mode (_shared [`realtime`](./src/utils/realtime/) helpers_), so the DMA buffer stays fed while other processes load the CPU and during digital silence. On single-core boards those processes run only in the CPU time the transmitter leaves unused.
 
 #### Per-mode changes
