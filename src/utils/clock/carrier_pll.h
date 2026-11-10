@@ -44,6 +44,22 @@ inline constexpr double MIN_PLL_RATE_HZ{600e6};
 }
 
 /**
+ * @brief Refuse a carrier the DMA engines of librpitx would program although the board cannot run it.
+ *
+ * The constructors of iqdmasync, ngfmdmasync and amdmasync program the carrier PLL
+ * for the band of the sample rate through clkgpio::SetCenterFrequency, which ignores
+ * a failed divider choice. This check runs the same choice on a clock of its own
+ * before the engine is constructed, so the refusal comes with a diagnostic instead.
+ *
+ * @param frequency  Carrier frequency in Hz.
+ * @param sampleRate Sample rate the engine is constructed with, in Hz.
+ *
+ * @throws std::runtime_error when frequency exceeds MAX_CARRIER_FREQUENCY_HZ, librpitx finds no PLL
+ *         setting for the carrier, or the setting would run the PLL below MIN_PLL_RATE_HZ.
+ */
+void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
+
+/**
  * @brief Program the carrier PLL of clock for frequency and the band of +-halfBandwidth around it.
  *
  * The PLL divider is chosen for the whole band and the PLL is programmed through

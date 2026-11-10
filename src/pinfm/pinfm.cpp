@@ -41,6 +41,7 @@
 #include <vector>
 
 #include "audio_pipeline.h"
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -191,6 +192,9 @@ namespace pinfm {
                       << peakDeviation << " Hz), loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             NfmProcessor nfm{static_cast<float>(TARGET_SAMPLE_RATE), peakDeviation};
+            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
+            // first.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
