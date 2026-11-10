@@ -309,7 +309,7 @@ do_stop_transmit()
 
 	case "$menuchoice" in
 			
-			0\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
+			0\ *) sudo killall testtune.sh >/dev/null 2>/dev/null ;;
 			1\ *) sudo killall testchirp.sh >/dev/null 2>/dev/null ;;
 			2\ *) sudo killall testspectrum.sh >/dev/null 2>/dev/null ;; 
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
@@ -372,7 +372,7 @@ do_freq_setup
 			F\ *) do_freq_setup 
 			;;
 			
-			0\ *) testvfo.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
+			0\ *) testtune.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
 			do_status
 			;;
 			

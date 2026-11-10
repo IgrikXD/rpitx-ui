@@ -250,7 +250,7 @@ set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
     testchirp.sh testfmrds.sh testfreedv.sh testmorse.sh
     testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-    testspectrum.sh testssb.sh testsstv.sh testvfo.sh transponder.sh
+    testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
