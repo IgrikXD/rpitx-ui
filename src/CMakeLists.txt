@@ -143,6 +143,10 @@ target_link_libraries(pissb
 add_executable(pisstv sstv/pisstv.cpp)
 target_link_libraries(pisstv PRIVATE librpitx::librpitx)
 
+# --- pitune (unmodulated carrier -> librpitx clkgpio, self-contained) ---
+add_executable(pitune pitune/pitune.cpp)
+target_link_libraries(pitune PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
+
 # --- pocsag ---
 add_executable(pocsag pocsag/pocsag.cpp)
 target_link_libraries(pocsag PRIVATE librpitx::librpitx)
@@ -150,10 +154,6 @@ target_link_libraries(pocsag PRIVATE librpitx::librpitx)
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
 target_link_libraries(sendiq PRIVATE librpitx::librpitx)
-
-# --- tune ---
-add_executable(tune tune.cpp)
-target_link_libraries(tune PRIVATE librpitx::librpitx)
 
 # ----------------------------------------------------------
 # Optional targets (not used by easytest.sh directly)
@@ -213,7 +213,7 @@ endif()
 # Install required targets
 set(INSTALL_TARGETS
     freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
-    pirtty pispectrumpaint pissb pisstv pocsag sendiq tune
+    pirtty pispectrumpaint pissb pisstv pitune pocsag sendiq
 )
 
 # Install optional targets if they were built successfully
@@ -250,7 +250,7 @@ set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh testam.sh
     testchirp.sh testfmrds.sh testfreedv.sh testmorse.sh
     testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-    testspectrum.sh testssb.sh testsstv.sh testvfo.sh transponder.sh
+    testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )
 
 foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})

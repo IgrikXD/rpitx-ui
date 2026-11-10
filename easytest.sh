@@ -302,14 +302,14 @@ do_stop_transmit()
 	sudo killall pispectrumpaint 2>/dev/null
 	sudo killall pissb 2>/dev/null
 	sudo killall pisstv 2>/dev/null
+	sudo killall pitune 2>/dev/null
 	sudo killall pocsag 2>/dev/null
 	sudo killall rpitx 2>/dev/null
 	sudo killall sendiq 2>/dev/null
-	sudo killall tune 2>/dev/null
 
 	case "$menuchoice" in
 			
-			0\ *) sudo killall testvfo.sh >/dev/null 2>/dev/null ;;
+			0\ *) sudo killall testtune.sh >/dev/null 2>/dev/null ;;
 			1\ *) sudo killall testchirp.sh >/dev/null 2>/dev/null ;;
 			2\ *) sudo killall testspectrum.sh >/dev/null 2>/dev/null ;; 
 			3\ *) sudo killall snap2spectrum.sh >/dev/null 2>/dev/null ;;
@@ -346,7 +346,7 @@ do_freq_setup
 
 	menuchoice=$(whiptail --default-item "$LAST_ITEM" --title "rpitx-ui on ""$OUTPUT_FREQ"" MHz" --menu "Range frequency: 50kHz-1GHz. Choose your test:" 20 82 12 \
  	"F Set frequency" "Modify frequency (actual $OUTPUT_FREQ MHz)" \
-	"0 Tune" "Carrier" \
+	"0 Tune" "Unmodulated carrier" \
     "1 Chirp" "Moving carrier" \
 	"2 Spectrum" "Spectrum painting" \
 	"3 RfMyFace" "Snap with Raspicam and RF paint" \
@@ -372,7 +372,7 @@ do_freq_setup
 			F\ *) do_freq_setup 
 			;;
 			
-			0\ *) testvfo.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
+			0\ *) testtune.sh "$OUTPUT_FREQ""e6" >/dev/null 2>/dev/null &
 			do_status
 			;;
 			
