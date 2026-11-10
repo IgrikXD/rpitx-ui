@@ -346,7 +346,7 @@ do_freq_setup
 
 	menuchoice=$(whiptail --default-item "$LAST_ITEM" --title "rpitx-ui on ""$OUTPUT_FREQ"" MHz" --menu "Range frequency: 50kHz-1GHz. Choose your test:" 20 82 12 \
  	"F Set frequency" "Modify frequency (actual $OUTPUT_FREQ MHz)" \
-	"0 Tune" "Carrier" \
+	"0 Tune" "Unmodulated carrier" \
     "1 Chirp" "Moving carrier" \
 	"2 Spectrum" "Spectrum painting" \
 	"3 RfMyFace" "Snap with Raspicam and RF paint" \
