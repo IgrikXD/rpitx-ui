@@ -151,7 +151,7 @@ jobs:
             REQUIRED_BINARIES=(
               corel8 foxhunt freedv piam pichirp pidcf77 pifmrds
               pifsq pift8 pimorse pinfm piopera pirfgen pirtty pispectrumpaint
-              pissb pisstv pocsag sendiq sendook tune
+              pissb pisstv pitune pocsag sendiq sendook
             )
             OPTIONAL_BINARIES=(dvbrf rpitx)
 
@@ -237,7 +237,7 @@ jobs:
             ALL_BINARIES=(
               corel8 dvbrf foxhunt freedv piam pichirp pidcf77 pifmrds
               pifsq pift8 pimorse pinfm piopera pirfgen pirtty pispectrumpaint
-              pissb pisstv pocsag rpitx sendiq sendook tune
+              pissb pisstv pitune pocsag rpitx sendiq sendook
             )
 
             for bin in "${ALL_BINARIES[@]}"; do

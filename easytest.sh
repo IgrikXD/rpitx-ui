@@ -302,10 +302,10 @@ do_stop_transmit()
 	sudo killall pispectrumpaint 2>/dev/null
 	sudo killall pissb 2>/dev/null
 	sudo killall pisstv 2>/dev/null
+	sudo killall pitune 2>/dev/null
 	sudo killall pocsag 2>/dev/null
 	sudo killall rpitx 2>/dev/null
 	sudo killall sendiq 2>/dev/null
-	sudo killall tune 2>/dev/null
 
 	case "$menuchoice" in
 			
