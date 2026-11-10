@@ -41,10 +41,11 @@ void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth)
         throw std::runtime_error{message.str()};
     }
     const double pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
+    const long long bandwidth{std::llround(2.0 * halfBandwidth)};
     if (pllRate < MIN_PLL_RATE_HZ) {
         std::ostringstream message;
         if (halfBandwidth > 0.0) {
-            message << "no PLL setting sweeps a " << 2.0 * halfBandwidth << " Hz band at " << frequency << " Hz";
+            message << "no PLL setting sweeps a " << bandwidth << " Hz band at " << frequency << " Hz";
         } else {
             message << "no PLL setting generates a " << frequency << " Hz carrier";
         }
@@ -60,8 +61,7 @@ void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth)
     // modulation.
     if (halfBandwidth > 0.0 && clock.GetMasterFrac(-halfBandwidth) > clock.GetMasterFrac(halfBandwidth)) {
         std::ostringstream message;
-        message << "the " << 2.0 * halfBandwidth << " Hz band crosses an integer step of the PLL multiplier at a "
-                << frequency
+        message << "the " << bandwidth << " Hz band crosses an integer step of the PLL multiplier at a " << frequency
                 << " Hz carrier, part of it would wrap by a whole step; use a smaller bandwidth or "
                    "another carrier frequency";
         throw std::runtime_error{message.str()};
