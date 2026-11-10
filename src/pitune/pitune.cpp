@@ -25,6 +25,7 @@
 
 #include <librpitx/librpitx.h>
 #include <signal.h>
+#include <sys/timex.h>
 
 #include <CLI/CLI.hpp>
 #include <charconv>
@@ -102,6 +103,14 @@ namespace pitune {
         }
 
         /**
+         * @brief Whether the kernel holds the NTP estimate of the crystal error that librpitx applies by default.
+         */
+        [[nodiscard]] bool ntpEstimateApplied() {
+            timex clockStatus{};
+            return ntp_adjtime(&clockStatus) == TIME_OK;
+        }
+
+        /**
          * @brief Signals that end the transmission: SIGTERM, SIGINT and, unless it is ignored (nohup), SIGHUP.
          */
         [[nodiscard]] sigset_t stopSignalSet() {
@@ -110,8 +119,7 @@ namespace pitune {
             sigaddset(&stopSignals, SIGTERM);
             sigaddset(&stopSignals, SIGINT);
             struct sigaction hangupAction{};
-            sigaction(SIGHUP, nullptr, &hangupAction);
-            if (hangupAction.sa_handler != SIG_IGN) {
+            if (sigaction(SIGHUP, nullptr, &hangupAction) != 0 || hangupAction.sa_handler != SIG_IGN) {
                 sigaddset(&stopSignals, SIGHUP);
             }
             return stopSignals;
@@ -205,8 +213,11 @@ namespace pitune {
             carrier.SetCenterFrequency(params.transmissionFrequency, PLL_GUARD_BAND_HZ);
 
             std::cout << "pitune: carrier=" << params.transmissionFrequency
-                      << " Hz, ppm=" << carrier.clockCorrectionPpm() << (params.ppm == std::nullopt ? " (ntp)" : "")
-                      << ", pll_rate=" << pllRate.value() / 1e6 << " MHz" << std::endl;
+                      << " Hz, ppm=" << carrier.clockCorrectionPpm();
+            if (params.ppm == std::nullopt) {
+                std::cout << (ntpEstimateApplied() ? " (ntp)" : " (no ntp estimate)");
+            }
+            std::cout << ", pll_rate=" << pllRate.value() / 1e6 << " MHz" << std::endl;
             if ((carrier.gpioreg[CM_LOCK] & CM_LOCK_FLOCKC) == 0) {
                 std::cerr << "[WARNING] pitune: the carrier PLL reports no lock; the carrier may be off frequency."
                           << std::endl;
