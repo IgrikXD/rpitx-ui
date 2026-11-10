@@ -10,7 +10,7 @@
 # Provides the setup of the carrier PLL shared by the transmitters that
 # program it themselves: the PLL divider is chosen for the whole modulated
 # band, and the settings librpitx would program although the board cannot
-# run them are refused before the PLL is touched.
+# run them are refused before the PLL is programmed for the band.
 # ----------------------------------------------------------
 add_library(rpitx_clock_utils STATIC
     carrier_pll.cpp
