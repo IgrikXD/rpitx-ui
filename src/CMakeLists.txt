@@ -94,6 +94,16 @@ target_link_libraries(pirfgen PRIVATE rpitx_cli_utils rpitx_dma_utils rpitx_real
 add_executable(pirtty pirtty/pirtty.cpp)
 target_link_libraries(pirtty PRIVATE librpitx::librpitx)
 
+# --- pispectrumpaint (PGM picture -> librpitx iqdmasync, self-contained) ---
+add_executable(pispectrumpaint pispectrumpaint/pispectrumpaint.cpp)
+target_link_libraries(pispectrumpaint
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_image_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
+
 # --- pissb (audio file -> librpitx iqdmasync, self-contained) ---
 add_executable(pissb
     pissb/pissb.cpp
@@ -120,10 +130,6 @@ target_link_libraries(pocsag PRIVATE librpitx::librpitx)
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
 target_link_libraries(sendiq PRIVATE librpitx::librpitx)
-
-# --- spectrumpaint ---
-add_executable(spectrumpaint spectrumpaint/spectrum.cpp)
-target_link_libraries(spectrumpaint PRIVATE librpitx::librpitx)
 
 # --- tune ---
 add_executable(tune tune.cpp)
@@ -187,7 +193,7 @@ endif()
 # Install required targets
 set(INSTALL_TARGETS
     freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
-    pirtty pissb pisstv pocsag sendiq spectrumpaint tune
+    pirtty pispectrumpaint pissb pisstv pocsag sendiq tune
 )
 
 # Install optional targets if they were built successfully

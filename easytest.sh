@@ -189,7 +189,7 @@ do_enter_playback_mode()
 
 LAST_ITEM="$menuchoice"
 if PLAYBACK_MODE=$(whiptail --default-item "$DEFAULT_PLAYBACK" --title "Playback mode" --menu "Select playback mode:" 15 78 2 \
-	"loop" "Replay the audio file continuously" \
+	"loop" "Replay the file continuously" \
 	"once" "Play once and stop at end of file" \
 	3>&1 1>&2 2>&3); then
 	abort_action=0
@@ -299,12 +299,12 @@ do_stop_transmit()
 	sudo killall piopera 2>/dev/null
 	sudo killall pirfgen 2>/dev/null
 	sudo killall pirtty 2>/dev/null
+	sudo killall pispectrumpaint 2>/dev/null
 	sudo killall pissb 2>/dev/null
 	sudo killall pisstv 2>/dev/null
 	sudo killall pocsag 2>/dev/null
 	sudo killall rpitx 2>/dev/null
 	sudo killall sendiq 2>/dev/null
-	sudo killall spectrumpaint 2>/dev/null
 	sudo killall tune 2>/dev/null
 
 	case "$menuchoice" in
@@ -380,10 +380,13 @@ do_freq_setup
 			do_status
 			;;
 			
-			2\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
+			2\ *) do_file_choose ".jpg" "$RESOURCES_LOCATION" '\.jpg$'
 			if [ $abort_action -eq 0 ]; then
-				testspectrum.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_playback_mode
+				if [ $abort_action -eq 0 ]; then
+					testspectrum.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 			
