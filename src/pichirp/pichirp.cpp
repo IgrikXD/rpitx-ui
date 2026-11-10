@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
@@ -135,6 +136,9 @@ namespace pichirp {
         // that any librpitx-side failure (DMA setup, register access, ...)
         // surfaces on stderr and main returns 1 instead of std::terminate.
         try {
+            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
+            // first.
+            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
             startTransmission(dma, IDLE_DEVIATION_HZ);

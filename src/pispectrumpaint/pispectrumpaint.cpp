@@ -192,6 +192,9 @@ namespace pispectrumpaint {
         // escaping main would terminate via std::terminate without flushing
         // the diagnostic.
         try {
+            // The engine constructor programs the carrier PLL unguarded; refuse the carriers the board cannot run
+            // first.
+            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(params.sampleRate),
                           DMA_CHANNEL,
