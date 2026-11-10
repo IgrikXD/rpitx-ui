@@ -45,6 +45,7 @@
 
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_transmission.h"
 #include "pgm_reader.h"
 #include "realtime_scheduling.h"
 #include "spectrum_painter.h"
@@ -70,22 +71,6 @@ namespace pispectrumpaint {
             return static_cast<double>(width) * 1000.0 / static_cast<double>(sampleRate);
         }
 
-        /**
-         * @brief Transmit the queued rows, then stop the DMA engine with the ring full of carrier-off samples.
-         *
-         * Once the engine runs, SetIQSamples only fills slots it has already played,
-         * so after a whole ring of carrier-off samples every row has been sent and a
-         * stop at any later moment transmits nothing. The tail goes in two halves:
-         * before the engine starts the whole ring counts as free, and the first half
-         * - more than the quarter that starts the engine - must not wrap onto a
-         * picture shorter than that quarter.
-         */
-        void drainAndStop(iqdmasync& dma) {
-            std::vector<std::complex<float>> tail(DMA_FIFO_SIZE / 2, CARRIER_OFF_SAMPLE);
-            dma.SetIQSamples(tail.data(), tail.size(), DEFAULT_HARMONIC);
-            dma.SetIQSamples(tail.data(), tail.size(), DEFAULT_HARMONIC);
-            dma.stop();
-        }
     }  // namespace
 
     void handleSignal([[maybe_unused]] int sig) {
@@ -213,7 +198,7 @@ namespace pispectrumpaint {
                           DMA_CHANNEL,
                           DMA_FIFO_SIZE,
                           MODE_FREQ_A};
-            // The constructor switched the carrier on; keep it off until the engine plays the first pixel.
+            // The constructor switched the carrier on; keep it off while the PLL setup is checked.
             dma.disableclk(CARRIER_GPIO);
 
             // The constructor chose the PLL divider for the sample rate; the painted band is far wider.
@@ -254,12 +239,8 @@ namespace pispectrumpaint {
                 return 1;
             }
 
-            // The engine starts with the pacing FIFO empty and plays the samples that fill it back to back,
-            // beginning with slot 0 of the ring, which librpitx never writes before the start: lead with
-            // carrier-off samples so that no pixel falls into that burst.
-            dma.SetFreqAmplitudeSample(0, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
-            std::vector<std::complex<float>> lead(PCM_FIFO_DEPTH, CARRIER_OFF_SAMPLE);
-            dma.SetIQSamples(lead.data(), lead.size(), DEFAULT_HARMONIC);
+            // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first pixel reaches the air.
+            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             std::vector<std::uint8_t> row;
             std::vector<std::complex<float>> rowSamples;
@@ -317,12 +298,9 @@ namespace pispectrumpaint {
                 status = reader->readHeader();
             }
 
-            // The picture ended by itself: send the rows still queued before the DMA engine stops.
-            if (running.load(std::memory_order_relaxed)) {
-                drainAndStop(dma);
-            } else {
-                dma.stop();
-            }
+            // The queued rows are transmitted when the picture ended by itself, discarded on a stop request.
+            const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
+            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pispectrumpaint: " << e.what() << std::endl;
             return 1;

@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -27,19 +26,6 @@ namespace pispectrumpaint {
      * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
      */
     inline constexpr int DMA_CHANNEL{14};
-
-    /**
-     * @brief Depth of the PCM FIFO that paces the DMA engine, in samples.
-     *
-     * librpitx requests DMA transfers while the FIFO is not full, so the
-     * samples that fill it after the start are played back to back.
-     */
-    inline constexpr std::size_t PCM_FIFO_DEPTH{64};
-
-    /**
-     * @brief GPIO that carries the carrier (GPCLK0), the one librpitx::iqdmasync enables.
-     */
-    inline constexpr int CARRIER_GPIO{4};
 
     /**
      * @brief Default DMA sample rate in Hz - one picture pixel per sample (32 ms per 320-pixel row).

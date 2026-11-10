@@ -99,6 +99,7 @@ add_executable(pispectrumpaint pispectrumpaint/pispectrumpaint.cpp)
 target_link_libraries(pispectrumpaint
     PRIVATE
         rpitx_cli_utils
+        rpitx_dma_utils
         rpitx_image_utils
         rpitx_realtime_utils
         librpitx::librpitx
