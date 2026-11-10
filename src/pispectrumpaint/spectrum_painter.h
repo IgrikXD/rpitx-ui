@@ -22,9 +22,9 @@ namespace pispectrumpaint {
     /**
      * @brief Number of carrier amplitude steps above "off".
      *
-     * The GPIO pad has eight drive strengths, but the two weakest ones do not
-     * follow the ladder at UHF (measured on a Raspberry Pi 4 at 434 MHz: 4 mA
-     * emits no carrier, 2 mA emits more than 6 mA), so only strengths 2..7 are used.
+     * The GPIO pad has eight drive strengths; the two weakest ones proved unusable
+     * for the carrier (one emits nothing, the other more than the next one), so
+     * only strengths 2..7 are used.
      */
     inline constexpr int AMPLITUDE_LEVELS{6};
 

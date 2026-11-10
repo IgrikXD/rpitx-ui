@@ -49,7 +49,7 @@ PgmReader::PgmReader(std::unique_ptr<std::istream> stream, bool seekable, std::s
 }
 
 bool PgmReader::skipWhitespaceAndComments() {
-    for (;;) {
+    while (true) {
         const int next{stream_->peek()};
         if (next == END_OF_STREAM) {
             return stream_->bad() == false;

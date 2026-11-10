@@ -10,7 +10,7 @@
 #   A 320x256 snapshot is taken with the camera tool of the installed OS
 #   (rpicam-still, libcamera-still or the legacy raspistill), converted into a
 #   binary PGM by ImageMagick and painted once; see testspectrum.sh for the
-#   conversion flags. The bandwidth is fixed by the rpitx-ui menu wrapper: 100 kHz.
+#   conversion flags. The bandwidth is 100 kHz.
 FREQ="$1"
 BANDWIDTH=100000
 

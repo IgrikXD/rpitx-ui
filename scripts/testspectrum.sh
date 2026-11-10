@@ -11,8 +11,8 @@
 #             pictures larger than 320x256 are scaled down, and the picture is
 #             flipped because a waterfall scrolls downwards (the bottom row is
 #             painted first).
-#   --loop  : repaint the picture continuously when requested by the UI.
-#   The bandwidth is fixed by the rpitx-ui menu wrapper: 100 kHz.
+#   --loop  : repaint the picture continuously.
+#   The bandwidth is 100 kHz.
 FREQ="$1"
 IMAGE="$2"
 PLAYBACK="${3:-loop}"

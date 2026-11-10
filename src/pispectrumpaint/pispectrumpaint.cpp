@@ -10,14 +10,14 @@
  * Transmission ends with the picture (or runs forever when --loop is set), or
  * on SIGTERM / SIGINT.
  *
- * @note Usage: pispectrumpaint --freq <Hz> --bandwidth <Hz> (--image <path> | --stdin) [--loop]
- *               [--sample-rate <Hz>] [-h | --help]
+ * @note Usage: pispectrumpaint --freq <Hz> --bandwidth <Hz> [--sample-rate <Hz>] (--image <path> | --stdin)
+ *               [--loop] [-h | --help]
  *   - --freq         Carrier frequency in Hz
  *   - --bandwidth    Painted RF bandwidth in Hz
+ *   - --sample-rate  DMA sample rate in Hz, one pixel per sample (default 10000)
  *   - --image        Path to the picture (binary PGM, P5)
  *   - --stdin        Read the picture from stdin (pipe-friendly; --loop unsupported)
  *   - --loop         Repaint the picture on EOF
- *   - --sample-rate  DMA sample rate in Hz, one pixel per sample (default 10000)
  *   - -h, --help     Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -88,6 +88,11 @@ namespace pispectrumpaint {
                "--bandwidth", params.bandwidth, "Painted RF bandwidth in Hz (the picture width is spread over it)")
             ->required()
             ->check(rpitx::cli::validators::PositiveFiniteFloat);
+        app.add_option("--sample-rate",
+                       params.sampleRate,
+                       "DMA sample rate in Hz, one picture pixel per sample (default " +
+                           std::to_string(DEFAULT_SAMPLE_RATE) + ")")
+            ->check(CLI::Range(MIN_SAMPLE_RATE, MAX_SAMPLE_RATE));
         // --image and --stdin are mutually exclusive and exactly one is
         // required: an option group with require_option(1) lets CLI11 enforce
         // both invariants in one place and surfaces a clean diagnostic in
@@ -99,19 +104,12 @@ namespace pispectrumpaint {
             "--stdin", params.useStdin, "Read the picture from stdin (pipe-friendly; --loop unsupported)");
         inputGroup->require_option(1);
         app.add_flag("--loop", params.loop, "Repaint the picture on EOF (requires --image)");
-        app.add_option("--sample-rate",
-                       params.sampleRate,
-                       "DMA sample rate in Hz, one picture pixel per sample (default " +
-                           std::to_string(DEFAULT_SAMPLE_RATE) + ")")
-            ->check(CLI::Range(MIN_SAMPLE_RATE, MAX_SAMPLE_RATE));
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 
-        // --loop needs a seekable source to rewind on EOF; stdin is by
-        // definition non-seekable. Reject this combination here with a
-        // flag-specific message rather than a generic "source is not seekable" later.
+        // --loop rewinds the input at EOF, which stdin cannot do.
         if (params.useStdin && params.loop) {
             std::cerr << "[ERROR] --loop is unsupported with --stdin." << std::endl;
             return rpitx::cli::ParseResult::Error;
