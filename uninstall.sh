@@ -55,12 +55,13 @@ remove_boot_config() {
   local boot_config=$1
   local updated_config
 
-  # Drop the markers and the lines between paired ones, keep the lines after an unpaired BEGIN marker
+  # Drop the markers and the lines between paired ones except filter lines, keep the lines after an unpaired BEGIN marker
   updated_config=$(mktemp)
   awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
     { line = $0; sub(/\r$/, "", line) }
-    line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
-    line == end { pending = ""; in_block = 0; next }
+    line == begin { printf "%s", pending; pending = filters = ""; in_block = 1; next }
+    line == end { printf "%s", filters; pending = filters = ""; in_block = 0; next }
+    in_block && line ~ /^\[/ { filters = filters $0 "\n" }
     in_block { pending = pending $0 "\n"; next }
     { print }
     END { printf "%s", pending }
