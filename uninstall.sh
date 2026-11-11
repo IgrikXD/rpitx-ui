@@ -77,11 +77,6 @@ remove_boot_config() {
   rm -f "${updated_config}"
 }
 
-# Provide only the definitions above when the script is sourced instead of executed
-if [ "${BASH_SOURCE[0]}" != "$0" ]; then
-  return 0
-fi
-
 # ----------------------------------------------------------
 # Uninstallation script entry point
 # ----------------------------------------------------------

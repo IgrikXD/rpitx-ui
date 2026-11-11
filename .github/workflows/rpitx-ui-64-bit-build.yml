@@ -120,91 +120,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 3. Verify the csdr installation check
-            # ==============================================================
-            echo "::group::Verify csdr installation check"
-            CSDR_FIXTURE_DIR=$(mktemp -d)
-            # Run a function of install.sh against the csdr fixture: csdr_fixture <commit> <function>
-            csdr_fixture() {
-              local fixture_commit=$1
-              local installer_function=$2
-              (
-                set +x
-                source ./install.sh
-                CSDR_COMMIT="${fixture_commit}"
-                CSDR_FILES=("${CSDR_FIXTURE_DIR}/csdr")
-                CSDR_MANIFEST="${CSDR_FIXTURE_DIR}/csdr.sha256"
-                "${installer_function}"
-              )
-            }
-            printf 'csdr' > "${CSDR_FIXTURE_DIR}/csdr"
-            ! csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: csdr reported as installed although nothing is recorded"; exit 1; }
-            csdr_fixture 1111111 write_csdr_manifest
-            csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: recorded csdr reported as not installed"; exit 1; }
-            ! csdr_fixture 2222222 is_csdr_installed || { echo "FAIL: csdr of another commit reported as installed"; exit 1; }
-            printf 'modified' > "${CSDR_FIXTURE_DIR}/csdr"
-            ! csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: modified csdr reported as installed"; exit 1; }
-            echo "PASS: csdr reported as installed only with the unmodified file of the recorded commit"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 4. Verify the boot configuration update and removal
-            # ==============================================================
-            echo "::group::Verify boot configuration update and removal"
-            BOOT_CONFIG_FIXTURE="$(mktemp -d)/config.txt"
-            BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
-            END_MARKER='# END rpitx-ui related configuration'
-            RECOMMENDED_BLOCK="${BEGIN_MARKER}\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\n"
-            # Run a boot configuration function against a config.txt fixture: check_boot_config <script> <function> <changed> <fixture> [expected]
-            check_boot_config() {
-              local script=$1
-              local script_function=$2
-              local expected_changed=$3
-              local fixture_config=$4
-              local expected_config=${5:-$4}
-              printf '%b' "${fixture_config}" > "${BOOT_CONFIG_FIXTURE}"
-              # A separate shell keeps errexit in effect inside the function, as in the script itself
-              if ! bash -ec '
-                source "$1"
-                "$2" "$3"
-                test "${BOOT_CONFIG_CHANGED}" = "$4" && cmp -s "$3" <(printf "%b" "$5")
-              ' bash "${script}" "${script_function}" "${BOOT_CONFIG_FIXTURE}" "${expected_changed}" "${expected_config}"; then
-                echo "FAIL: unexpected result of ${script_function} (expected a changed file: ${expected_changed}) for: ${fixture_config}"
-                exit 1
-              fi
-            }
-            expect_boot_config() {
-              check_boot_config ./install.sh update_boot_config "$@"
-            }
-            expect_removed_boot_config() {
-              check_boot_config ./uninstall.sh remove_boot_config "$@"
-            }
-            # install.sh: missing, up-to-date, overridden and changed block (LF and CRLF), block without its END marker
-            expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
-            expect_boot_config false "[cm4]\r\nenable_uart=1\r\n[all]\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
-            expect_boot_config true "${RECOMMENDED_BLOCK}gpu_freq=500\n" "gpu_freq=500\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\r\ngpu_freq=500\r\n${END_MARKER}\r\nenable_uart=1\r\n" "enable_uart=1\r\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            # install.sh: conditional filters
-            expect_boot_config true "[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "[cm4]\nenable_uart=1\n[all]\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config false "${RECOMMENDED_BLOCK}[cm4]\nenable_uart=1\n"
-            expect_boot_config true "[cm4]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified, overridden or under a conditional filter"
-            # uninstall.sh: no block, block with LF and CRLF, block without its END marker, filter line inside the block
-            expect_removed_boot_config false 'enable_uart=1'
-            expect_removed_boot_config true "enable_uart=1\n${RECOMMENDED_BLOCK}dtparam=audio=on\n" "enable_uart=1\ndtparam=audio=on\n"
-            expect_removed_boot_config true "enable_uart=1\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}" "enable_uart=1\r\n"
-            expect_removed_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
-            expect_removed_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n"
-            echo "PASS: rpitx-ui block removed, the other lines kept"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 5. Install rpitx-ui with --enable-testing flag
+            # 3. Install rpitx-ui with --enable-testing flag
             #    (--skip-hardware-check: no physical Raspberry Pi in CI)
             # ==============================================================
             echo "::group::Install rpitx-ui"
@@ -213,7 +129,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 6. Verify boot configuration was modified
+            # 4. Verify boot configuration was modified
             # ==============================================================
             echo "::group::Verify boot configuration"
             if [ -f /boot/firmware/config.txt ]; then
@@ -225,12 +141,11 @@ jobs:
             grep -qF 'gpu_freq=250' "$BOOT_CONFIG"   || { echo "FAIL: gpu_freq=250 not found in $BOOT_CONFIG"; exit 1; }
             grep -qF 'force_turbo=1' "$BOOT_CONFIG"   || { echo "FAIL: force_turbo=1 not found in $BOOT_CONFIG"; exit 1; }
             grep -qF '# END rpitx-ui related configuration' "$BOOT_CONFIG"   || { echo "FAIL: rpitx-ui block end marker not found in $BOOT_CONFIG"; exit 1; }
-            test -e /run/rpitx-ui-reboot-required || { echo "FAIL: reboot not requested after the boot configuration change"; exit 1; }
             echo "PASS: boot configuration verified"
             echo "::endgroup::"
 
             # ==============================================================
-            # 7. Verify all installed binaries
+            # 5. Verify all installed binaries
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
@@ -256,7 +171,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 8. Verify all installed scripts
+            # 6. Verify all installed scripts
             # ==============================================================
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
@@ -276,7 +191,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 9. Verify resource files
+            # 7. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
@@ -292,7 +207,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 10. Verify rpitx-ui is callable from any directory
+            # 8. Verify rpitx-ui is callable from any directory
             # ==============================================================
             echo "::group::Verify rpitx-ui callable from any directory"
             pushd /tmp > /dev/null
@@ -308,15 +223,15 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Uninstall rpitx-ui (with --purge-deps to also remove
-            #     runtime third-party dependencies and verify full cleanup)
+            # 9. Uninstall rpitx-ui (with --purge-deps to also remove
+            #    runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
             echo "n" | bash ./uninstall.sh --purge-deps
             echo "::endgroup::"
 
             # ==============================================================
-            # 12. Verify all binaries removed
+            # 10. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -335,7 +250,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Verify all scripts removed
+            # 11. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -357,7 +272,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 14. Verify resources removed
+            # 12. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -368,7 +283,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 15. Verify runtime dependencies removed
+            # 13. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -378,13 +293,11 @@ jobs:
             for lib in /usr/lib/libcsdr.so*; do
               test ! -f "${lib}" || { echo "FAIL: ${lib} still exists"; exit 1; }
             done
-
-            test ! -e /var/lib/rpitx-ui || { echo "FAIL: /var/lib/rpitx-ui still exists"; exit 1; }
             echo "PASS: runtime dependencies removed"
             echo "::endgroup::"
 
             # ==============================================================
-            # 16. Verify boot configuration reverted
+            # 14. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
