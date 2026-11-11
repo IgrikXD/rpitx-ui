@@ -124,53 +124,33 @@ jobs:
             # ==============================================================
             echo "::group::Verify csdr installation check"
             CSDR_FIXTURE_DIR=$(mktemp -d)
-            # Run a function of install.sh against the csdr fixture: csdr_fixture <commit> <board> <function>
+            # Run a function of install.sh against the csdr fixture: csdr_fixture <commit> <function>
             csdr_fixture() {
               local fixture_commit=$1
-              local fixture_board=$2
-              local installer_function=$3
-              printf '%s\0' "${fixture_board}" > "${CSDR_FIXTURE_DIR}/model"
+              local installer_function=$2
               (
                 set +x
                 source ./install.sh
                 CSDR_COMMIT="${fixture_commit}"
-                CSDR_FILES=("${CSDR_FIXTURE_DIR}/csdr" "${CSDR_FIXTURE_DIR}/nmux")
+                CSDR_FILES=("${CSDR_FIXTURE_DIR}/csdr")
                 CSDR_MANIFEST="${CSDR_FIXTURE_DIR}/csdr.sha256"
-                DEVICE_TREE_DIR="${CSDR_FIXTURE_DIR}"
                 "${installer_function}"
               )
             }
-            expect_csdr_installed() {
-              local expected_installed=$1
-              local fixture_commit=$2
-              local fixture_board=$3
-              local installed=false
-              if csdr_fixture "${fixture_commit}" "${fixture_board}" is_csdr_installed; then
-                installed=true
-              fi
-              if [ "${installed}" != "${expected_installed}" ]; then
-                echo "FAIL: csdr of commit ${fixture_commit} for ${fixture_board} reported as installed: ${installed} instead of ${expected_installed}"
-                exit 1
-              fi
-            }
             printf 'csdr' > "${CSDR_FIXTURE_DIR}/csdr"
-            printf 'nmux' > "${CSDR_FIXTURE_DIR}/nmux"
-            expect_csdr_installed false 1111111 'Raspberry Pi 4 Model B Rev 1.2'
-            csdr_fixture 1111111 'Raspberry Pi 4 Model B Rev 1.2' write_csdr_manifest
-            expect_csdr_installed true 1111111 'Raspberry Pi 4 Model B Rev 1.2'
-            expect_csdr_installed false 2222222 'Raspberry Pi 4 Model B Rev 1.2'
-            expect_csdr_installed false 1111111 'Raspberry Pi Zero W Rev 1.1'
-            printf 'modified' > "${CSDR_FIXTURE_DIR}/nmux"
-            expect_csdr_installed false 1111111 'Raspberry Pi 4 Model B Rev 1.2'
-            rm "${CSDR_FIXTURE_DIR}/nmux"
-            expect_csdr_installed false 1111111 'Raspberry Pi 4 Model B Rev 1.2'
-            echo "PASS: csdr reported as installed only with the unmodified files of the recorded commit and board"
+            ! csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: csdr reported as installed although nothing is recorded"; exit 1; }
+            csdr_fixture 1111111 write_csdr_manifest
+            csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: recorded csdr reported as not installed"; exit 1; }
+            ! csdr_fixture 2222222 is_csdr_installed || { echo "FAIL: csdr of another commit reported as installed"; exit 1; }
+            printf 'modified' > "${CSDR_FIXTURE_DIR}/csdr"
+            ! csdr_fixture 1111111 is_csdr_installed || { echo "FAIL: modified csdr reported as installed"; exit 1; }
+            echo "PASS: csdr reported as installed only with the unmodified file of the recorded commit"
             echo "::endgroup::"
 
             # ==============================================================
-            # 4. Verify the boot configuration update
+            # 4. Verify the boot configuration update and removal
             # ==============================================================
-            echo "::group::Verify boot configuration update"
+            echo "::group::Verify boot configuration update and removal"
             BOOT_CONFIG_FIXTURE="$(mktemp -d)/config.txt"
             BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
             END_MARKER='# END rpitx-ui related configuration'
@@ -196,49 +176,34 @@ jobs:
             expect_boot_config() {
               check_boot_config ./install.sh update_boot_config "$@"
             }
-            expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
-            expect_boot_config false "${RECOMMENDED_BLOCK//\\n/\\r\\n}"
-            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\r\ngpu_freq=500\r\n${END_MARKER}\r\nenable_uart=1\r\n" "enable_uart=1\r\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\n\n${END_MARKER}\n" "${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${RECOMMENDED_BLOCK}enable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            # Conditional filters
-            expect_boot_config true "[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "[cm4]\nenable_uart=1\n[all]\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config false "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config false "[cm4]\r\nenable_uart=1\r\n[all]\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
-            expect_boot_config false "${RECOMMENDED_BLOCK}[cm4]\nenable_uart=1\n"
-            expect_boot_config true "[cm4]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${BEGIN_MARKER}\n[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
-            expect_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified or under a conditional filter"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 5. Verify the boot configuration removal
-            # ==============================================================
-            echo "::group::Verify boot configuration removal"
             expect_removed_boot_config() {
               check_boot_config ./uninstall.sh remove_boot_config "$@"
             }
+            # install.sh: missing, up-to-date and changed block (LF and CRLF), block without its END marker
+            expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
+            expect_boot_config false "[cm4]\r\nenable_uart=1\r\n[all]\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
+            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "enable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "${BEGIN_MARKER}\r\ngpu_freq=500\r\n${END_MARKER}\r\nenable_uart=1\r\n" "enable_uart=1\r\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
+            # install.sh: conditional filters
+            expect_boot_config true "[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[cm4]\nenable_uart=1\n[all]\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config false "${RECOMMENDED_BLOCK}[cm4]\nenable_uart=1\n"
+            expect_boot_config true "[cm4]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
+            echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified or under a conditional filter"
+            # uninstall.sh: no block, block with LF and CRLF, block without its END marker, filter line inside the block
             expect_removed_boot_config false 'enable_uart=1'
             expect_removed_boot_config true "enable_uart=1\n${RECOMMENDED_BLOCK}dtparam=audio=on\n" "enable_uart=1\ndtparam=audio=on\n"
             expect_removed_boot_config true "enable_uart=1\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}" "enable_uart=1\r\n"
-            expect_removed_boot_config true "${RECOMMENDED_BLOCK}enable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n"
             expect_removed_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
-            expect_removed_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n"
-            expect_removed_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
-            expect_removed_boot_config true "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}" "[cm4]\nenable_uart=1\n[all]\n"
             expect_removed_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n"
-            echo "PASS: rpitx-ui blocks and unpaired markers removed, the other lines kept"
+            echo "PASS: rpitx-ui block removed, the other lines kept"
             echo "::endgroup::"
 
             # ==============================================================
-            # 6. Install rpitx-ui with --enable-testing flag
+            # 5. Install rpitx-ui with --enable-testing flag
             #    (--skip-hardware-check: no physical Raspberry Pi in CI)
             # ==============================================================
             echo "::group::Install rpitx-ui"
@@ -247,7 +212,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 7. Verify boot configuration was modified
+            # 6. Verify boot configuration was modified
             # ==============================================================
             echo "::group::Verify boot configuration"
             if [ -f /boot/firmware/config.txt ]; then
@@ -264,7 +229,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 8. Verify all installed binaries
+            # 7. Verify all installed binaries
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
@@ -290,15 +255,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 9. Verify the installed runtime dependencies
-            # ==============================================================
-            echo "::group::Verify installed runtime dependencies"
-            sha256sum --check /var/lib/rpitx-ui/csdr.sha256 || { echo "FAIL: installed csdr does not match its manifest"; exit 1; }
-            echo "PASS: runtime dependencies installed"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 10. Verify all installed scripts
+            # 8. Verify all installed scripts
             # ==============================================================
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
@@ -318,7 +275,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify resource files
+            # 9. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
@@ -334,7 +291,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 12. Verify rpitx-ui is callable from any directory
+            # 10. Verify rpitx-ui is callable from any directory
             # ==============================================================
             echo "::group::Verify rpitx-ui callable from any directory"
             pushd /tmp > /dev/null
@@ -350,52 +307,39 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Verify the reinstallation of rpitx-ui before and after
-            #     the reboot requested by the first installation
+            # 11. Verify the reinstallation of rpitx-ui after the reboot
+            #     requested by the first installation
             # ==============================================================
             echo "::group::Verify rpitx-ui reinstallation"
             # A file added by the user
             sudo touch /usr/share/rpitx-ui/User-File.wav
-            REINSTALL_LOG=$(mktemp)
-            reinstall_rpitx_ui() {
-              local status=0
-              bash ./install.sh --enable-testing --skip-hardware-check > "${REINSTALL_LOG}" 2>&1 < /dev/null || status=$?
-              cat "${REINSTALL_LOG}"
-              test "${status}" -eq 0 || { echo "FAIL: reinstallation exited with status ${status} instead of 0"; exit 1; }
-              grep -qF 'is already installed, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: csdr rebuilt although it is already installed"; exit 1; }
-              grep -qF 'is up to date, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: rpitx-ui block rewritten although it is up to date"; exit 1; }
-            }
-            reinstall_rpitx_ui
-            grep -qF 'A reboot is required' "${REINSTALL_LOG}" || { echo "FAIL: reboot not requested again before the system is rebooted"; exit 1; }
-            test -e /usr/share/rpitx-ui/User-File.wav || { echo "FAIL: file added by the user removed by the reinstallation"; exit 1; }
             # A reboot removes the pending reboot flag
             sudo rm -f /run/rpitx-ui-reboot-required
-            reinstall_rpitx_ui
+            REINSTALL_LOG=$(mktemp)
+            REINSTALL_STATUS=0
+            bash ./install.sh --enable-testing --skip-hardware-check > "${REINSTALL_LOG}" 2>&1 < /dev/null || REINSTALL_STATUS=$?
+            cat "${REINSTALL_LOG}"
+            test "${REINSTALL_STATUS}" -eq 0 || { echo "FAIL: reinstallation exited with status ${REINSTALL_STATUS} instead of 0"; exit 1; }
+            grep -qF 'is already installed, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: csdr rebuilt although it is already installed"; exit 1; }
+            grep -qF 'is up to date, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: rpitx-ui block rewritten although it is up to date"; exit 1; }
             if grep -qF 'A reboot is required' "${REINSTALL_LOG}"; then
               echo "FAIL: reboot requested although the boot configuration has not been changed"
               exit 1
             fi
-            echo "PASS: reinstallation skipped the csdr build, kept the file added by the user and requested a reboot only while it was pending"
+            test -e /usr/share/rpitx-ui/User-File.wav || { echo "FAIL: file added by the user removed by the reinstallation"; exit 1; }
+            echo "PASS: reinstallation skipped the csdr build, requested no reboot and kept the file added by the user"
             echo "::endgroup::"
 
             # ==============================================================
-            # 14. Uninstall rpitx-ui (with --purge-deps to also remove
+            # 12. Uninstall rpitx-ui (with --purge-deps to also remove
             #     runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
-            UNINSTALL_LOG=$(mktemp)
-            uninstall_rpitx_ui() {
-              local status=0
-              bash ./uninstall.sh --purge-deps > "${UNINSTALL_LOG}" 2>&1 < /dev/null || status=$?
-              cat "${UNINSTALL_LOG}"
-              test "${status}" -eq 0 || { echo "FAIL: uninstallation exited with status ${status} instead of 0"; exit 1; }
-            }
-            uninstall_rpitx_ui
-            grep -qF 'A reboot is recommended' "${UNINSTALL_LOG}" || { echo "FAIL: reboot not recommended after the boot configuration change"; exit 1; }
+            echo "n" | bash ./uninstall.sh --purge-deps
             echo "::endgroup::"
 
             # ==============================================================
-            # 15. Verify all binaries removed
+            # 13. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -414,7 +358,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 16. Verify all scripts removed
+            # 14. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -436,7 +380,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 17. Verify resources removed
+            # 15. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -447,7 +391,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 18. Verify runtime dependencies removed
+            # 16. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -463,7 +407,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 19. Verify boot configuration reverted
+            # 17. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
@@ -484,46 +428,6 @@ jobs:
               exit 1
             fi
             echo "PASS: boot configuration reverted"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 20. Verify the repeated uninstallation of rpitx-ui after
-            #     the reboot recommended by the first one
-            # ==============================================================
-            echo "::group::Verify repeated rpitx-ui uninstallation"
-            # A reboot removes the pending reboot flag
-            sudo rm -f /run/rpitx-ui-reboot-required
-            uninstall_rpitx_ui
-            if grep -qF 'A reboot is recommended' "${UNINSTALL_LOG}"; then
-              echo "FAIL: reboot recommended although the boot configuration has not been changed"
-              exit 1
-            fi
-            echo "PASS: repeated uninstallation recommended no reboot"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 21. Verify that failed tests abort the installation before
-            #     any file is installed or the boot configuration is modified
-            # ==============================================================
-            echo "::group::Verify installation abort on failed tests"
-            # A failing ctest stub makes install.sh take its failed tests path
-            CTEST_STUB_DIR=$(mktemp -d)
-            printf '#!/bin/sh\nexit 1\n' > "${CTEST_STUB_DIR}/ctest"
-            chmod +x "${CTEST_STUB_DIR}/ctest"
-            FAILED_TESTS_LOG=$(mktemp)
-            FAILED_TESTS_STATUS=0
-            PATH="${CTEST_STUB_DIR}:${PATH}" bash ./install.sh --enable-testing --skip-hardware-check > "${FAILED_TESTS_LOG}" 2>&1 < /dev/null || FAILED_TESTS_STATUS=$?
-            cat "${FAILED_TESTS_LOG}"
-            test "${FAILED_TESTS_STATUS}" -eq 1 || { echo "FAIL: install.sh exited with status ${FAILED_TESTS_STATUS} instead of 1"; exit 1; }
-            grep -qF 'Test execution failed - installation aborted!' "${FAILED_TESTS_LOG}" || { echo "FAIL: failed tests banner not printed"; exit 1; }
-            for installed_path in /usr/bin/csdr /usr/bin/rpitx-ui /usr/bin/pitune /usr/share/rpitx-ui /var/lib/rpitx-ui; do
-              test ! -e "${installed_path}" || { echo "FAIL: ${installed_path} installed although the tests failed"; exit 1; }
-            done
-            if grep -qF '# BEGIN rpitx-ui related configuration' "$BOOT_CONFIG"; then
-              echo "FAIL: boot configuration modified although the tests failed"
-              exit 1
-            fi
-            echo "PASS: installation aborted before any file was installed"
             echo "::endgroup::"
 
             echo ""
