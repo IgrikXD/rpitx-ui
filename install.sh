@@ -185,7 +185,7 @@ update_boot_config() {
     return 0
   fi
 
-  # Drop the rpitx-ui blocks except their filter lines and the unpaired markers, then append the block behind [all] if needed
+  # Drop the unpaired markers and the rpitx-ui blocks except their filter lines, then append the block behind [all] if needed
   updated_config=$(mktemp)
   awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
     { line = $0; sub(/\r$/, "", line) }
