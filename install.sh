@@ -162,7 +162,7 @@ is_all_filter_active() {
   local boot_config=$1
   local last_filter
 
-  last_filter=$(tr -d '\r' < "${boot_config}" | grep '^\[' | tail -n 1)
+  last_filter=$(tr -d '\r' < "${boot_config}" | grep -a '^\[' | tail -n 1)
   [ -z "${last_filter}" ] || [ "${last_filter}" = '[all]' ]
 }
 
