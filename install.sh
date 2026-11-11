@@ -319,7 +319,7 @@ if [ "${ENABLE_TESTING}" = true ]; then
   if ! ctest --test-dir build --output-on-failure --parallel "$(nproc)"; then
     print_banner "$COLOR_RED" "Test execution failed - installation aborted!"
     echo "${INFO} Review the ctest output above, fix the issues, and re-run rpitx-ui installation with the --enable-testing flag."
-    echo "${INFO} No changes have been made to the system apart from the installed system dependencies."
+    echo "${INFO} No files have been installed to /usr/bin or ${RESOURCE_INSTALL_DIR}."
     exit 1
   fi
   print_banner "$COLOR_GREEN" "Test execution completed successfully!"
