@@ -17,6 +17,9 @@ PACKAGE_VERSION='1.23'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
+# Manifest of the installed csdr
+CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
+
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
@@ -125,6 +128,12 @@ if [ "$PURGE_DEPS" = true ]; then
       echo "${INFO} Removed ${LIB}"
     fi
   done
+
+  if [ -f "${CSDR_MANIFEST}" ]; then
+    sudo rm -f "${CSDR_MANIFEST}"
+    sudo rmdir --ignore-fail-on-non-empty "$(dirname "${CSDR_MANIFEST}")"
+    echo "${INFO} Removed ${CSDR_MANIFEST}"
+  fi
 
   sudo ldconfig
   echo "${INFO} Runtime third-party dependencies removed!"

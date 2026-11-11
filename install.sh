@@ -34,6 +34,20 @@ MEMINFO_FILE='/proc/meminfo'
 # Memory budget of a single parallel build job, in MiB
 BUILD_JOB_MEMORY_MIB=512
 
+# Pinned csdr commit (to ensure reproducible builds)
+CSDR_COMMIT='69bfc62'
+
+# Files installed by csdr
+CSDR_FILES=(
+  '/usr/bin/csdr'
+  '/usr/bin/csdr-fm'
+  '/usr/bin/nmux'
+  '/usr/lib/libcsdr.so.0.15'
+)
+
+# Manifest of the installed csdr
+CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
+
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
@@ -110,6 +124,27 @@ set_build_jobs() {
   echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
+# Print the manifest of the installed csdr - its commit, its board and the checksums of CSDR_FILES: print_csdr_manifest
+print_csdr_manifest() {
+  echo "# csdr commit ${CSDR_COMMIT}"
+  echo "# board $(tr -d '\0' 2> /dev/null < "${DEVICE_TREE_DIR}/model")"
+  sha256sum "${CSDR_FILES[@]}"
+}
+
+# Check that csdr is installed exactly as recorded in CSDR_MANIFEST: is_csdr_installed
+is_csdr_installed() {
+  local manifest
+  manifest=$(print_csdr_manifest 2> /dev/null) && [ "${manifest}" = "$(cat "${CSDR_MANIFEST}" 2> /dev/null)" ]
+}
+
+# Record the installed csdr in CSDR_MANIFEST: write_csdr_manifest
+write_csdr_manifest() {
+  local manifest
+  manifest=$(print_csdr_manifest)
+  sudo mkdir -p "$(dirname "${CSDR_MANIFEST}")"
+  echo "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
+}
+
 # Provide only the definitions above when the script is sourced instead of executed
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 0
@@ -176,22 +211,24 @@ print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 # Parallel build jobs - limited by the available memory, so boards with little RAM do not run out of it while compiling
 set_build_jobs
 
-# Build the csdr runtime dependency in a temporary directory to keep the source tree clean
-BUILD_TMPDIR=$(mktemp -d)
-trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
-
-# Pinned dependency commits (to ensure reproducible builds)
-CSDR_COMMIT='69bfc62'
-
-print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
-(
-  cd "${BUILD_TMPDIR}"
-  git clone https://github.com/F5OEO/csdr
-  cd csdr
-  git checkout --quiet "${CSDR_COMMIT}"
-  make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
-)
-print_banner "$COLOR_CYAN" 'csdr installed successfully!'
+# csdr runtime dependency - built for the CPU of the board, so rebuilt only when its files, its commit or the board changed
+if is_csdr_installed; then
+  echo "${INFO} csdr of commit ${CSDR_COMMIT} is already installed, skipping."
+else
+  print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
+  # Build in a temporary directory to keep the source tree clean
+  BUILD_TMPDIR=$(mktemp -d)
+  trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
+  (
+    cd "${BUILD_TMPDIR}"
+    git clone https://github.com/F5OEO/csdr
+    cd csdr
+    git checkout --quiet "${CSDR_COMMIT}"
+    make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
+  )
+  write_csdr_manifest
+  print_banner "$COLOR_CYAN" 'csdr installed successfully!'
+fi
 
 if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
   sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
