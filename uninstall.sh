@@ -55,12 +55,6 @@ remove_boot_config() {
   local boot_config=$1
   local updated_config
 
-  if ! tr -d '\r' < "${boot_config}" | grep -qxF -e "${BOOT_CONFIG_BEGIN_MARKER}" -e "${BOOT_CONFIG_END_MARKER}"; then
-    BOOT_CONFIG_CHANGED=false
-    echo "${INFO} No rpitx-ui block found in ${boot_config}, nothing to revert."
-    return 0
-  fi
-
   # Drop the markers and the lines between paired ones, keep the lines after an unpaired BEGIN marker
   updated_config=$(mktemp)
   awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
@@ -70,11 +64,16 @@ remove_boot_config() {
     in_block { pending = pending $0 "\n"; next }
     { print }
     END { printf "%s", pending }
-  ' "${boot_config}" > "${updated_config}" || return 1
-  sudo cp "${updated_config}" "${boot_config}" || return 1
+  ' < "${boot_config}" > "${updated_config}" || return 1
+  if [ "$(< "${boot_config}")" = "$(< "${updated_config}")" ]; then
+    BOOT_CONFIG_CHANGED=false
+    echo "${INFO} No rpitx-ui block found in ${boot_config}, nothing to revert."
+  else
+    sudo cp "${updated_config}" "${boot_config}" || return 1
+    BOOT_CONFIG_CHANGED=true
+    echo "${INFO} Removed rpitx-ui block from ${boot_config}"
+  fi
   rm -f "${updated_config}"
-  BOOT_CONFIG_CHANGED=true
-  echo "${INFO} Removed rpitx-ui block from ${boot_config}"
 }
 
 # Provide only the definitions above when the script is sourced instead of executed
