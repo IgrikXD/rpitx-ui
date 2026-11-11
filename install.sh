@@ -173,22 +173,24 @@ update_boot_config() {
     echo "${INFO} rpitx-ui block in ${boot_config} is up to date, skipping."
     return 0
   fi
-  if [ -n "${installed_block}" ]; then
-    echo "${WARNING} rpitx-ui block in ${boot_config} differs from the recommended boot configuration, restoring it!"
-  fi
 
-  # Drop the existing rpitx-ui blocks and unpaired markers, then append the recommended block
-  updated_config=$(
-    awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
-      { line = $0; sub(/\r$/, "", line) }
-      line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
-      line == end { pending = ""; in_block = 0; next }
-      in_block { pending = pending $0 "\n"; next }
-      { print }
-      END { printf "%s", pending }
-    ' "${boot_config}" && printf '%s\n' "${recommended_block}"
-  )
-  printf '%s\n' "${updated_config}" | sudo tee "${boot_config}" > /dev/null
+  # Restore the first rpitx-ui block in place or append it, and drop the other blocks and unpaired markers
+  updated_config=$(mktemp)
+  block="${recommended_block}" awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
+    { line = $0; sub(/\r$/, "", line) }
+    line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
+    line == end && in_block && !restored { print ENVIRON["block"]; restored = 1 }
+    line == end { pending = ""; in_block = 0; next }
+    in_block { pending = pending $0 "\n"; next }
+    { print }
+    END { printf "%s", pending; if (!restored) print ENVIRON["block"] }
+  ' "${boot_config}" > "${updated_config}" || return 1
+  if [ -n "${installed_block}" ]; then
+    echo "${WARNING} rpitx-ui block in ${boot_config} differs from the recommended boot configuration, restoring it:"
+    diff "${boot_config}" "${updated_config}" || true
+  fi
+  sudo cp "${updated_config}" "${boot_config}" || return 1
+  rm -f "${updated_config}"
   BOOT_CONFIG_CHANGED=true
   echo "${INFO} rpitx-ui block written to ${boot_config}"
 }
