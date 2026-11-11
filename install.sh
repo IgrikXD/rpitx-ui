@@ -17,6 +17,9 @@ PACKAGE_VERSION='1.24'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
+# Manifest of the installed resource files
+RESOURCE_MANIFEST='/var/lib/rpitx-ui/resources.txt'
+
 # Device tree directory exposing the board model and its compatible strings
 DEVICE_TREE_DIR='/proc/device-tree'
 
@@ -156,6 +159,23 @@ write_csdr_manifest() {
   printf '%s\n' "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
 }
 
+# Remove the stale resource files and record the installed ones in RESOURCE_MANIFEST: update_resource_manifest <install_manifest>
+update_resource_manifest() {
+  local install_manifest=$1
+  local stale_resources=()
+  local stale_resource
+
+  if [ -f "${RESOURCE_MANIFEST}" ]; then
+    mapfile -t stale_resources < <(grep -vxFf "${install_manifest}" "${RESOURCE_MANIFEST}")
+  fi
+  for stale_resource in "${stale_resources[@]}"; do
+    sudo rm -f "${stale_resource}"
+    echo "${INFO} Removed stale resource ${stale_resource}"
+  done
+  sudo mkdir -p "$(dirname "${RESOURCE_MANIFEST}")"
+  grep "^${RESOURCE_INSTALL_DIR}/" "${install_manifest}" | sudo tee "${RESOURCE_MANIFEST}" > /dev/null
+}
+
 # Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
 update_boot_config() {
   local boot_config=$1
@@ -280,11 +300,6 @@ else
   print_banner "$COLOR_CYAN" 'csdr installed successfully!'
 fi
 
-if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
-  sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  echo "${INFO} Cleared existing resources from ${RESOURCE_INSTALL_DIR}"
-fi
-
 # rpitx-ui build and installation with CMake
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."
 if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
@@ -318,6 +333,8 @@ if [ "${ENABLE_TESTING}" = true ]; then
 fi
 
 sudo cmake --install build --prefix /usr
+# Resource manifest - a later installation removes the recorded resources it no longer provides, the files added by the user stay
+update_resource_manifest build/install_manifest.txt
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version

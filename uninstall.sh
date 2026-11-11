@@ -17,6 +17,9 @@ PACKAGE_VERSION='1.24'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
+# Manifest of the installed resource files
+RESOURCE_MANIFEST='/var/lib/rpitx-ui/resources.txt'
+
 # Manifest of the installed csdr
 CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
 
@@ -107,6 +110,12 @@ print_banner "$COLOR_CYAN" 'Removing rpitx-ui resources...'
 if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
   sudo rm -rf "${RESOURCE_INSTALL_DIR}"
   echo "${INFO} Resources removed from ${RESOURCE_INSTALL_DIR}"
+fi
+
+if [ -f "${RESOURCE_MANIFEST}" ]; then
+  sudo rm -f "${RESOURCE_MANIFEST}"
+  sudo rmdir --ignore-fail-on-non-empty "$(dirname "${RESOURCE_MANIFEST}")"
+  echo "${INFO} Removed ${RESOURCE_MANIFEST}"
 fi
 
 # Remove runtime dependencies only when --purge-deps is specified

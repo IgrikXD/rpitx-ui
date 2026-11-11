@@ -61,14 +61,14 @@ Before making any change to the system, the installer checks that it is running 
 ./install.sh --skip-hardware-check
 ```
 
-To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui`. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
+To add new files for transmission after installation, place them directly into `/usr/share/rpitx-ui` - a later reinstallation or update of **rpitx-ui** keeps them. You can override the default resource directory path by setting the `RPITX_RESOURCES_LOCATION` environment variable.
 
 ## Uninstallation process
 To remove **rpitx-ui** from the system, run the uninstallation script from the project directory:
 ```sh
 ./uninstall.sh
 ```
-This will remove all **rpitx-ui** binaries, shell scripts, and resource files. The `csdr` runtime dependency is **not** removed by default, because it may be shared with other SDR projects on the system.
+This will remove all **rpitx-ui** binaries, shell scripts, and resource files (_the whole `/usr/share/rpitx-ui` directory, including the files added to it after installation_). The `csdr` runtime dependency is **not** removed by default, because it may be shared with other SDR projects on the system.
 
 To also remove the `csdr` runtime dependency, use the `--purge-deps` flag:
 ```sh
