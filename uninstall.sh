@@ -23,6 +23,13 @@ RESOURCE_MANIFEST='/var/lib/rpitx-ui/resources.txt'
 # Manifest of the installed csdr
 CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
 
+# Markers of the boot configuration block written by install.sh
+BOOT_CONFIG_BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+BOOT_CONFIG_END_MARKER='# END rpitx-ui related configuration'
+
+# Flag file of a pending reboot - created on a boot configuration change, removed by the reboot
+REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
+
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
@@ -45,6 +52,38 @@ print_banner() {
   echo "${color}${message}${COLOR_RESET}"
   echo "${color}${SEPARATOR}${COLOR_RESET}"
 }
+
+# Remove the rpitx-ui blocks and unpaired markers from a boot configuration file: remove_boot_config <file>
+remove_boot_config() {
+  local boot_config=$1
+  local updated_config
+
+  if ! tr -d '\r' < "${boot_config}" | grep -qxF -e "${BOOT_CONFIG_BEGIN_MARKER}" -e "${BOOT_CONFIG_END_MARKER}"; then
+    BOOT_CONFIG_CHANGED=false
+    echo "${INFO} No rpitx-ui block found in ${boot_config}, nothing to revert."
+    return 0
+  fi
+
+  # Drop the markers and the lines between paired ones, keep the lines after an unpaired BEGIN marker
+  updated_config=$(mktemp)
+  awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
+    { line = $0; sub(/\r$/, "", line) }
+    line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
+    line == end { pending = ""; in_block = 0; next }
+    in_block { pending = pending $0 "\n"; next }
+    { print }
+    END { printf "%s", pending }
+  ' "${boot_config}" > "${updated_config}" || return 1
+  sudo cp "${updated_config}" "${boot_config}" || return 1
+  rm -f "${updated_config}"
+  BOOT_CONFIG_CHANGED=true
+  echo "${INFO} Removed rpitx-ui block from ${boot_config}"
+}
+
+# Provide only the definitions above when the script is sourced instead of executed
+if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+  return 0
+fi
 
 # ----------------------------------------------------------
 # Uninstallation script entry point
@@ -154,31 +193,32 @@ fi
 # Revert boot configuration changes
 print_banner "$COLOR_CYAN" 'Reverting boot configuration...'
 if [ ! -f /boot/firmware/config.txt ]; then
-  FILE='/boot/config.txt'
+  BOOT_CONFIG_FILE='/boot/config.txt'
 else
-  FILE='/boot/firmware/config.txt'
+  BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
 
-if [ -f "$FILE" ]; then
-  BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
-  END_MARKER='# END rpitx-ui related configuration'
-  if grep -qF "$BEGIN_MARKER" "$FILE"; then
-    sudo sed -i "/^${BEGIN_MARKER}$/,/^${END_MARKER}$/d" "$FILE"
-    echo "${INFO} Removed rpitx-ui block from ${FILE}"
-  else
-    echo "${INFO} No rpitx-ui block found in ${FILE}, nothing to revert."
+if [ -f "${BOOT_CONFIG_FILE}" ]; then
+  remove_boot_config "${BOOT_CONFIG_FILE}"
+  # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
+  if [ "${BOOT_CONFIG_CHANGED}" = true ]; then
+    sudo touch "${REBOOT_REQUIRED_FLAG}"
   fi
 fi
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} has been uninstalled successfully!"
 
-# Prompt the user to reboot the system to apply boot configuration changes
-echo "${ACTION} A reboot is recommended to apply boot configuration changes."
-read -p "Reboot now? (y/n): " choice
-# Check the user's choice
-if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO} Rebooting now..."
-  sudo reboot
+# Prompt the user to reboot the system only when a boot configuration change is waiting for it
+if [ -e "${REBOOT_REQUIRED_FLAG}" ]; then
+  echo "${ACTION} A reboot is recommended to apply boot configuration changes."
+  read -r -p "Reboot now? (y/n): " choice || choice=''
+  # Check the user's choice
+  if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+    echo "${INFO} Rebooting now..."
+    sudo reboot
+  else
+    echo "${INFO} Reboot canceled. Please remember to reboot as soon as possible."
+  fi
 else
-  echo "${INFO} Reboot canceled. Please remember to reboot as soon as possible."
+  echo "${INFO} The boot configuration has not been changed, no reboot is required."
 fi
