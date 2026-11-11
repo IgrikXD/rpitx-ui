@@ -341,7 +341,7 @@ print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed 
 # Prompt the user to reboot the system only when a boot configuration change is waiting for it
 if [ -e "${REBOOT_REQUIRED_FLAG}" ]; then
   echo "${ACTION} A reboot is required to complete the installation!"
-  read -p "Execute now? (y/n): " choice
+  read -r -p "Execute now? (y/n): " choice || choice=''
   # Check the user's choice
   if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
     echo "${INFO} Rebooting now..."
