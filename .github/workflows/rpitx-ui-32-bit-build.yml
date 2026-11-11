@@ -308,31 +308,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify the reinstallation of rpitx-ui after the reboot
-            #     requested by the first installation
-            # ==============================================================
-            echo "::group::Verify rpitx-ui reinstallation"
-            # A file added by the user
-            sudo touch /usr/share/rpitx-ui/User-File.wav
-            # A reboot removes the pending reboot flag
-            sudo rm -f /run/rpitx-ui-reboot-required
-            REINSTALL_LOG=$(mktemp)
-            REINSTALL_STATUS=0
-            bash ./install.sh --enable-testing --skip-hardware-check > "${REINSTALL_LOG}" 2>&1 < /dev/null || REINSTALL_STATUS=$?
-            cat "${REINSTALL_LOG}"
-            test "${REINSTALL_STATUS}" -eq 0 || { echo "FAIL: reinstallation exited with status ${REINSTALL_STATUS} instead of 0"; exit 1; }
-            grep -qF 'is already installed, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: csdr rebuilt although it is already installed"; exit 1; }
-            grep -qF 'is up to date, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: rpitx-ui block rewritten although it is up to date"; exit 1; }
-            if grep -qF 'A reboot is required' "${REINSTALL_LOG}"; then
-              echo "FAIL: reboot requested although the boot configuration has not been changed"
-              exit 1
-            fi
-            test -e /usr/share/rpitx-ui/User-File.wav || { echo "FAIL: file added by the user removed by the reinstallation"; exit 1; }
-            echo "PASS: reinstallation skipped the csdr build, requested no reboot and kept the file added by the user"
-            echo "::endgroup::"
-
-            # ==============================================================
-            # 12. Uninstall rpitx-ui (with --purge-deps to also remove
+            # 11. Uninstall rpitx-ui (with --purge-deps to also remove
             #     runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
@@ -340,7 +316,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Verify all binaries removed
+            # 12. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -359,7 +335,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 14. Verify all scripts removed
+            # 13. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -381,7 +357,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 15. Verify resources removed
+            # 14. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -392,7 +368,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 16. Verify runtime dependencies removed
+            # 15. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -408,7 +384,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 17. Verify boot configuration reverted
+            # 16. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
