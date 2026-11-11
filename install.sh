@@ -177,7 +177,7 @@ is_all_filter_active() {
 # Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
 update_boot_config() {
   local boot_config=$1
-  local recommended_block installed_block updated_config
+  local recommended_block installed_block overriding_lines rewrite_reason updated_config
 
   if [ ! -e "${boot_config}" ]; then
     sudo touch "${boot_config}"
@@ -186,8 +186,18 @@ update_boot_config() {
   installed_block=$(
     sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${boot_config}" | tr -d '\r'
   )
-  if [ "${installed_block}" = "${recommended_block}" ] \
-    && is_all_filter_active <(sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/q" "${boot_config}"); then
+  # Lines after the block that assign its options again - the firmware applies the last assignment
+  overriding_lines=$(
+    sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${boot_config}" | tr -d '\r' \
+      | grep -a -f <(printf '^[[:space:]]*%s=\n' "${BOOT_CONFIG_SETTINGS[@]%%=*}") || true
+  )
+  if [ "${installed_block}" != "${recommended_block}" ]; then
+    rewrite_reason='modified'
+  elif [ -n "${overriding_lines}" ]; then
+    rewrite_reason="overridden by ${overriding_lines//$'\n'/, }"
+  elif ! is_all_filter_active <(sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/q" "${boot_config}"); then
+    rewrite_reason='under a conditional filter'
+  else
     BOOT_CONFIG_CHANGED=false
     echo "${INFO} rpitx-ui block in ${boot_config} is up to date, skipping."
     return 0
@@ -209,7 +219,7 @@ update_boot_config() {
   fi
   echo "${recommended_block}" >> "${updated_config}"
   if [ -n "${installed_block}" ]; then
-    echo "${WARNING} rpitx-ui block in ${boot_config} is modified or under a conditional filter, rewriting it:"
+    echo "${WARNING} rpitx-ui block in ${boot_config} is ${rewrite_reason}, rewriting it:"
     diff "${boot_config}" "${updated_config}" || true
   fi
   sudo cp "${updated_config}" "${boot_config}" || return 1

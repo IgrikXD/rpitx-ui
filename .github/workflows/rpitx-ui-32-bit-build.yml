@@ -179,10 +179,11 @@ jobs:
             expect_removed_boot_config() {
               check_boot_config ./uninstall.sh remove_boot_config "$@"
             }
-            # install.sh: missing, up-to-date and changed block (LF and CRLF), block without its END marker
+            # install.sh: missing, up-to-date, overridden and changed block (LF and CRLF), block without its END marker
             expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
             expect_boot_config false "[cm4]\r\nenable_uart=1\r\n[all]\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
+            expect_boot_config true "${RECOMMENDED_BLOCK}gpu_freq=500\n" "gpu_freq=500\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "enable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "${BEGIN_MARKER}\r\ngpu_freq=500\r\n${END_MARKER}\r\nenable_uart=1\r\n" "enable_uart=1\r\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
@@ -192,7 +193,7 @@ jobs:
             expect_boot_config false "${RECOMMENDED_BLOCK}[cm4]\nenable_uart=1\n"
             expect_boot_config true "[cm4]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified or under a conditional filter"
+            echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified, overridden or under a conditional filter"
             # uninstall.sh: no block, block with LF and CRLF, block without its END marker, filter line inside the block
             expect_removed_boot_config false 'enable_uart=1'
             expect_removed_boot_config true "enable_uart=1\n${RECOMMENDED_BLOCK}dtparam=audio=on\n" "enable_uart=1\ndtparam=audio=on\n"
