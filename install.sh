@@ -281,26 +281,7 @@ print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 # Parallel build jobs - limited by the available memory, so boards with little RAM do not run out of it while compiling
 set_build_jobs
 
-# csdr runtime dependency - built for the CPU of the board, so rebuilt only when its files, its commit or the board changed
-if is_csdr_installed; then
-  echo "${INFO} csdr of commit ${CSDR_COMMIT} is already installed, skipping."
-else
-  print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
-  # Build in a temporary directory to keep the source tree clean
-  BUILD_TMPDIR=$(mktemp -d)
-  trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
-  (
-    cd "${BUILD_TMPDIR}"
-    git clone https://github.com/F5OEO/csdr
-    cd csdr
-    git checkout --quiet "${CSDR_COMMIT}"
-    make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
-  )
-  write_csdr_manifest
-  print_banner "$COLOR_CYAN" 'csdr installed successfully!'
-fi
-
-# rpitx-ui build and installation with CMake
+# rpitx-ui build with CMake
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} build with CMake..."
 if [ "${BUILD_OPTIONAL_TARGETS}" = true ]; then
   CMAKE_OPTIONAL=ON
@@ -326,12 +307,32 @@ if [ "${ENABLE_TESTING}" = true ]; then
   if ! ctest --test-dir build --output-on-failure --parallel "$(nproc)"; then
     print_banner "$COLOR_RED" "Test execution failed - installation aborted!"
     echo "${INFO} Review the ctest output above, fix the issues, and re-run rpitx-ui installation with the --enable-testing flag."
-    echo "${INFO} No files have been installed to /usr/bin or /usr/share/rpitx-ui."
+    echo "${INFO} No changes have been made to the system apart from the installed system dependencies."
     exit 1
   fi
   print_banner "$COLOR_GREEN" "Test execution completed successfully!"
 fi
 
+# csdr runtime dependency - built for the CPU of the board, so rebuilt only when its files, its commit or the board changed
+if is_csdr_installed; then
+  echo "${INFO} csdr of commit ${CSDR_COMMIT} is already installed, skipping."
+else
+  print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
+  # Build in a temporary directory to keep the source tree clean
+  BUILD_TMPDIR=$(mktemp -d)
+  trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
+  (
+    cd "${BUILD_TMPDIR}"
+    git clone https://github.com/F5OEO/csdr
+    cd csdr
+    git checkout --quiet "${CSDR_COMMIT}"
+    make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
+  )
+  write_csdr_manifest
+  print_banner "$COLOR_CYAN" 'csdr installed successfully!'
+fi
+
+# rpitx-ui installation with CMake
 sudo cmake --install build --prefix /usr
 # Resource manifest - a later installation removes the recorded resources it no longer provides, the files added by the user stay
 update_resource_manifest build/install_manifest.txt
