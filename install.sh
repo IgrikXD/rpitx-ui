@@ -138,7 +138,7 @@ set_build_jobs() {
 # Print the manifest of the installed csdr - its commit, its board and the checksums of CSDR_FILES: print_csdr_manifest
 print_csdr_manifest() {
   echo "# csdr commit ${CSDR_COMMIT}"
-  echo "# board $(tr -d '\0' 2> /dev/null < "${DEVICE_TREE_DIR}/model")"
+  echo "# board $(cat "${DEVICE_TREE_DIR}/model" 2> /dev/null | tr -d '\0')"
   sha256sum "${CSDR_FILES[@]}"
 }
 
@@ -151,9 +151,9 @@ is_csdr_installed() {
 # Record the installed csdr in CSDR_MANIFEST: write_csdr_manifest
 write_csdr_manifest() {
   local manifest
-  manifest=$(print_csdr_manifest)
+  manifest=$(print_csdr_manifest) || return 1
   sudo mkdir -p "$(dirname "${CSDR_MANIFEST}")"
-  echo "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
+  printf '%s\n' "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
 }
 
 # Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
