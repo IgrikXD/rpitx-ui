@@ -175,8 +175,7 @@ jobs:
             BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
             END_MARKER='# END rpitx-ui related configuration'
             RECOMMENDED_BLOCK="${BEGIN_MARKER}\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\n"
-            # Run a boot configuration function of a script against a config.txt fixture:
-            # check_boot_config <script> <function> <changed> <fixture> [expected]
+            # Run a boot configuration function against a config.txt fixture: check_boot_config <script> <function> <changed> <fixture> [expected]
             check_boot_config() {
               local script=$1
               local script_function=$2
@@ -184,12 +183,12 @@ jobs:
               local fixture_config=$4
               local expected_config=${5:-$4}
               printf '%b' "${fixture_config}" > "${BOOT_CONFIG_FIXTURE}"
-              if ! (
-                set +x
-                source "${script}"
-                "${script_function}" "${BOOT_CONFIG_FIXTURE}"
-                test "${BOOT_CONFIG_CHANGED}" = "${expected_changed}" && cmp -s "${BOOT_CONFIG_FIXTURE}" <(printf '%b' "${expected_config}")
-              ); then
+              # A separate shell keeps errexit in effect inside the function, as in the script itself
+              if ! bash -ec '
+                source "$1"
+                "$2" "$3"
+                test "${BOOT_CONFIG_CHANGED}" = "$4" && cmp -s "$3" <(printf "%b" "$5")
+              ' bash "${script}" "${script_function}" "${BOOT_CONFIG_FIXTURE}" "${expected_changed}" "${expected_config}"; then
                 echo "FAIL: unexpected result of ${script_function} (expected a changed file: ${expected_changed}) for: ${fixture_config}"
                 exit 1
               fi
@@ -209,11 +208,13 @@ jobs:
             expect_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
             # Conditional filters
             expect_boot_config true "[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[cm4]\nenable_uart=1\n[all]\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
             expect_boot_config false "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
             expect_boot_config false "[cm4]\r\nenable_uart=1\r\n[all]\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
             expect_boot_config false "${RECOMMENDED_BLOCK}[cm4]\nenable_uart=1\n"
             expect_boot_config true "[cm4]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "${BEGIN_MARKER}\n[cm4]\nenable_uart=1\n" "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
             echo "PASS: rpitx-ui block added when missing, kept when up to date, rewritten when modified or under a conditional filter"
             echo "::endgroup::"
 
@@ -231,6 +232,8 @@ jobs:
             expect_removed_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
             expect_removed_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n"
             expect_removed_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
+            expect_removed_boot_config true "[cm4]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}" "[cm4]\nenable_uart=1\n[all]\n"
+            expect_removed_boot_config true "[cm4]\n${BEGIN_MARKER}\n[all]\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "[cm4]\n[all]\nenable_uart=1\n"
             echo "PASS: rpitx-ui blocks and unpaired markers removed, the other lines kept"
             echo "::endgroup::"
 
