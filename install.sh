@@ -145,7 +145,8 @@ print_csdr_manifest() {
 # Check that csdr is installed exactly as recorded in CSDR_MANIFEST: is_csdr_installed
 is_csdr_installed() {
   local manifest
-  manifest=$(print_csdr_manifest 2> /dev/null) && [ "${manifest}" = "$(cat "${CSDR_MANIFEST}" 2> /dev/null)" ]
+  manifest=$(print_csdr_manifest 2> /dev/null) || return 1
+  [ "${manifest}" = "$(cat "${CSDR_MANIFEST}" 2> /dev/null)" ]
 }
 
 # Record the installed csdr in CSDR_MANIFEST: write_csdr_manifest
