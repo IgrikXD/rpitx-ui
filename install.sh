@@ -48,6 +48,17 @@ CSDR_FILES=(
 # Manifest of the installed csdr
 CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
 
+# Boot configuration block required for stable rpitx-ui operation
+BOOT_CONFIG_BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+BOOT_CONFIG_END_MARKER='# END rpitx-ui related configuration'
+BOOT_CONFIG_SETTINGS=(
+  'gpu_freq=250' # GPU frequency fixed at 250 MHz
+  'force_turbo=1' # Frequency scaling disabled
+)
+
+# Flag file of a pending reboot - created on a boot configuration change, removed by the reboot
+REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
+
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
@@ -143,6 +154,43 @@ write_csdr_manifest() {
   manifest=$(print_csdr_manifest)
   sudo mkdir -p "$(dirname "${CSDR_MANIFEST}")"
   echo "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
+}
+
+# Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
+update_boot_config() {
+  local boot_config=$1
+  local recommended_block installed_block updated_config
+
+  if [ ! -e "${boot_config}" ]; then
+    sudo touch "${boot_config}"
+  fi
+  recommended_block=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
+  installed_block=$(
+    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${boot_config}" | tr -d '\r'
+  )
+  if [ "${installed_block}" = "${recommended_block}" ]; then
+    BOOT_CONFIG_CHANGED=false
+    echo "${INFO} rpitx-ui block in ${boot_config} is up to date, skipping."
+    return 0
+  fi
+  if [ -n "${installed_block}" ]; then
+    echo "${WARNING} rpitx-ui block in ${boot_config} differs from the recommended boot configuration, restoring it!"
+  fi
+
+  # Drop the existing rpitx-ui blocks and unpaired markers, then append the recommended block
+  updated_config=$(
+    awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
+      { line = $0; sub(/\r$/, "", line) }
+      line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
+      line == end { pending = ""; in_block = 0; next }
+      in_block { pending = pending $0 "\n"; next }
+      { print }
+      END { printf "%s", pending }
+    ' "${boot_config}" && printf '%s\n' "${recommended_block}"
+  )
+  printf '%s\n' "${updated_config}" | sudo tee "${boot_config}" > /dev/null
+  BOOT_CONFIG_CHANGED=true
+  echo "${INFO} rpitx-ui block written to ${boot_config}"
 }
 
 # Provide only the definitions above when the script is sourced instead of executed
@@ -271,33 +319,34 @@ sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
-echo "${INFO} In order to run properly, rpitx-ui needs to modify boot config."
-echo "${INFO} Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
+echo "${INFO} In order to run properly, rpitx-ui needs the boot configuration: ${BOOT_CONFIG_SETTINGS[*]}"
 if [ ! -f /boot/firmware/config.txt ]; then
   echo "${INFO} Raspberry Pi OS 11 or below detected, using /boot/config.txt"
-  FILE='/boot/config.txt'
+  BOOT_CONFIG_FILE='/boot/config.txt'
 else
   echo "${INFO} Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
-  FILE='/boot/firmware/config.txt'
+  BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
-BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
-END_MARKER='# END rpitx-ui related configuration'
-if grep -qF "$BEGIN_MARKER" "$FILE"; then
-  echo "${INFO} rpitx-ui block already present in ${FILE}, skipping."
-else
-  printf '%s\n' "$BEGIN_MARKER" 'gpu_freq=250' 'force_turbo=1' "$END_MARKER" | sudo tee --append "$FILE" > /dev/null
+update_boot_config "${BOOT_CONFIG_FILE}"
+
+# Pending reboot flag - keeps the reboot request for later installations until the system is rebooted
+if [ "${BOOT_CONFIG_CHANGED}" = true ]; then
+  sudo touch "${REBOOT_REQUIRED_FLAG}"
 fi
-echo "${INFO} Boot configuration updated successfully!"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
-# Prompt the user to reboot the system to apply boot configuration changes
-echo "${ACTION} A reboot is required to complete the installation!"
-read -p "Execute now? (y/n): " choice
-# Check the user's choice
-if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO} Rebooting now..."
-  sudo reboot
+# Prompt the user to reboot the system only when a boot configuration change is waiting for it
+if [ -e "${REBOOT_REQUIRED_FLAG}" ]; then
+  echo "${ACTION} A reboot is required to complete the installation!"
+  read -p "Execute now? (y/n): " choice
+  # Check the user's choice
+  if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+    echo "${INFO} Rebooting now..."
+    sudo reboot
+  else
+    echo "${INFO} Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
+  fi
 else
-  echo "${INFO} Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
+  echo "${INFO} The boot configuration has not been changed, no reboot is required."
 fi
