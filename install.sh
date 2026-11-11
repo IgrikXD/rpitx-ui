@@ -312,7 +312,8 @@ sudo cmake --install build --prefix /usr
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
-echo "${INFO} In order to run properly, rpitx-ui needs the boot configuration: ${BOOT_CONFIG_SETTINGS[*]}"
+echo "${INFO} In order to run properly, rpitx-ui needs to modify boot config."
+echo "${INFO} Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
 if [ ! -f /boot/firmware/config.txt ]; then
   echo "${INFO} Raspberry Pi OS 11 or below detected, using /boot/config.txt"
   BOOT_CONFIG_FILE='/boot/config.txt'

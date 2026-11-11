@@ -68,7 +68,7 @@ To remove **rpitx-ui** from the system, run the uninstallation script from the p
 ```sh
 ./uninstall.sh
 ```
-This will remove all **rpitx-ui** binaries, shell scripts, and resource files (_the whole `/usr/share/rpitx-ui` directory, including the files added to it after installation_). The `csdr` runtime dependency is **not** removed by default, because it may be shared with other SDR projects on the system.
+This will remove all **rpitx-ui** binaries, shell scripts, and resource files. The `csdr` runtime dependency is **not** removed by default, because it may be shared with other SDR projects on the system.
 
 To also remove the `csdr` runtime dependency, use the `--purge-deps` flag:
 ```sh
