@@ -157,49 +157,50 @@ write_csdr_manifest() {
   printf '%s\n' "${manifest}" | sudo tee "${CSDR_MANIFEST}" > /dev/null
 }
 
+# Check that the [all] filter is in effect at the end of a boot configuration file: is_all_filter_active <file>
+is_all_filter_active() {
+  local boot_config=$1
+  local last_filter
+
+  last_filter=$(tr -d '\r' < "${boot_config}" | grep '^\[' | tail -n 1)
+  [ -z "${last_filter}" ] || [ "${last_filter}" = '[all]' ]
+}
+
 # Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
 update_boot_config() {
   local boot_config=$1
-  local recommended_block updated_config
+  local recommended_block installed_block updated_config
 
   if [ ! -e "${boot_config}" ]; then
     sudo touch "${boot_config}"
   fi
   recommended_block=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
-
-  # Restore the first unconditional rpitx-ui block in place or append it, and drop the other blocks and unpaired markers
-  updated_config=$(mktemp)
-  block="${recommended_block}" awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
-    # Print a line and track whether a conditional filter may be in effect after it
-    function keep(text) {
-      print text
-      text = tolower(text)
-      if (text ~ /^[ \t]*(\[|include[ \t])/) filtered = (text !~ /^[ \t]*\[all\][ \t\r]*(#.*)?$/)
-    }
-    function keep_pending(  i) {
-      for (i = 1; i <= pending_count; i++) keep(pending[i])
-      pending_count = 0
-    }
-    { line = $0; sub(/\r$/, "", line) }
-    line == begin { keep_pending(); in_block = 1; next }
-    line == end && in_block && !restored && !filtered { print ENVIRON["block"]; restored = 1 }
-    line == end { pending_count = 0; in_block = 0; next }
-    in_block { pending[++pending_count] = $0; next }
-    { keep($0) }
-    END {
-      keep_pending()
-      if (!restored && filtered) print "[all]"
-      if (!restored) print ENVIRON["block"]
-    }
-  ' "${boot_config}" > "${updated_config}" || return 1
-  if [ "$(tr -d '\r' < "${boot_config}")" = "$(tr -d '\r' < "${updated_config}")" ]; then
-    rm -f "${updated_config}"
+  installed_block=$(
+    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${boot_config}" | tr -d '\r'
+  )
+  if [ "${installed_block}" = "${recommended_block}" ] \
+    && is_all_filter_active <(sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/q" "${boot_config}"); then
     BOOT_CONFIG_CHANGED=false
     echo "${INFO} rpitx-ui block in ${boot_config} is up to date, skipping."
     return 0
   fi
-  if tr -d '\r' < "${boot_config}" | grep -qxF -e "${BOOT_CONFIG_BEGIN_MARKER}" -e "${BOOT_CONFIG_END_MARKER}"; then
-    echo "${WARNING} rpitx-ui block in ${boot_config} differs from the recommended boot configuration or does not apply to all boards, restoring it:"
+
+  # Drop the rpitx-ui blocks and unpaired markers, then append the block - behind an [all] filter after a conditional one
+  updated_config=$(mktemp)
+  awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
+    { line = $0; sub(/\r$/, "", line) }
+    line == begin { printf "%s", pending; pending = ""; in_block = 1; next }
+    line == end { pending = ""; in_block = 0; next }
+    in_block { pending = pending $0 "\n"; next }
+    { print }
+    END { printf "%s", pending }
+  ' < "${boot_config}" > "${updated_config}" || return 1
+  if ! is_all_filter_active "${updated_config}"; then
+    echo '[all]' >> "${updated_config}"
+  fi
+  echo "${recommended_block}" >> "${updated_config}"
+  if [ -n "${installed_block}" ]; then
+    echo "${WARNING} rpitx-ui block in ${boot_config} is modified or under a conditional filter, rewriting it:"
     diff "${boot_config}" "${updated_config}" || true
   fi
   sudo cp "${updated_config}" "${boot_config}" || return 1
