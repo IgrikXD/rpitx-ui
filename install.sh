@@ -17,14 +17,6 @@ PACKAGE_VERSION='1.24'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
-# Resource files of earlier versions that are no longer provided
-OBSOLETE_RESOURCES=(
-  'SAMPLE_FREEDV.rf'
-  'SAMPLE_IMAGE.jpg'
-  'SAMPLE_MONO_AUDIO.wav'
-  'SAMPLE_STEREO_AUDIO.wav'
-)
-
 # Device tree directory exposing the board model and its compatible strings
 DEVICE_TREE_DIR='/proc/device-tree'
 
@@ -317,14 +309,6 @@ if [ "${ENABLE_TESTING}" = true ]; then
 fi
 
 sudo cmake --install build --prefix /usr
-
-# Obsolete resources - removed by name, so the files added to the resource directory by the user stay
-for RESOURCE in "${OBSOLETE_RESOURCES[@]}"; do
-  if [ -f "${RESOURCE_INSTALL_DIR}/${RESOURCE}" ]; then
-    sudo rm -f "${RESOURCE_INSTALL_DIR}/${RESOURCE}"
-    echo "${INFO} Removed obsolete ${RESOURCE_INSTALL_DIR}/${RESOURCE}"
-  fi
-done
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} built and installed successfully!"
 
 # Update /boot/config.txt or /boot/firmware/config.txt depending on Raspberry Pi OS version
