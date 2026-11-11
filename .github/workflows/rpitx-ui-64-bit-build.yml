@@ -175,20 +175,27 @@ jobs:
             BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
             END_MARKER='# END rpitx-ui related configuration'
             RECOMMENDED_BLOCK="${BEGIN_MARKER}\ngpu_freq=250\nforce_turbo=1\n${END_MARKER}\n"
-            expect_boot_config() {
-              local expected_changed=$1
-              local fixture_config=$2
-              local expected_config=${3:-$2}
+            # Run a boot configuration function of a script against a config.txt fixture:
+            # check_boot_config <script> <function> <changed> <fixture> [expected]
+            check_boot_config() {
+              local script=$1
+              local script_function=$2
+              local expected_changed=$3
+              local fixture_config=$4
+              local expected_config=${5:-$4}
               printf '%b' "${fixture_config}" > "${BOOT_CONFIG_FIXTURE}"
               if ! (
                 set +x
-                source ./install.sh
-                update_boot_config "${BOOT_CONFIG_FIXTURE}"
+                source "${script}"
+                "${script_function}" "${BOOT_CONFIG_FIXTURE}"
                 test "${BOOT_CONFIG_CHANGED}" = "${expected_changed}" && cmp -s "${BOOT_CONFIG_FIXTURE}" <(printf '%b' "${expected_config}")
               ); then
-                echo "FAIL: unexpected boot configuration update (expected a changed file: ${expected_changed}) of: ${fixture_config}"
+                echo "FAIL: unexpected result of ${script_function} (expected a changed file: ${expected_changed}) for: ${fixture_config}"
                 exit 1
               fi
+            }
+            expect_boot_config() {
+              check_boot_config ./install.sh update_boot_config "$@"
             }
             expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
@@ -200,11 +207,78 @@ jobs:
             expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
-            echo "PASS: rpitx-ui block added when missing, kept when up to date and restored when modified"
+            # Conditional filters
+            expect_boot_config true "[pi5]\nenable_uart=1\n" "[pi5]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config false "[pi5]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config false "${RECOMMENDED_BLOCK}[pi5]\nenable_uart=1\n"
+            expect_boot_config false " [PI5]\r\n[ALL] # all boards\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}"
+            expect_boot_config true "[pi5]\n${RECOMMENDED_BLOCK}enable_uart=1\n" "[pi5]\nenable_uart=1\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[pi5]\n${RECOMMENDED_BLOCK}[all]\nenable_uart=1\n" "[pi5]\n[all]\nenable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "[pi5]\n${RECOMMENDED_BLOCK}[all]\n${RECOMMENDED_BLOCK}" "[pi5]\n[all]\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "include extra.txt\n${RECOMMENDED_BLOCK}" "include extra.txt\n[all]\n${RECOMMENDED_BLOCK}"
+            echo "PASS: rpitx-ui block added when missing, kept when up to date, restored when modified or under a conditional filter"
             echo "::endgroup::"
 
             # ==============================================================
-            # 5. Install rpitx-ui with --enable-testing flag
+            # 5. Verify the boot configuration removal
+            # ==============================================================
+            echo "::group::Verify boot configuration removal"
+            expect_removed_boot_config() {
+              check_boot_config ./uninstall.sh remove_boot_config "$@"
+            }
+            expect_removed_boot_config false 'enable_uart=1'
+            expect_removed_boot_config true "enable_uart=1\n${RECOMMENDED_BLOCK}dtparam=audio=on\n" "enable_uart=1\ndtparam=audio=on\n"
+            expect_removed_boot_config true "enable_uart=1\r\n${RECOMMENDED_BLOCK//\\n/\\r\\n}" "enable_uart=1\r\n"
+            expect_removed_boot_config true "${RECOMMENDED_BLOCK}enable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n"
+            expect_removed_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
+            expect_removed_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n"
+            expect_removed_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n"
+            echo "PASS: rpitx-ui blocks and unpaired markers removed, the other lines kept"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 6. Verify the resource manifest update
+            # ==============================================================
+            echo "::group::Verify resource manifest update"
+            RESOURCE_FIXTURE_DIR=$(mktemp -d)
+            mkdir "${RESOURCE_FIXTURE_DIR}/resources"
+            # Run update_resource_manifest of install.sh for an installation of the given resources: install_resource_fixture [resource]...
+            install_resource_fixture() {
+              local resource
+              printf '%s' "${RESOURCE_FIXTURE_DIR}/bin/rpitx-ui" > "${RESOURCE_FIXTURE_DIR}/install_manifest.txt"
+              for resource in "$@"; do
+                touch "${RESOURCE_FIXTURE_DIR}/resources/${resource}"
+                printf '\n%s' "${RESOURCE_FIXTURE_DIR}/resources/${resource}" >> "${RESOURCE_FIXTURE_DIR}/install_manifest.txt"
+              done
+              (
+                set +x
+                source ./install.sh
+                RESOURCE_INSTALL_DIR="${RESOURCE_FIXTURE_DIR}/resources"
+                RESOURCE_MANIFEST="${RESOURCE_FIXTURE_DIR}/state/resources.txt"
+                update_resource_manifest "${RESOURCE_FIXTURE_DIR}/install_manifest.txt"
+              )
+            }
+            expect_resources() {
+              local expected_resources actual_resources
+              expected_resources=$(printf '%s\n' "$@")
+              actual_resources=$(LC_ALL=C ls "${RESOURCE_FIXTURE_DIR}/resources")
+              if [ "${actual_resources}" != "${expected_resources}" ]; then
+                echo "FAIL: resource directory contains: ${actual_resources//$'\n'/, } instead of: ${expected_resources//$'\n'/, }"
+                exit 1
+              fi
+            }
+            touch "${RESOURCE_FIXTURE_DIR}/resources/User file.wav"
+            install_resource_fixture 'Sample A.wav' 'Sample-B.wav' 'Sample-C.wav'
+            expect_resources 'Sample A.wav' 'Sample-B.wav' 'Sample-C.wav' 'User file.wav'
+            install_resource_fixture 'Sample-B.wav'
+            expect_resources 'Sample-B.wav' 'User file.wav'
+            install_resource_fixture
+            expect_resources 'User file.wav'
+            echo "PASS: stale resources removed, installed resources and the file added by the user kept"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 7. Install rpitx-ui with --enable-testing flag
             #    (--skip-hardware-check: no physical Raspberry Pi in CI)
             # ==============================================================
             echo "::group::Install rpitx-ui"
@@ -213,7 +287,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 6. Verify boot configuration was modified
+            # 8. Verify boot configuration was modified
             # ==============================================================
             echo "::group::Verify boot configuration"
             if [ -f /boot/firmware/config.txt ]; then
@@ -230,7 +304,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 7. Verify all installed binaries
+            # 9. Verify all installed binaries
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
@@ -256,7 +330,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 8. Verify the installed runtime dependencies
+            # 10. Verify the installed runtime dependencies
             # ==============================================================
             echo "::group::Verify installed runtime dependencies"
             sha256sum --check /var/lib/rpitx-ui/csdr.sha256 || { echo "FAIL: installed csdr does not match its manifest"; exit 1; }
@@ -264,7 +338,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 9. Verify all installed scripts
+            # 11. Verify all installed scripts
             # ==============================================================
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
@@ -284,7 +358,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 10. Verify resource files
+            # 12. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
@@ -300,7 +374,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify rpitx-ui is callable from any directory
+            # 13. Verify rpitx-ui is callable from any directory
             # ==============================================================
             echo "::group::Verify rpitx-ui callable from any directory"
             pushd /tmp > /dev/null
@@ -316,10 +390,13 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 12. Verify the reinstallation of rpitx-ui before and after
+            # 14. Verify the reinstallation of rpitx-ui before and after
             #     the reboot requested by the first installation
             # ==============================================================
             echo "::group::Verify rpitx-ui reinstallation"
+            # A file added by the user and a resource of an earlier installation that is no longer provided
+            sudo touch /usr/share/rpitx-ui/User-File.wav /usr/share/rpitx-ui/Stale-Resource.wav
+            echo '/usr/share/rpitx-ui/Stale-Resource.wav' | sudo tee --append /var/lib/rpitx-ui/resources.txt > /dev/null
             REINSTALL_LOG=$(mktemp)
             reinstall_rpitx_ui() {
               local status=0
@@ -331,6 +408,8 @@ jobs:
             }
             reinstall_rpitx_ui
             grep -qF 'A reboot is required' "${REINSTALL_LOG}" || { echo "FAIL: reboot not requested again before the system is rebooted"; exit 1; }
+            test -e /usr/share/rpitx-ui/User-File.wav || { echo "FAIL: file added by the user removed by the reinstallation"; exit 1; }
+            test ! -e /usr/share/rpitx-ui/Stale-Resource.wav || { echo "FAIL: stale resource kept by the reinstallation"; exit 1; }
             # A reboot removes the pending reboot flag
             sudo rm -f /run/rpitx-ui-reboot-required
             reinstall_rpitx_ui
@@ -338,19 +417,27 @@ jobs:
               echo "FAIL: reboot requested although the boot configuration has not been changed"
               exit 1
             fi
-            echo "PASS: reinstallation skipped the csdr build and requested a reboot only while it was pending"
+            echo "PASS: reinstallation skipped the csdr build, kept the file added by the user, removed the stale resource and requested a reboot only while it was pending"
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Uninstall rpitx-ui (with --purge-deps to also remove
+            # 15. Uninstall rpitx-ui (with --purge-deps to also remove
             #     runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
-            echo "n" | bash ./uninstall.sh --purge-deps
+            UNINSTALL_LOG=$(mktemp)
+            uninstall_rpitx_ui() {
+              local status=0
+              bash ./uninstall.sh --purge-deps > "${UNINSTALL_LOG}" 2>&1 < /dev/null || status=$?
+              cat "${UNINSTALL_LOG}"
+              test "${status}" -eq 0 || { echo "FAIL: uninstallation exited with status ${status} instead of 0"; exit 1; }
+            }
+            uninstall_rpitx_ui
+            grep -qF 'A reboot is recommended' "${UNINSTALL_LOG}" || { echo "FAIL: reboot not recommended after the boot configuration change"; exit 1; }
             echo "::endgroup::"
 
             # ==============================================================
-            # 14. Verify all binaries removed
+            # 16. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -369,7 +456,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 15. Verify all scripts removed
+            # 17. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -391,7 +478,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 16. Verify resources removed
+            # 18. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -402,7 +489,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 17. Verify runtime dependencies removed
+            # 19. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -418,7 +505,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 18. Verify boot configuration reverted
+            # 20. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
@@ -439,6 +526,46 @@ jobs:
               exit 1
             fi
             echo "PASS: boot configuration reverted"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 21. Verify the repeated uninstallation of rpitx-ui after
+            #     the reboot recommended by the first one
+            # ==============================================================
+            echo "::group::Verify repeated rpitx-ui uninstallation"
+            # A reboot removes the pending reboot flag
+            sudo rm -f /run/rpitx-ui-reboot-required
+            uninstall_rpitx_ui
+            if grep -qF 'A reboot is recommended' "${UNINSTALL_LOG}"; then
+              echo "FAIL: reboot recommended although the boot configuration has not been changed"
+              exit 1
+            fi
+            echo "PASS: repeated uninstallation recommended no reboot"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 22. Verify that failed tests abort the installation before
+            #     any file is installed or the boot configuration is modified
+            # ==============================================================
+            echo "::group::Verify installation abort on failed tests"
+            # A failing ctest stub makes install.sh take its failed tests path
+            CTEST_STUB_DIR=$(mktemp -d)
+            printf '#!/bin/sh\nexit 1\n' > "${CTEST_STUB_DIR}/ctest"
+            chmod +x "${CTEST_STUB_DIR}/ctest"
+            FAILED_TESTS_LOG=$(mktemp)
+            FAILED_TESTS_STATUS=0
+            PATH="${CTEST_STUB_DIR}:${PATH}" bash ./install.sh --enable-testing --skip-hardware-check > "${FAILED_TESTS_LOG}" 2>&1 < /dev/null || FAILED_TESTS_STATUS=$?
+            cat "${FAILED_TESTS_LOG}"
+            test "${FAILED_TESTS_STATUS}" -eq 1 || { echo "FAIL: install.sh exited with status ${FAILED_TESTS_STATUS} instead of 1"; exit 1; }
+            grep -qF 'Test execution failed - installation aborted!' "${FAILED_TESTS_LOG}" || { echo "FAIL: failed tests banner not printed"; exit 1; }
+            for installed_path in /usr/bin/csdr /usr/bin/rpitx-ui /usr/bin/pitune /usr/share/rpitx-ui /var/lib/rpitx-ui; do
+              test ! -e "${installed_path}" || { echo "FAIL: ${installed_path} installed although the tests failed"; exit 1; }
+            done
+            if grep -qF '# BEGIN rpitx-ui related configuration' "$BOOT_CONFIG"; then
+              echo "FAIL: boot configuration modified although the tests failed"
+              exit 1
+            fi
+            echo "PASS: installation aborted before any file was installed"
             echo "::endgroup::"
 
             echo ""
