@@ -17,8 +17,8 @@ PACKAGE_VERSION='1.24'
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
 
-# Manifest of the installed csdr
-CSDR_MANIFEST='/var/lib/rpitx-ui/csdr.sha256'
+# File recording the commit of the installed csdr
+CSDR_COMMIT_FILE='/var/lib/rpitx-ui/csdr.commit'
 
 # Markers of the boot configuration block written by install.sh
 BOOT_CONFIG_BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
@@ -163,10 +163,10 @@ if [ "$PURGE_DEPS" = true ]; then
     fi
   done
 
-  if [ -f "${CSDR_MANIFEST}" ]; then
-    sudo rm -f "${CSDR_MANIFEST}"
-    sudo rmdir --ignore-fail-on-non-empty "$(dirname "${CSDR_MANIFEST}")"
-    echo "${INFO} Removed ${CSDR_MANIFEST}"
+  if [ -f "${CSDR_COMMIT_FILE}" ]; then
+    sudo rm -f "${CSDR_COMMIT_FILE}"
+    sudo rmdir --ignore-fail-on-non-empty "$(dirname "${CSDR_COMMIT_FILE}")"
+    echo "${INFO} Removed ${CSDR_COMMIT_FILE}"
   fi
 
   sudo ldconfig
