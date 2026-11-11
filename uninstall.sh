@@ -30,6 +30,7 @@ REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
+COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[34m'
 COLOR_CYAN=$'\033[36m'
 COLOR_RED=$'\033[31m'
@@ -37,6 +38,7 @@ COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
+WARNING="${COLOR_YELLOW}[WARNING]${COLOR_RESET}"
 ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
@@ -48,33 +50,6 @@ print_banner() {
   echo "${color}${SEPARATOR}${COLOR_RESET}"
   echo "${color}${message}${COLOR_RESET}"
   echo "${color}${SEPARATOR}${COLOR_RESET}"
-}
-
-# Remove the rpitx-ui blocks and unpaired markers from a boot configuration file: remove_boot_config <file>
-remove_boot_config() {
-  local boot_config=$1
-  local updated_config
-
-  # Drop the markers and the lines between paired ones except filter lines, keep the lines after an unpaired BEGIN marker
-  updated_config=$(mktemp)
-  awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
-    { line = $0; sub(/\r$/, "", line) }
-    line == begin { printf "%s", pending; pending = filters = ""; in_block = 1; next }
-    line == end { printf "%s", filters; pending = filters = ""; in_block = 0; next }
-    in_block && line ~ /^\[/ { filters = filters $0 "\n" }
-    in_block { pending = pending $0 "\n"; next }
-    { print }
-    END { printf "%s", pending }
-  ' < "${boot_config}" > "${updated_config}" || return 1
-  if [ "$(< "${boot_config}")" = "$(< "${updated_config}")" ]; then
-    BOOT_CONFIG_CHANGED=false
-    echo "${INFO} No rpitx-ui block found in ${boot_config}, nothing to revert."
-  else
-    sudo cp "${updated_config}" "${boot_config}" || return 1
-    BOOT_CONFIG_CHANGED=true
-    echo "${INFO} Removed rpitx-ui block from ${boot_config}"
-  fi
-  rm -f "${updated_config}"
 }
 
 # ----------------------------------------------------------
@@ -185,10 +160,19 @@ else
 fi
 
 if [ -f "${BOOT_CONFIG_FILE}" ]; then
-  remove_boot_config "${BOOT_CONFIG_FILE}"
-  # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
-  if [ "${BOOT_CONFIG_CHANGED}" = true ]; then
+  INSTALLED_BLOCK=$(
+    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${BOOT_CONFIG_FILE}" | tr -d '\r'
+  )
+  if [ -z "${INSTALLED_BLOCK}" ]; then
+    echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
+  elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+    # A block without its END marker cannot be told from the lines after it
+    echo "${WARNING} rpitx-ui block in ${BOOT_CONFIG_FILE} has no END marker, leaving the file untouched."
+  else
+    sudo sed -i "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${BOOT_CONFIG_FILE}"
+    # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
     sudo touch "${REBOOT_REQUIRED_FLAG}"
+    echo "${INFO} Removed rpitx-ui block from ${BOOT_CONFIG_FILE}"
   fi
 fi
 

@@ -148,10 +148,16 @@ update_boot_config() {
   installed_block=$(
     sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${boot_config}" | tr -d '\r'
   )
+  # A block without its END marker cannot be told from the lines after it
+  if [ -n "${installed_block}" ] && [ "$(tail -n 1 <<< "${installed_block}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+    BOOT_CONFIG_CHANGED=false
+    echo "${WARNING} rpitx-ui block in ${boot_config} has no END marker, leaving the file untouched."
+    return 0
+  fi
   # Lines after the block that assign its options again - the firmware applies the last assignment
   overriding_lines=$(
-    sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${boot_config}" | tr -d '\r' \
-      | grep -a -f <(printf '^[[:space:]]*%s=\n' "${BOOT_CONFIG_SETTINGS[@]%%=*}") || true
+    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${boot_config}" | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" \
+      | tr -d '\r' | grep -a -f <(printf '^[[:space:]]*%s=\n' "${BOOT_CONFIG_SETTINGS[@]%%=*}") || true
   )
   if [ "${installed_block}" != "${recommended_block}" ]; then
     rewrite_reason='modified'
@@ -165,17 +171,12 @@ update_boot_config() {
     return 0
   fi
 
-  # Drop the unpaired markers and the rpitx-ui blocks except their filter lines, then append the block behind [all] if needed
+  # Remove the block, end an unterminated last line, then append the block behind [all] if needed
   updated_config=$(mktemp)
-  awk -v begin="${BOOT_CONFIG_BEGIN_MARKER}" -v end="${BOOT_CONFIG_END_MARKER}" '
-    { line = $0; sub(/\r$/, "", line) }
-    line == begin { printf "%s", pending; pending = filters = ""; in_block = 1; next }
-    line == end { printf "%s", filters; pending = filters = ""; in_block = 0; next }
-    in_block && line ~ /^\[/ { filters = filters $0 "\n" }
-    in_block { pending = pending $0 "\n"; next }
-    { print }
-    END { printf "%s", pending }
-  ' < "${boot_config}" > "${updated_config}" || return 1
+  sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${boot_config}" > "${updated_config}" || return 1
+  if [ -n "$(tail -c 1 "${updated_config}")" ]; then
+    echo >> "${updated_config}"
+  fi
   if ! is_all_filter_active "${updated_config}"; then
     echo '[all]' >> "${updated_config}"
   fi
