@@ -193,10 +193,13 @@ jobs:
             expect_boot_config true 'enable_uart=1' "enable_uart=1\n${RECOMMENDED_BLOCK}"
             expect_boot_config false "${RECOMMENDED_BLOCK}enable_uart=1\n"
             expect_boot_config false "${RECOMMENDED_BLOCK//\\n/\\r\\n}"
-            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "enable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=500\nforce_turbo=1\n${END_MARKER}\nenable_uart=1\n" "${RECOMMENDED_BLOCK}enable_uart=1\n"
+            expect_boot_config true "${BEGIN_MARKER}\r\ngpu_freq=500\r\n${END_MARKER}\r\nenable_uart=1\r\n" "${RECOMMENDED_BLOCK}enable_uart=1\r\n"
             expect_boot_config true "${BEGIN_MARKER}\n\n${END_MARKER}\n" "${RECOMMENDED_BLOCK}"
-            expect_boot_config true "${RECOMMENDED_BLOCK}${RECOMMENDED_BLOCK}" "${RECOMMENDED_BLOCK}"
+            expect_boot_config true "${RECOMMENDED_BLOCK}enable_uart=1\n${RECOMMENDED_BLOCK}" "${RECOMMENDED_BLOCK}enable_uart=1\n"
             expect_boot_config true "${BEGIN_MARKER}\ngpu_freq=250\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "${BEGIN_MARKER}\nenable_uart=1\n${RECOMMENDED_BLOCK}" "enable_uart=1\n${RECOMMENDED_BLOCK}"
+            expect_boot_config true "gpu_freq=250\n${END_MARKER}\nenable_uart=1\n" "gpu_freq=250\nenable_uart=1\n${RECOMMENDED_BLOCK}"
             echo "PASS: rpitx-ui block added when missing, kept when up to date and restored when modified"
             echo "::endgroup::"
 
@@ -253,7 +256,15 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 8. Verify all installed scripts
+            # 8. Verify the installed runtime dependencies
+            # ==============================================================
+            echo "::group::Verify installed runtime dependencies"
+            sha256sum --check /var/lib/rpitx-ui/csdr.sha256 || { echo "FAIL: installed csdr does not match its manifest"; exit 1; }
+            echo "PASS: runtime dependencies installed"
+            echo "::endgroup::"
+
+            # ==============================================================
+            # 9. Verify all installed scripts
             # ==============================================================
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
@@ -273,7 +284,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 9. Verify resource files
+            # 10. Verify resource files
             # ==============================================================
             echo "::group::Verify installed resources"
             test -d /usr/share/rpitx-ui || { echo "FAIL: /usr/share/rpitx-ui directory missing"; exit 1; }
@@ -289,7 +300,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 10. Verify rpitx-ui is callable from any directory
+            # 11. Verify rpitx-ui is callable from any directory
             # ==============================================================
             echo "::group::Verify rpitx-ui callable from any directory"
             pushd /tmp > /dev/null
@@ -305,27 +316,33 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 11. Verify the reinstallation of rpitx-ui
-            #     (the pending reboot flag is removed as a reboot would do)
+            # 12. Verify the reinstallation of rpitx-ui before and after
+            #     the reboot requested by the first installation
             # ==============================================================
             echo "::group::Verify rpitx-ui reinstallation"
-            sudo rm -f /run/rpitx-ui-reboot-required
             REINSTALL_LOG=$(mktemp)
-            REINSTALL_STATUS=0
-            bash ./install.sh --enable-testing --skip-hardware-check > "${REINSTALL_LOG}" 2>&1 < /dev/null || REINSTALL_STATUS=$?
-            cat "${REINSTALL_LOG}"
-            test "${REINSTALL_STATUS}" -eq 0 || { echo "FAIL: reinstallation exited with status ${REINSTALL_STATUS} instead of 0"; exit 1; }
-            grep -qF 'is already installed, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: csdr rebuilt although it is already installed"; exit 1; }
-            grep -qF 'is up to date, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: rpitx-ui block rewritten although it is up to date"; exit 1; }
+            reinstall_rpitx_ui() {
+              local status=0
+              bash ./install.sh --enable-testing --skip-hardware-check > "${REINSTALL_LOG}" 2>&1 < /dev/null || status=$?
+              cat "${REINSTALL_LOG}"
+              test "${status}" -eq 0 || { echo "FAIL: reinstallation exited with status ${status} instead of 0"; exit 1; }
+              grep -qF 'is already installed, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: csdr rebuilt although it is already installed"; exit 1; }
+              grep -qF 'is up to date, skipping.' "${REINSTALL_LOG}" || { echo "FAIL: rpitx-ui block rewritten although it is up to date"; exit 1; }
+            }
+            reinstall_rpitx_ui
+            grep -qF 'A reboot is required' "${REINSTALL_LOG}" || { echo "FAIL: reboot not requested again before the system is rebooted"; exit 1; }
+            # A reboot removes the pending reboot flag
+            sudo rm -f /run/rpitx-ui-reboot-required
+            reinstall_rpitx_ui
             if grep -qF 'A reboot is required' "${REINSTALL_LOG}"; then
               echo "FAIL: reboot requested although the boot configuration has not been changed"
               exit 1
             fi
-            echo "PASS: reinstallation skipped the csdr build and requested no reboot"
+            echo "PASS: reinstallation skipped the csdr build and requested a reboot only while it was pending"
             echo "::endgroup::"
 
             # ==============================================================
-            # 12. Uninstall rpitx-ui (with --purge-deps to also remove
+            # 13. Uninstall rpitx-ui (with --purge-deps to also remove
             #     runtime third-party dependencies and verify full cleanup)
             # ==============================================================
             echo "::group::Uninstall rpitx-ui"
@@ -333,7 +350,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 13. Verify all binaries removed
+            # 14. Verify all binaries removed
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
@@ -352,7 +369,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 14. Verify all scripts removed
+            # 15. Verify all scripts removed
             # ==============================================================
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
@@ -374,7 +391,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 15. Verify resources removed
+            # 16. Verify resources removed
             # ==============================================================
             echo "::group::Verify resources removed"
             if test -d /usr/share/rpitx-ui; then
@@ -385,7 +402,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 16. Verify runtime dependencies removed
+            # 17. Verify runtime dependencies removed
             # ==============================================================
             echo "::group::Verify runtime dependencies removed"
             for bin in csdr csdr-fm nmux; do
@@ -401,7 +418,7 @@ jobs:
             echo "::endgroup::"
 
             # ==============================================================
-            # 17. Verify boot configuration reverted
+            # 18. Verify boot configuration reverted
             # ==============================================================
             echo "::group::Verify boot configuration reverted"
             if [ -f /boot/firmware/config.txt ]; then
