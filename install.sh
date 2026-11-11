@@ -256,8 +256,8 @@ print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 # Parallel build jobs - limited by the available memory, so boards with little RAM do not run out of it while compiling
 set_build_jobs
 
-# csdr runtime dependency - rebuilt only when the pinned commit differs from the installed one
-if [ "$(cat "${CSDR_COMMIT_FILE}" 2> /dev/null)" = "${CSDR_COMMIT}" ]; then
+# csdr runtime dependency - rebuilt only when it is missing or the pinned commit differs from the installed one
+if [ -x /usr/bin/csdr ] && [ "$(cat "${CSDR_COMMIT_FILE}" 2> /dev/null)" = "${CSDR_COMMIT}" ]; then
   echo "${INFO} csdr of commit ${CSDR_COMMIT} is already installed, skipping."
 else
   print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
