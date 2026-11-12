@@ -271,9 +271,6 @@ else
   echo "${INFO} Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
   BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
-if [ ! -e "${BOOT_CONFIG_FILE}" ]; then
-  sudo touch "${BOOT_CONFIG_FILE}"
-fi
 
 # rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
 BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
