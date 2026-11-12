@@ -127,6 +127,19 @@ set_build_jobs() {
   echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
+# Print the boot configuration settings on standard input that differ from BOOT_CONFIG_SETTINGS, each followed by the setting
+# it differs from: print_conflicting_settings
+print_conflicting_settings() {
+  local unconditional_lines setting
+
+  # Conditional sections apply to some boards only and are skipped
+  unconditional_lines=$(tr -d '\r' | awk '/^\[/ { conditional = ($0 != "[all]") } !conditional')
+  for setting in "${BOOT_CONFIG_SETTINGS[@]}"; do
+    sed -n "s/^[[:space:]]*\(${setting%%=*}=[^[:space:]#]*\).*/\1 ${setting}/p" <<< "${unconditional_lines}" \
+      | grep -v "^${setting} " || true
+  done
+}
+
 # Provide only the definitions above when the script is sourced instead of executed
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 0
@@ -270,29 +283,33 @@ if [ -n "${INSTALLED_BLOCK}" ] && [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "
   exit 1
 fi
 
-# Settings of the file that the block overrides - the firmware applies the last assignment
-for SETTING in "${BOOT_CONFIG_SETTINGS[@]}"; do
-  while read -r OVERRIDDEN_SETTING; do
-    echo "${WARNING} ${OVERRIDDEN_SETTING} in ${BOOT_CONFIG_FILE} is overridden by ${SETTING} of the rpitx-ui block."
-  done < <(tr -d '\r' < "${BOOT_CONFIG_FILE}" | grep -a "^[[:space:]]*${SETTING%%=*}=" | grep -vx "[[:space:]]*${SETTING}")
-done
-
-# The file without the block, its last line ended, and the block at the end
-UPDATED_BOOT_CONFIG=$(mktemp)
-sed "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}" > "${UPDATED_BOOT_CONFIG}"
-if [ -n "$(tail -c 1 "${UPDATED_BOOT_CONFIG}")" ]; then
-  echo >> "${UPDATED_BOOT_CONFIG}"
-fi
-printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}" >> "${UPDATED_BOOT_CONFIG}"
-if cmp -s "${BOOT_CONFIG_FILE}" "${UPDATED_BOOT_CONFIG}"; then
-  echo "${INFO} rpitx-ui block in ${BOOT_CONFIG_FILE} is up to date, skipping."
+# The block stays where it is while it holds BOOT_CONFIG_SETTINGS and no setting after it differs from them
+RECOMMENDED_BLOCK=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
+OVERRIDING_SETTINGS=$(
+  sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${BOOT_CONFIG_FILE}" | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" | print_conflicting_settings
+)
+if [ "${INSTALLED_BLOCK}" = "${RECOMMENDED_BLOCK}" ] && [ -z "${OVERRIDING_SETTINGS}" ]; then
+  echo "${INFO} rpitx-ui block already present in ${BOOT_CONFIG_FILE}, skipping."
 else
-  sudo cp "${UPDATED_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
+  # Settings of the file that the block at its end overrides - the firmware applies the last assignment
+  while read -r OVERRIDDEN_SETTING SETTING; do
+    echo "${WARNING} ${OVERRIDDEN_SETTING} in ${BOOT_CONFIG_FILE} is overridden by ${SETTING} of the rpitx-ui block."
+  done < <(print_conflicting_settings < "${BOOT_CONFIG_FILE}")
+
+  # New file next to the present one - without the block, its last line ended, the block at the end
+  NEW_BOOT_CONFIG="${BOOT_CONFIG_FILE}.rpitx-ui"
+  sudo cp -p "${BOOT_CONFIG_FILE}" "${NEW_BOOT_CONFIG}"
+  sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${NEW_BOOT_CONFIG}"
+  if [ -n "$(tail -c 1 "${NEW_BOOT_CONFIG}")" ]; then
+    echo | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
+  fi
+  echo "${RECOMMENDED_BLOCK}" | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
+  # Renamed over the present file, so an interrupted installation leaves either the old or the new file complete
+  sudo mv "${NEW_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
   # Pending reboot flag - keeps the reboot request for later installations until the system is rebooted
   sudo touch "${REBOOT_REQUIRED_FLAG}"
-  echo "${INFO} rpitx-ui block written to ${BOOT_CONFIG_FILE}"
+  echo "${INFO} Added rpitx-ui block to ${BOOT_CONFIG_FILE}"
 fi
-rm -f "${UPDATED_BOOT_CONFIG}"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
