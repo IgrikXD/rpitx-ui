@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = install.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.23'
+PACKAGE_VERSION='1.24'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
@@ -33,6 +33,23 @@ MEMINFO_FILE='/proc/meminfo'
 
 # Memory budget of a single parallel build job, in MiB
 BUILD_JOB_MEMORY_MIB=512
+
+# Pinned csdr commit (to ensure reproducible builds)
+CSDR_COMMIT='69bfc62'
+
+# File recording the commit of the installed csdr
+CSDR_COMMIT_FILE='/var/lib/rpitx-ui/csdr.commit'
+
+# Boot configuration block required for stable rpitx-ui operation
+BOOT_CONFIG_BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+BOOT_CONFIG_END_MARKER='# END rpitx-ui related configuration'
+BOOT_CONFIG_SETTINGS=(
+  'gpu_freq=250' # GPU frequency fixed at 250 MHz
+  'force_turbo=1' # Frequency scaling disabled
+)
+
+# Flag file of a pending reboot - created on a boot configuration change, removed by the reboot
+REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
 
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
@@ -110,6 +127,18 @@ set_build_jobs() {
   echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
+# Print each setting on standard input that differs from BOOT_CONFIG_SETTINGS and its counterpart: print_conflicting_settings
+print_conflicting_settings() {
+  local unconditional_lines setting
+
+  # Conditional sections apply to some boards only and are skipped
+  unconditional_lines=$(tr -d '\r' | awk '/^[ \t]*\[/ { conditional = (tolower($0) !~ /^[ \t]*\[all\]/) } !conditional')
+  for setting in "${BOOT_CONFIG_SETTINGS[@]}"; do
+    sed -n "s/^[[:space:]]*\(${setting%%=*}=[^[:space:]#]*\).*/\1 ${setting}/p" <<< "${unconditional_lines}" \
+      | grep -v "^${setting} " || true
+  done
+}
+
 # Provide only the definitions above when the script is sourced instead of executed
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 0
@@ -176,26 +205,24 @@ print_banner "$COLOR_CYAN" 'System dependencies installed successfully!'
 # Parallel build jobs - limited by the available memory, so boards with little RAM do not run out of it while compiling
 set_build_jobs
 
-# Build the csdr runtime dependency in a temporary directory to keep the source tree clean
-BUILD_TMPDIR=$(mktemp -d)
-trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
-
-# Pinned dependency commits (to ensure reproducible builds)
-CSDR_COMMIT='69bfc62'
-
-print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
-(
-  cd "${BUILD_TMPDIR}"
-  git clone https://github.com/F5OEO/csdr
-  cd csdr
-  git checkout --quiet "${CSDR_COMMIT}"
-  make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
-)
-print_banner "$COLOR_CYAN" 'csdr installed successfully!'
-
-if [ -d "${RESOURCE_INSTALL_DIR}" ]; then
-  sudo find "${RESOURCE_INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  echo "${INFO} Cleared existing resources from ${RESOURCE_INSTALL_DIR}"
+# csdr runtime dependency - rebuilt only when it is missing or the pinned commit differs from the installed one
+if [ -x /usr/bin/csdr ] && [ "$(cat "${CSDR_COMMIT_FILE}" 2> /dev/null)" = "${CSDR_COMMIT}" ]; then
+  echo "${INFO} csdr of commit ${CSDR_COMMIT} is already installed, skipping."
+else
+  print_banner "$COLOR_CYAN" "csdr installation, based on commit ${CSDR_COMMIT}..."
+  # Build in a temporary directory to keep the source tree clean
+  BUILD_TMPDIR=$(mktemp -d)
+  trap 'rm -rf "${BUILD_TMPDIR}"' EXIT
+  (
+    cd "${BUILD_TMPDIR}"
+    git clone https://github.com/F5OEO/csdr
+    cd csdr
+    git checkout --quiet "${CSDR_COMMIT}"
+    make -j"${BUILD_JOBS}" && sudo make install PREFIX=/usr
+  )
+  sudo mkdir -p "$(dirname "${CSDR_COMMIT_FILE}")"
+  echo "${CSDR_COMMIT}" | sudo tee "${CSDR_COMMIT_FILE}" > /dev/null
+  print_banner "$COLOR_CYAN" 'csdr installed successfully!'
 fi
 
 # rpitx-ui build and installation with CMake
@@ -224,7 +251,7 @@ if [ "${ENABLE_TESTING}" = true ]; then
   if ! ctest --test-dir build --output-on-failure --parallel "$(nproc)"; then
     print_banner "$COLOR_RED" "Test execution failed - installation aborted!"
     echo "${INFO} Review the ctest output above, fix the issues, and re-run rpitx-ui installation with the --enable-testing flag."
-    echo "${INFO} No files have been installed to /usr/bin or /usr/share/rpitx-ui."
+    echo "${INFO} No files have been installed to /usr/bin or ${RESOURCE_INSTALL_DIR}."
     exit 1
   fi
   print_banner "$COLOR_GREEN" "Test execution completed successfully!"
@@ -238,29 +265,62 @@ echo "${INFO} In order to run properly, rpitx-ui needs to modify boot config."
 echo "${INFO} Setting the GPU frequency to 250 MHz for stable rpitx-ui operation."
 if [ ! -f /boot/firmware/config.txt ]; then
   echo "${INFO} Raspberry Pi OS 11 or below detected, using /boot/config.txt"
-  FILE='/boot/config.txt'
+  BOOT_CONFIG_FILE='/boot/config.txt'
 else
   echo "${INFO} Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
-  FILE='/boot/firmware/config.txt'
+  BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
-BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
-END_MARKER='# END rpitx-ui related configuration'
-if grep -qF "$BEGIN_MARKER" "$FILE"; then
-  echo "${INFO} rpitx-ui block already present in ${FILE}, skipping."
+
+# rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
+BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
+INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
+if [ -n "${INSTALLED_BLOCK}" ] && [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+  echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been updated." >&2
+  echo "${INFO} Restore the '${BOOT_CONFIG_END_MARKER}' line or remove the block, and re-run rpitx-ui installation." >&2
+  exit 1
+fi
+
+# The block stays where it is while it holds BOOT_CONFIG_SETTINGS and no setting after it differs from them
+RECOMMENDED_BLOCK=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
+OVERRIDING_SETTINGS=$(sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${BOOT_CONFIG_FILE}" \
+  | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" | print_conflicting_settings)
+if [ "${INSTALLED_BLOCK}" = "${RECOMMENDED_BLOCK}" ] && [ -z "${OVERRIDING_SETTINGS}" ]; then
+  echo "${INFO} rpitx-ui block already present in ${BOOT_CONFIG_FILE}, skipping."
 else
-  printf '%s\n' "$BEGIN_MARKER" 'gpu_freq=250' 'force_turbo=1' "$END_MARKER" | sudo tee --append "$FILE" > /dev/null
+  # Settings of the file that the block at its end overrides - the firmware applies the last assignment
+  while read -r OVERRIDDEN_SETTING SETTING; do
+    echo "${WARNING} ${OVERRIDDEN_SETTING} in ${BOOT_CONFIG_FILE} is overridden by ${SETTING} of the rpitx-ui block."
+  done < <(print_conflicting_settings < "${BOOT_CONFIG_FILE}")
+
+  # New file next to the present one - without the block, its last line ended, the block at the end
+  NEW_BOOT_CONFIG="${BOOT_CONFIG_FILE}.rpitx-ui"
+  sudo cp -p "${BOOT_CONFIG_FILE}" "${NEW_BOOT_CONFIG}"
+  sudo sed -i -e "${BOOT_CONFIG_BLOCK_RANGE}d" -e "\$a\\" "${NEW_BOOT_CONFIG}"
+  # [all] in front of the block when the file ends in a conditional section
+  if grep '^[[:space:]]*\[' "${NEW_BOOT_CONFIG}" | tail -n 1 | grep -qiv '^[[:space:]]*\[all\]'; then
+    echo '[all]' | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
+  fi
+  echo "${RECOMMENDED_BLOCK}" | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
+  # Renamed over the present file, so an interrupted installation leaves either the old or the new file complete
+  sudo mv "${NEW_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
+  # Pending reboot flag - keeps the reboot request for later installations until the system is rebooted
+  sudo touch "${REBOOT_REQUIRED_FLAG}"
+  echo "${INFO} Added rpitx-ui block to ${BOOT_CONFIG_FILE}"
 fi
-echo "${INFO} Boot configuration updated successfully!"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
-# Prompt the user to reboot the system to apply boot configuration changes
-echo "${ACTION} A reboot is required to complete the installation!"
-read -p "Execute now? (y/n): " choice
-# Check the user's choice
-if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO} Rebooting now..."
-  sudo reboot
+# Prompt the user to reboot the system only when a boot configuration change is waiting for it
+if [ -e "${REBOOT_REQUIRED_FLAG}" ]; then
+  echo "${ACTION} A reboot is required to complete the installation!"
+  read -r -p "Execute now? (y/n): " choice || choice=''
+  # Check the user's choice
+  if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+    echo "${INFO} Rebooting now..."
+    sudo reboot
+  else
+    echo "${INFO} Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
+  fi
 else
-  echo "${INFO} Reboot canceled! Please remember to reboot as soon as possible to ensure rpitx-ui works properly."
+  echo "${INFO} The boot configuration has not been changed, no reboot is required."
 fi

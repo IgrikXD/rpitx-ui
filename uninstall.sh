@@ -12,10 +12,20 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.23'
+PACKAGE_VERSION='1.24'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
+
+# File recording the commit of the installed csdr
+CSDR_COMMIT_FILE='/var/lib/rpitx-ui/csdr.commit'
+
+# Markers of the boot configuration block written by install.sh
+BOOT_CONFIG_BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
+BOOT_CONFIG_END_MARKER='# END rpitx-ui related configuration'
+
+# Flag file of a pending reboot - created on a boot configuration change, removed by the reboot
+REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
 
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
@@ -126,6 +136,12 @@ if [ "$PURGE_DEPS" = true ]; then
     fi
   done
 
+  if [ -f "${CSDR_COMMIT_FILE}" ]; then
+    sudo rm -f "${CSDR_COMMIT_FILE}"
+    sudo rmdir --ignore-fail-on-non-empty "$(dirname "${CSDR_COMMIT_FILE}")"
+    echo "${INFO} Removed ${CSDR_COMMIT_FILE}"
+  fi
+
   sudo ldconfig
   echo "${INFO} Runtime third-party dependencies removed!"
 else
@@ -136,31 +152,40 @@ fi
 # Revert boot configuration changes
 print_banner "$COLOR_CYAN" 'Reverting boot configuration...'
 if [ ! -f /boot/firmware/config.txt ]; then
-  FILE='/boot/config.txt'
+  BOOT_CONFIG_FILE='/boot/config.txt'
 else
-  FILE='/boot/firmware/config.txt'
+  BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
 
-if [ -f "$FILE" ]; then
-  BEGIN_MARKER='# BEGIN rpitx-ui related configuration'
-  END_MARKER='# END rpitx-ui related configuration'
-  if grep -qF "$BEGIN_MARKER" "$FILE"; then
-    sudo sed -i "/^${BEGIN_MARKER}$/,/^${END_MARKER}$/d" "$FILE"
-    echo "${INFO} Removed rpitx-ui block from ${FILE}"
-  else
-    echo "${INFO} No rpitx-ui block found in ${FILE}, nothing to revert."
-  fi
+# rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
+BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
+INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
+if [ -z "${INSTALLED_BLOCK}" ]; then
+  echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
+elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+  echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been removed." >&2
+  echo "${INFO} Restore the '${BOOT_CONFIG_END_MARKER}' line or remove the block, and re-run rpitx-ui uninstallation." >&2
+  exit 1
+else
+  sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}"
+  # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
+  sudo touch "${REBOOT_REQUIRED_FLAG}"
+  echo "${INFO} Removed rpitx-ui block from ${BOOT_CONFIG_FILE}"
 fi
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} has been uninstalled successfully!"
 
-# Prompt the user to reboot the system to apply boot configuration changes
-echo "${ACTION} A reboot is recommended to apply boot configuration changes."
-read -p "Reboot now? (y/n): " choice
-# Check the user's choice
-if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-  echo "${INFO} Rebooting now..."
-  sudo reboot
+# Prompt the user to reboot the system only when a boot configuration change is waiting for it
+if [ -e "${REBOOT_REQUIRED_FLAG}" ]; then
+  echo "${ACTION} A reboot is recommended to apply boot configuration changes."
+  read -r -p "Reboot now? (y/n): " choice || choice=''
+  # Check the user's choice
+  if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+    echo "${INFO} Rebooting now..."
+    sudo reboot
+  else
+    echo "${INFO} Reboot canceled. Please remember to reboot as soon as possible."
+  fi
 else
-  echo "${INFO} Reboot canceled. Please remember to reboot as soon as possible."
+  echo "${INFO} The boot configuration has not been changed, no reboot is required."
 fi
