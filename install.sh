@@ -296,10 +296,7 @@ else
   # New file next to the present one - without the block, its last line ended, the block at the end
   NEW_BOOT_CONFIG="${BOOT_CONFIG_FILE}.rpitx-ui"
   sudo cp -p "${BOOT_CONFIG_FILE}" "${NEW_BOOT_CONFIG}"
-  sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${NEW_BOOT_CONFIG}"
-  if [ -n "$(tail -c 1 "${NEW_BOOT_CONFIG}")" ]; then
-    echo | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
-  fi
+  sudo sed -i -e "${BOOT_CONFIG_BLOCK_RANGE}d" -e "\$a\\" "${NEW_BOOT_CONFIG}"
   echo "${RECOMMENDED_BLOCK}" | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
   # Renamed over the present file, so an interrupted installation leaves either the old or the new file complete
   sudo mv "${NEW_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
