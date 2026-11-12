@@ -30,7 +30,6 @@ REBOOT_REQUIRED_FLAG='/run/rpitx-ui-reboot-required'
 # Terminal color helpers (ANSI escape sequences), used the same way by status tags and banners:
 # cyan - information and progress, green - success, yellow - warnings, red - errors, blue - required user actions
 COLOR_GREEN=$'\033[32m'
-COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[34m'
 COLOR_CYAN=$'\033[36m'
 COLOR_RED=$'\033[31m'
@@ -38,7 +37,6 @@ COLOR_RESET=$'\033[0m'
 
 # Status message helpers
 INFO="${COLOR_CYAN}[INFO]${COLOR_RESET}"
-WARNING="${COLOR_YELLOW}[WARNING]${COLOR_RESET}"
 ERROR="${COLOR_RED}[ERROR]${COLOR_RESET}"
 ACTION="${COLOR_BLUE}[ACTION REQUIRED]${COLOR_RESET}"
 SEPARATOR='----------------------------------------------------'
@@ -160,16 +158,16 @@ else
 fi
 
 if [ -f "${BOOT_CONFIG_FILE}" ]; then
-  INSTALLED_BLOCK=$(
-    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${BOOT_CONFIG_FILE}" | tr -d '\r'
-  )
+  # rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
+  BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
+  INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
   if [ -z "${INSTALLED_BLOCK}" ]; then
     echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
   elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
-    # A block without its END marker cannot be told from the lines after it
-    echo "${WARNING} rpitx-ui block in ${BOOT_CONFIG_FILE} has no END marker, leaving the file untouched."
+    echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been removed." >&2
+    exit 1
   else
-    sudo sed -i "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${BOOT_CONFIG_FILE}"
+    sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}"
     # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
     sudo touch "${REBOOT_REQUIRED_FLAG}"
     echo "${INFO} Removed rpitx-ui block from ${BOOT_CONFIG_FILE}"

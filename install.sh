@@ -127,70 +127,6 @@ set_build_jobs() {
   echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
-# Check that the [all] filter is in effect at the end of a boot configuration file: is_all_filter_active <file>
-is_all_filter_active() {
-  local boot_config=$1
-  local last_filter
-
-  last_filter=$(tr -d '\r' < "${boot_config}" | grep -a '^\[' | tail -n 1)
-  [ -z "${last_filter}" ] || [ "${last_filter}" = '[all]' ]
-}
-
-# Bring the rpitx-ui block of a boot configuration file in line with BOOT_CONFIG_SETTINGS: update_boot_config <file>
-update_boot_config() {
-  local boot_config=$1
-  local recommended_block installed_block overriding_lines rewrite_reason updated_config
-
-  if [ ! -e "${boot_config}" ]; then
-    sudo touch "${boot_config}"
-  fi
-  recommended_block=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
-  installed_block=$(
-    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/p" "${boot_config}" | tr -d '\r'
-  )
-  # A block without its END marker cannot be told from the lines after it
-  if [ -n "${installed_block}" ] && [ "$(tail -n 1 <<< "${installed_block}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
-    BOOT_CONFIG_CHANGED=false
-    echo "${WARNING} rpitx-ui block in ${boot_config} has no END marker, leaving the file untouched."
-    return 0
-  fi
-  # Lines after the block that assign its options again - the firmware applies the last assignment
-  overriding_lines=$(
-    sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${boot_config}" | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" \
-      | tr -d '\r' | grep -a -f <(printf '^[[:space:]]*%s=\n' "${BOOT_CONFIG_SETTINGS[@]%%=*}") || true
-  )
-  if [ "${installed_block}" != "${recommended_block}" ]; then
-    rewrite_reason='modified'
-  elif [ -n "${overriding_lines}" ]; then
-    rewrite_reason="overridden by ${overriding_lines//$'\n'/, }"
-  elif ! is_all_filter_active <(sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/q" "${boot_config}"); then
-    rewrite_reason='under a conditional filter'
-  else
-    BOOT_CONFIG_CHANGED=false
-    echo "${INFO} rpitx-ui block in ${boot_config} is up to date, skipping."
-    return 0
-  fi
-
-  # Remove the block, end an unterminated last line, then append the block behind [all] if needed
-  updated_config=$(mktemp)
-  sed "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" "${boot_config}" > "${updated_config}" || return 1
-  if [ -n "$(tail -c 1 "${updated_config}")" ]; then
-    echo >> "${updated_config}"
-  fi
-  if ! is_all_filter_active "${updated_config}"; then
-    echo '[all]' >> "${updated_config}"
-  fi
-  echo "${recommended_block}" >> "${updated_config}"
-  if [ -n "${installed_block}" ]; then
-    echo "${WARNING} rpitx-ui block in ${boot_config} is ${rewrite_reason}, rewriting it:"
-    diff "${boot_config}" "${updated_config}" || true
-  fi
-  sudo cp "${updated_config}" "${boot_config}" || return 1
-  rm -f "${updated_config}"
-  BOOT_CONFIG_CHANGED=true
-  echo "${INFO} rpitx-ui block written to ${boot_config}"
-}
-
 # Provide only the definitions above when the script is sourced instead of executed
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then
   return 0
@@ -322,12 +258,41 @@ else
   echo "${INFO} Raspberry Pi OS 12 or above detected, using /boot/firmware/config.txt"
   BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
-update_boot_config "${BOOT_CONFIG_FILE}"
-
-# Pending reboot flag - keeps the reboot request for later installations until the system is rebooted
-if [ "${BOOT_CONFIG_CHANGED}" = true ]; then
-  sudo touch "${REBOOT_REQUIRED_FLAG}"
+if [ ! -e "${BOOT_CONFIG_FILE}" ]; then
+  sudo touch "${BOOT_CONFIG_FILE}"
 fi
+
+# rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
+BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
+INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
+if [ -n "${INSTALLED_BLOCK}" ] && [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+  echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been updated." >&2
+  exit 1
+fi
+
+# Settings of the file that the block overrides - the firmware applies the last assignment
+for SETTING in "${BOOT_CONFIG_SETTINGS[@]}"; do
+  while read -r OVERRIDDEN_SETTING; do
+    echo "${WARNING} ${OVERRIDDEN_SETTING} in ${BOOT_CONFIG_FILE} is overridden by ${SETTING} of the rpitx-ui block."
+  done < <(tr -d '\r' < "${BOOT_CONFIG_FILE}" | grep -a "^[[:space:]]*${SETTING%%=*}=" | grep -vx "[[:space:]]*${SETTING}")
+done
+
+# The file without the block, its last line ended, and the block at the end
+UPDATED_BOOT_CONFIG=$(mktemp)
+sed "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}" > "${UPDATED_BOOT_CONFIG}"
+if [ -n "$(tail -c 1 "${UPDATED_BOOT_CONFIG}")" ]; then
+  echo >> "${UPDATED_BOOT_CONFIG}"
+fi
+printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}" >> "${UPDATED_BOOT_CONFIG}"
+if cmp -s "${BOOT_CONFIG_FILE}" "${UPDATED_BOOT_CONFIG}"; then
+  echo "${INFO} rpitx-ui block in ${BOOT_CONFIG_FILE} is up to date, skipping."
+else
+  sudo cp "${UPDATED_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
+  # Pending reboot flag - keeps the reboot request for later installations until the system is rebooted
+  sudo touch "${REBOOT_REQUIRED_FLAG}"
+  echo "${INFO} rpitx-ui block written to ${BOOT_CONFIG_FILE}"
+fi
+rm -f "${UPDATED_BOOT_CONFIG}"
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} installation completed successfully!"
 
