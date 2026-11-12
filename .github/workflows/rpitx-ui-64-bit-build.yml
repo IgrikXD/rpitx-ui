@@ -176,11 +176,10 @@ jobs:
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
-              fm2ssb.sh snap2spectrum.sh
-              testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
-              testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
-              testssb.sh testsstv.sh testtune.sh transponder.sh
+              fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
+              testfoxhunt.sh testfreedv.sh testfsq.sh testmorse.sh
+              testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
+              testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
             )
 
             for s in "${INSTALLED_SCRIPTS[@]}"; do
@@ -255,11 +254,10 @@ jobs:
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
-              fm2ssb.sh snap2spectrum.sh
-              testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-              testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
-              testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
-              testssb.sh testsstv.sh testtune.sh transponder.sh
+              fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
+              testfoxhunt.sh testfreedv.sh testfsq.sh testmorse.sh
+              testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
+              testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
             )
 
             for s in "${ALL_SCRIPTS[@]}"; do
