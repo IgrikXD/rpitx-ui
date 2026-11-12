@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.24'
+PACKAGE_VERSION='1.25'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
@@ -79,7 +79,7 @@ REQUIRED_BINARIES=(
   pissb pisstv pitune pocsag sendiq
 )
 OPTIONAL_BINARIES=(
-  corel8 dvbrf foxhunt pidcf77 pifsq pift8 rpitx sendook
+  corel8 dvbrf foxhunt pifsq pift8 rpitx sendook
 )
 
 for BIN in "${REQUIRED_BINARIES[@]}" "${OPTIONAL_BINARIES[@]}"; do

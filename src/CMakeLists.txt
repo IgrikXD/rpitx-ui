@@ -181,10 +181,6 @@ if(BUILD_OPTIONAL_TARGETS)
     add_executable(foxhunt foxhunt/foxhunt.cpp)
     target_link_libraries(foxhunt PRIVATE librpitx::librpitx)
 
-    # --- pidcf77 ---
-    add_executable(pidcf77 dcf77/pidcf77.c)
-    target_link_libraries(pidcf77 PRIVATE librpitx::librpitx)
-
     # --- pifsq ---
     add_executable(pifsq fsq/pifsq.cpp)
     target_link_libraries(pifsq PRIVATE librpitx::librpitx)
@@ -217,7 +213,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pidcf77 pifsq pift8 rpitx sendook)
+foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pifsq pift8 rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
