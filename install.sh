@@ -276,6 +276,7 @@ BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_EN
 INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
 if [ -n "${INSTALLED_BLOCK}" ] && [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
   echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been updated." >&2
+  echo "${INFO} Restore the '${BOOT_CONFIG_END_MARKER}' line or remove the block, and re-run rpitx-ui installation." >&2
   exit 1
 fi
 

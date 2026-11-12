@@ -164,6 +164,7 @@ if [ -z "${INSTALLED_BLOCK}" ]; then
   echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
 elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
   echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been removed." >&2
+  echo "${INFO} Restore the '${BOOT_CONFIG_END_MARKER}' line or remove the block, and re-run rpitx-ui uninstallation." >&2
   exit 1
 else
   sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}"
