@@ -296,6 +296,10 @@ else
   NEW_BOOT_CONFIG="${BOOT_CONFIG_FILE}.rpitx-ui"
   sudo cp -p "${BOOT_CONFIG_FILE}" "${NEW_BOOT_CONFIG}"
   sudo sed -i -e "${BOOT_CONFIG_BLOCK_RANGE}d" -e "\$a\\" "${NEW_BOOT_CONFIG}"
+  # [all] in front of the block when the file ends in a conditional section
+  if grep '^[[:space:]]*\[' "${NEW_BOOT_CONFIG}" | tail -n 1 | grep -qiv '^[[:space:]]*\[all\]'; then
+    echo '[all]' | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
+  fi
   echo "${RECOMMENDED_BLOCK}" | sudo tee -a "${NEW_BOOT_CONFIG}" > /dev/null
   # Renamed over the present file, so an interrupted installation leaves either the old or the new file complete
   sudo mv "${NEW_BOOT_CONFIG}" "${BOOT_CONFIG_FILE}"
