@@ -176,7 +176,7 @@ jobs:
             echo "::group::Verify installed scripts"
             INSTALLED_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
-              fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
+              fm2ssb.sh snap2spectrum.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
               testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
               testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
@@ -255,7 +255,7 @@ jobs:
             echo "::group::Verify scripts removed"
             ALL_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
-              fm2ssb.sh snap2spectrum.sh snapsstv.sh sv1afnfilter.sh
+              fm2ssb.sh snap2spectrum.sh
               testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
               testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
               testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh

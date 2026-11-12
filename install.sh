@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = install.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.25'
+PACKAGE_VERSION='1.26'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'

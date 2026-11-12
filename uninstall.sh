@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.25'
+PACKAGE_VERSION='1.26'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
@@ -94,8 +94,8 @@ echo "${INFO} Binaries removed!"
 print_banner "$COLOR_CYAN" 'Removing rpitx-ui shell scripts...'
 SCRIPTS=(
   rpitx-ui
-  fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh snapsstv.sh
-  sv1afnfilter.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
+  fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh
+  testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
   testfreedv.sh testfsq.sh testmorse.sh testnfm.sh
   testopera.sh testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
   testssb.sh testsstv.sh testtune.sh transponder.sh
