@@ -127,13 +127,12 @@ set_build_jobs() {
   echo "${INFO} Parallel build jobs: ${BUILD_JOBS} (CPU cores: ${cpu_cores}, available memory: ${available_mib} MiB)"
 }
 
-# Print the boot configuration settings on standard input that differ from BOOT_CONFIG_SETTINGS, each followed by the setting
-# it differs from: print_conflicting_settings
+# Print each setting on standard input that differs from BOOT_CONFIG_SETTINGS and its counterpart: print_conflicting_settings
 print_conflicting_settings() {
   local unconditional_lines setting
 
   # Conditional sections apply to some boards only and are skipped
-  unconditional_lines=$(tr -d '\r' | awk '/^\[/ { conditional = ($0 != "[all]") } !conditional')
+  unconditional_lines=$(tr -d '\r' | awk '/^[ \t]*\[/ { conditional = (tolower($0) !~ /^[ \t]*\[all\]/) } !conditional')
   for setting in "${BOOT_CONFIG_SETTINGS[@]}"; do
     sed -n "s/^[[:space:]]*\(${setting%%=*}=[^[:space:]#]*\).*/\1 ${setting}/p" <<< "${unconditional_lines}" \
       | grep -v "^${setting} " || true
@@ -282,9 +281,8 @@ fi
 
 # The block stays where it is while it holds BOOT_CONFIG_SETTINGS and no setting after it differs from them
 RECOMMENDED_BLOCK=$(printf '%s\n' "${BOOT_CONFIG_BEGIN_MARKER}" "${BOOT_CONFIG_SETTINGS[@]}" "${BOOT_CONFIG_END_MARKER}")
-OVERRIDING_SETTINGS=$(
-  sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${BOOT_CONFIG_FILE}" | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" | print_conflicting_settings
-)
+OVERRIDING_SETTINGS=$(sed -n "/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,\$p" "${BOOT_CONFIG_FILE}" \
+  | sed "1,/^${BOOT_CONFIG_END_MARKER}\r\?\$/d" | print_conflicting_settings)
 if [ "${INSTALLED_BLOCK}" = "${RECOMMENDED_BLOCK}" ] && [ -z "${OVERRIDING_SETTINGS}" ]; then
   echo "${INFO} rpitx-ui block already present in ${BOOT_CONFIG_FILE}, skipping."
 else
