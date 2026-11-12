@@ -157,21 +157,19 @@ else
   BOOT_CONFIG_FILE='/boot/firmware/config.txt'
 fi
 
-if [ -f "${BOOT_CONFIG_FILE}" ]; then
-  # rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
-  BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
-  INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
-  if [ -z "${INSTALLED_BLOCK}" ]; then
-    echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
-  elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
-    echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been removed." >&2
-    exit 1
-  else
-    sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}"
-    # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
-    sudo touch "${REBOOT_REQUIRED_FLAG}"
-    echo "${INFO} Removed rpitx-ui block from ${BOOT_CONFIG_FILE}"
-  fi
+# rpitx-ui block of the file - without its END marker it cannot be told from the lines after it
+BOOT_CONFIG_BLOCK_RANGE="/^${BOOT_CONFIG_BEGIN_MARKER}\r\?\$/,/^${BOOT_CONFIG_END_MARKER}\r\?\$/"
+INSTALLED_BLOCK=$(sed -n "${BOOT_CONFIG_BLOCK_RANGE}p" "${BOOT_CONFIG_FILE}" | tr -d '\r')
+if [ -z "${INSTALLED_BLOCK}" ]; then
+  echo "${INFO} No rpitx-ui block found in ${BOOT_CONFIG_FILE}, nothing to revert."
+elif [ "$(tail -n 1 <<< "${INSTALLED_BLOCK}")" != "${BOOT_CONFIG_END_MARKER}" ]; then
+  echo "${ERROR} rpitx-ui block in ${BOOT_CONFIG_FILE} is damaged (no END marker) and has not been removed." >&2
+  exit 1
+else
+  sudo sed -i "${BOOT_CONFIG_BLOCK_RANGE}d" "${BOOT_CONFIG_FILE}"
+  # Pending reboot flag - keeps the reboot request for later runs until the system is rebooted
+  sudo touch "${REBOOT_REQUIRED_FLAG}"
+  echo "${INFO} Removed rpitx-ui block from ${BOOT_CONFIG_FILE}"
 fi
 
 print_banner "$COLOR_GREEN" "rpitx-ui-${PACKAGE_VERSION} has been uninstalled successfully!"
