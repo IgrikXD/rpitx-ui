@@ -9,6 +9,7 @@
 # ----------------------------------------------------------
 add_executable(rpitx_clock_utils_tests
     test_carrier_pll.cpp
+    test_pll_step_feedback.cpp
 )
 
 target_link_libraries(rpitx_clock_utils_tests

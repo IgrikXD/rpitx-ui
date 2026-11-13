@@ -217,13 +217,14 @@ namespace pisstv {
             const auto transmit{[&dma, &sampler, &stepFeedback, &tones, &samples]() {
                 samples.clear();
                 sampler.append(tones, samples);
-                stepFeedback.apply(samples);
-                // SetFrequencySamples blocks until the block is in the DMA FIFO (see
-                // ngfmdmasync.cpp upstream), so no manual pacing is needed here.
                 for (std::size_t offset{0}; offset < samples.size() && running.load(std::memory_order_relaxed);
                      offset += DMA_BLOCK_SAMPLES) {
-                    dma.SetFrequencySamples(samples.data() + offset,
-                                            std::min(DMA_BLOCK_SAMPLES, samples.size() - offset));
+                    const auto block{
+                        std::span{samples}.subspan(offset, std::min(DMA_BLOCK_SAMPLES, samples.size() - offset))};
+                    stepFeedback.apply(block);
+                    // SetFrequencySamples blocks until the block is in the DMA FIFO (see
+                    // ngfmdmasync.cpp upstream), so no manual pacing is needed here.
+                    dma.SetFrequencySamples(block.data(), block.size());
                 }
             }};
 
