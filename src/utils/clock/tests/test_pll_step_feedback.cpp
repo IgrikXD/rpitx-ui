@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <numeric>
 #include <ostream>
 #include <span>
@@ -24,11 +23,13 @@
 #include <vector>
 
 #include "carrier_pll.h"
+#include "fake_clock.h"
 #include "pll_step_feedback.h"
 
 namespace {
     /**
-     * @brief Carrier on an integer step of the PLL multiplier of the stand-in clock: 16 times half the crystal.
+     * @brief Carrier on an integer step of the PLL multiplier of the stand-in clock, which every test leaves
+     *        on BCM2711 with the pre-divider: 16 times half the crystal.
      */
     constexpr double INTEGER_STEP_CARRIER_HZ{432'000'000.0};
 
@@ -41,11 +42,6 @@ namespace {
      * @brief Highest deviation the feedback is constructed for - the white level of an SSTV picture.
      */
     constexpr float MAX_DEVIATION_HZ{2'300.0F};
-
-    /**
-     * @brief Mask of the 20-bit PLL fraction.
-     */
-    constexpr std::uint32_t FRACTION_MASK{0xFFFFFU};
 
     /**
      * @brief Samples of a test tone: one step of remainder moves the mean of 480 samples by 0.054 Hz.
@@ -62,25 +58,6 @@ namespace {
      * @brief Deviation whose share of that correction, 119 Hz, exceeds the two steps the constructor adds (51.5 Hz).
      */
     constexpr float WIDE_DEVIATION_HZ{600'000.0F};
-
-    /**
-     * @brief Carrier clock stand-in that rounds a deviation to the PLL fraction as clkgpio::GetMasterFrac
-     *        does with the pre-divider on BCM2711: the multiplier is twice the carrier over the corrected
-     *        crystal frequency, cut down to whole units of the fraction, of which only the fraction is kept.
-     */
-    struct FakeClock {
-        bool pi_is_2711{true};
-        std::uint64_t XOSC_FREQUENCY{54'000'000};
-        int PllFixDivider{1};
-        double carrier{MID_FRACTION_CARRIER_HZ};
-        double clockCorrectionPpm{0.0};  ///< Clock correction as clkgpio takes it from NTP (clk_ppm).
-
-        std::uint32_t GetMasterFrac(double frequency) {
-            const double crystal{static_cast<double>(XOSC_FREQUENCY) * (1.0 - clockCorrectionPpm * 1e-6)};
-            const double multiplier{(carrier + frequency) * 2.0 / crystal};
-            return static_cast<std::uint32_t>(multiplier * PLL_FRACTION_UNITS) & FRACTION_MASK;
-        }
-    };
 
     /**
      * @brief Deviation the stand-in clock delivers for a requested one, in Hz above its unmodulated carrier.
@@ -177,7 +154,7 @@ INSTANTIATE_TEST_SUITE_P(DeviationsAndCarriers, PllStepFeedbackToneTest, ::testi
  */
 TEST(PllStepFeedbackTest, KeepsTheRemainderBetweenCalls) {
     constexpr float tone{1'200.0F};
-    FakeClock fakeClock{};
+    FakeClock fakeClock{.carrier = MID_FRACTION_CARRIER_HZ};
     const double stepHz{carrierStepHz(fakeClock)};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
     std::vector<float> samples(TONE_SAMPLES, tone);
@@ -233,7 +210,7 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
  * as well.
  */
 TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) {
-    FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
+    FakeClock fakeClock{.carrier = MID_FRACTION_CARRIER_HZ, .clockCorrectionPpm = CLOCK_CORRECTION_PPM};
     const double stepHz{carrierStepHz(fakeClock)};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, WIDE_DEVIATION_HZ};
     std::vector<float> samples(TONE_SAMPLES, WIDE_DEVIATION_HZ);
@@ -259,6 +236,19 @@ TEST(PllStepFeedbackTest, RefusesACarrierWhoseStepTheClockCorrectionReaches) {
         integerStep - static_cast<double>(WIDE_DEVIATION_HZ) - stepsAboveDeviation * carrierStepHz(fakeClock);
 
     EXPECT_THROW((PllStepFeedback<FakeClock>{fakeClock, WIDE_DEVIATION_HZ}), std::runtime_error);
+}
+
+/**
+ * @brief A deviation as wide as the distance between two integer steps is refused at any carrier.
+ *
+ * A request 27 MHz above the carrier has the fraction of the carrier again, so the fractions
+ * show no wrap although an integer step lies in between.
+ */
+TEST(PllStepFeedbackTest, RefusesADeviationAsWideAsTheIntegerSteps) {
+    constexpr float stepDistance{27'000'000.0F};
+    FakeClock fakeClock{.carrier = MID_FRACTION_CARRIER_HZ};
+
+    EXPECT_THROW((PllStepFeedback<FakeClock>{fakeClock, stepDistance}), std::runtime_error);
 }
 
 namespace {

@@ -36,6 +36,11 @@ namespace pissb {
     inline constexpr int TARGET_SAMPLE_RATE{48'000};
 
     /**
+     * @brief Highest frequency deviation iqdmasync derives from two IQ samples, in Hz: half the sample rate.
+     */
+    inline constexpr double IQ_HALF_BANDWIDTH_HZ{TARGET_SAMPLE_RATE / 2.0};
+
+    /**
      * @brief Target output frames per processing block (~21 ms at 48 kHz).
      */
     inline constexpr std::size_t TARGET_OUTPUT_FRAMES{1024};

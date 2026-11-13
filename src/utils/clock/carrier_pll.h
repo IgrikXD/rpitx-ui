@@ -32,6 +32,11 @@ inline constexpr uint64_t MAX_CARRIER_FREQUENCY_HZ{2'000'000'000};
 inline constexpr uint64_t MIN_PLL_RATE_HZ{600'000'000};
 
 /**
+ * @brief Largest divider librpitx chooses between the carrier PLL and the carrier.
+ */
+inline constexpr uint64_t MAX_PLL_DIVIDER{4095};
+
+/**
  * @brief Rate of the carrier PLL for a divider chosen by librpitx, in Hz.
  *
  * Divider 1 stands for the feedback pre-divider of the PLL, which doubles its rate.
@@ -73,12 +78,17 @@ template <typename Clock>
  * ComputeBestLO is called as clkgpio::SetCenterFrequency calls it: with the PLL frequency, twice
  * the carrier on BCM2711 (fixed post-divider), and the half-span guard band of librpitx.
  *
- * @tparam Clock    clkgpio, or any type with its pi_is_2711, PllFixDivider and ComputeBestLO().
+ * The diagnostic of a PLL rate below the minimum names its cause. A guard band at least as wide
+ * as the distance between two integer steps of the PLL multiplier holds one for every divider that
+ * keeps the PLL at its minimum rate, so only a higher carrier is accepted. A narrower guard band
+ * holds one for every such divider only at some carriers, so another carrier nearby is accepted.
+ *
+ * @tparam Clock    clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY, PllFixDivider and ComputeBestLO().
  * @param clock     Carrier clock the divider is chosen on.
  * @param frequency Carrier frequency in Hz.
  * @param guardBand Guard band passed to ComputeBestLO, in Hz as librpitx counts it.
  * @param subject   What the setting does, named in the diagnostic (e.g. "generates a 50000 Hz carrier").
- * @param advice    What else to change, appended to "use a higher carrier frequency" in the diagnostic.
+ * @param advice    What else to change, appended to the carrier advice of the diagnostic.
  *
  * @throws std::runtime_error when frequency exceeds MAX_CARRIER_FREQUENCY_HZ, ComputeBestLO finds no
  *         divider, or the chosen divider would run the PLL below MIN_PLL_RATE_HZ.
@@ -98,13 +108,44 @@ void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::stri
     }
     const uint64_t pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
     if (pllRate < MIN_PLL_RATE_HZ) {
+        // Smallest divider that keeps the PLL at its minimum rate: its integer steps lie the furthest apart.
+        const uint64_t slowestDivider{(MIN_PLL_RATE_HZ + pllFrequency - 1) / pllFrequency};
+        const bool nextToIntegerStep{slowestDivider <= MAX_PLL_DIVIDER &&
+                                     2.0 * guardBand * static_cast<double>(slowestDivider) <
+                                         static_cast<double>(clock.XOSC_FREQUENCY)};
         std::string message{"no PLL setting "};
         message += subject;
-        message += " on this board (the PLL would run at " + std::to_string(pllRate) + " Hz, below its " +
-                   std::to_string(MIN_PLL_RATE_HZ) + " Hz minimum); use a higher carrier frequency";
+        message += " on this board (";
+        message += nextToIntegerStep
+                       ? "the carrier lies next to an integer step of the PLL multiplier for every divider that "
+                         "runs the PLL at " +
+                             std::to_string(MIN_PLL_RATE_HZ) + " Hz or above); use another carrier frequency"
+                       : "the PLL would run at " + std::to_string(pllRate) + " Hz, below its " +
+                             std::to_string(MIN_PLL_RATE_HZ) + " Hz minimum); use a higher carrier frequency";
         message += advice;
         throw std::runtime_error{message};
     }
+}
+
+/**
+ * @brief Whether a range of frequency deviations around the carrier of clock crosses an integer step
+ *        of the PLL multiplier.
+ *
+ * The DMA engines of librpitx rewrite only the fraction of the multiplier, so a frequency sample
+ * behind an integer step is transmitted a whole step away from its frequency.
+ *
+ * @tparam Clock           clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY, PllFixDivider and
+ *                         GetMasterFrac().
+ * @param clock            Carrier clock set up for its carrier.
+ * @param lowestDeviation  Lowest frequency deviation of the range, in Hz.
+ * @param highestDeviation Highest frequency deviation of the range, in Hz.
+ */
+template <typename Clock>
+[[nodiscard]] bool crossesIntegerStep(Clock& clock, double lowestDeviation, double highestDeviation) {
+    // A range as wide as the distance between two integer steps holds one wherever it lies; in a
+    // narrower one the fraction starts again from 0 behind the step.
+    return highestDeviation - lowestDeviation >= carrierStepHz(clock) * PLL_FRACTION_UNITS ||
+           clock.GetMasterFrac(lowestDeviation) > clock.GetMasterFrac(highestDeviation);
 }
 
 /**
@@ -123,6 +164,23 @@ void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::stri
 void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
 
 /**
+ * @brief Refuse a carrier whose modulated band crosses an integer step of the PLL multiplier.
+ *
+ * librpitx keeps the band of the sample rate clear of the integer steps where a PLL divider
+ * allows it and programs the carrier all the same where none does; the part of the band behind
+ * the step would then be transmitted a whole step away (crossesIntegerStep()).
+ *
+ * @param clock         Carrier clock set up for its carrier: a clkgpio or a librpitx DMA engine.
+ * @param frequency     Carrier frequency in Hz.
+ * @param halfBandwidth Half the width of the band modulated around the carrier, in Hz: the highest
+ *                      frequency deviation of the samples to either side of it.
+ * @param advice        What else to change, appended to "use another carrier frequency" in the diagnostic.
+ *
+ * @throws std::runtime_error when the band crosses an integer step of the PLL multiplier.
+ */
+void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth, std::string_view advice);
+
+/**
  * @brief Program the carrier PLL of clock for frequency and the band of +-halfBandwidth around it.
  *
  * The PLL divider is chosen for the whole band and the PLL is programmed through
@@ -134,7 +192,6 @@ void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
  * @param halfBandwidth Half the width of the band modulated around the carrier, in Hz (0 for an
  *                      unmodulated carrier).
  *
- * @throws std::runtime_error as choosePllDivider() does, or when the band crosses an integer step
- *         of the PLL multiplier.
+ * @throws std::runtime_error as choosePllDivider() and checkCarrierBand() do.
  */
 void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth);
