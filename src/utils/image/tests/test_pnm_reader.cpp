@@ -98,7 +98,7 @@ namespace {
     [[nodiscard]] std::string writeTempFile(const std::string& data) {
         std::random_device randomDevice;
         const auto path{
-            (std::filesystem::temp_directory_path() / ("rpitx_test_" + std::to_string(randomDevice()) + ".pgm"))
+            (std::filesystem::temp_directory_path() / ("rpitx_test_" + std::to_string(randomDevice()) + ".pnm"))
                 .string()};
         std::ofstream file{path, std::ios::binary};
         file.write(data.data(), static_cast<std::streamsize>(data.size()));
@@ -175,7 +175,7 @@ TEST(PnmReaderTest, ReadsRedGreenBlueSamplesOfPixmap) {
  * bytes-per-sample or the samples-per-pixel factor leaves raster bytes behind, which the
  * End after the only row rules out, and the big-endian 0x8000 must round to 128.
  */
-TEST(PnmReaderTest, RescalesSixteenBitPixmapSamples) {
+TEST(PnmReaderTest, ReadsTwoBytesForEachSampleOfSixteenBitPixmap) {
     const std::vector<std::uint8_t> raster{0x00, 0x00, 0x80, 0x00, 0xFF, 0xFF};
     const auto pnmReader{makeMemoryReader(PnmFormat::Pixmap, makePpm(1, 1, 65535, raster))};
 

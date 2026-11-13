@@ -48,6 +48,11 @@ namespace {
     constexpr std::uint32_t FRACTION_MASK{0xFFFFFU};
 
     /**
+     * @brief Samples of a test tone: one step of remainder moves the mean of 480 samples by 0.054 Hz.
+     */
+    constexpr std::size_t TONE_SAMPLES{480};
+
+    /**
      * @brief Clock correction close to the largest one librpitx applies, in ppm: a unit of the fraction
      *        of the corrected clock is 1.000199 nominal steps.
      */
@@ -99,7 +104,9 @@ namespace {
             })};
         return sum / static_cast<double>(requests.size());
     }
+}  // namespace
 
+namespace {
     struct ToneTestCase {
         std::string_view name;
         double carrier;
@@ -140,18 +147,17 @@ class PllStepFeedbackToneTest : public ::testing::TestWithParam<ToneTestCase> {}
  * down the same way, up to a whole step off. No single sample is a step or more away from the tone.
  */
 TEST_P(PllStepFeedbackToneTest, DeliversTheToneOnAverage) {
-    constexpr std::size_t toneSamples{480};
     const auto& testCase{GetParam()};
     FakeClock fakeClock{.carrier = testCase.carrier};
     const double stepHz{carrierStepHz(fakeClock)};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
-    std::vector<float> samples(toneSamples, testCase.tone);
+    std::vector<float> samples(TONE_SAMPLES, testCase.tone);
 
     pllStepFeedback.apply(samples);
 
     EXPECT_NEAR(meanDeliveredDeviation(fakeClock, samples),
                 static_cast<double>(testCase.tone),
-                stepHz / static_cast<double>(toneSamples));
+                stepHz / static_cast<double>(TONE_SAMPLES));
     for (const float sample: samples) {
         EXPECT_LT(std::abs(deliveredDeviation(fakeClock, sample) - static_cast<double>(testCase.tone)), stepHz);
     }
@@ -170,12 +176,11 @@ INSTANTIATE_TEST_SUITE_P(DeviationsAndCarriers, PllStepFeedbackToneTest, ::testi
  * started every call from zero would round each sample down to 46 units, 15.5 Hz below it.
  */
 TEST(PllStepFeedbackTest, KeepsTheRemainderBetweenCalls) {
-    constexpr std::size_t toneSamples{480};
     constexpr float tone{1'200.0F};
     FakeClock fakeClock{};
     const double stepHz{carrierStepHz(fakeClock)};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
-    std::vector<float> samples(toneSamples, tone);
+    std::vector<float> samples(TONE_SAMPLES, tone);
 
     for (float& sample: samples) {
         pllStepFeedback.apply(std::span<float>{&sample, 1});
@@ -183,7 +188,7 @@ TEST(PllStepFeedbackTest, KeepsTheRemainderBetweenCalls) {
 
     EXPECT_NEAR(meanDeliveredDeviation(fakeClock, samples),
                 static_cast<double>(tone),
-                stepHz / static_cast<double>(toneSamples));
+                stepHz / static_cast<double>(TONE_SAMPLES));
 }
 
 /**
@@ -196,10 +201,11 @@ TEST(PllStepFeedbackTest, KeepsTheRemainderBetweenCalls) {
  * one unit lower belongs to the integer step below, 27 MHz away.
  */
 TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
+    constexpr double carrierAboveStep{20.0};
     constexpr float tone{1'500.0F};
     constexpr float idle{0.0F};
     constexpr std::size_t idleSamples{50};
-    FakeClock fakeClock{.carrier = INTEGER_STEP_CARRIER_HZ + 20.0};
+    FakeClock fakeClock{.carrier = INTEGER_STEP_CARRIER_HZ + carrierAboveStep};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
     std::vector<float> deviations;
     for (const std::size_t toneSamples: {7U, 8U, 9U}) {
@@ -227,11 +233,10 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
  * as well.
  */
 TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) {
-    constexpr std::size_t toneSamples{480};
     FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
     const double stepHz{carrierStepHz(fakeClock)};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, WIDE_DEVIATION_HZ};
-    std::vector<float> samples(toneSamples, WIDE_DEVIATION_HZ);
+    std::vector<float> samples(TONE_SAMPLES, WIDE_DEVIATION_HZ);
 
     pllStepFeedback.apply(samples);
 
@@ -247,9 +252,11 @@ TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) 
  * constructor adds to it, inside the 119 Hz the corrected clock is asked for on top of a 600 kHz tone.
  */
 TEST(PllStepFeedbackTest, RefusesACarrierWhoseStepTheClockCorrectionReaches) {
+    constexpr double stepsAboveDeviation{4.0};
     FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
     const double integerStep{INTEGER_STEP_CARRIER_HZ * (1.0 - CLOCK_CORRECTION_PPM * 1e-6)};
-    fakeClock.carrier = integerStep - static_cast<double>(WIDE_DEVIATION_HZ) - 4.0 * carrierStepHz(fakeClock);
+    fakeClock.carrier =
+        integerStep - static_cast<double>(WIDE_DEVIATION_HZ) - stepsAboveDeviation * carrierStepHz(fakeClock);
 
     EXPECT_THROW((PllStepFeedback<FakeClock>{fakeClock, WIDE_DEVIATION_HZ}), std::runtime_error);
 }
@@ -258,15 +265,16 @@ namespace {
     struct IntegerStepTestCase {
         std::string_view name;
         double stepAboveCarrier;  ///< Distance from the carrier up to the next integer step, in Hz.
-        bool accepted;
+        bool expectedAccepted;
     };
 
     /**
-     * @brief Render an IntegerStepTestCase as its name and the distance to the integer step for gtest
-     *        listings and failure messages.
+     * @brief Render an IntegerStepTestCase as its name, the distance to the integer step and the expected
+     *        outcome for gtest listings and failure messages.
      */
     void PrintTo(const IntegerStepTestCase& testCase, std::ostream* os) {
-        *os << testCase.name << " {stepAboveCarrier=" << testCase.stepAboveCarrier << "}";
+        *os << std::boolalpha << testCase.name << " {stepAboveCarrier=" << testCase.stepAboveCarrier
+            << ", expectedAccepted=" << testCase.expectedAccepted << "}";
     }
 
     /**
@@ -301,7 +309,7 @@ TEST_P(PllStepFeedbackIntegerStepTest, RefusesACarrierWhoseDeviationsCrossTheSte
     const auto& testCase{GetParam()};
     FakeClock fakeClock{.carrier = INTEGER_STEP_CARRIER_HZ - testCase.stepAboveCarrier};
 
-    if (testCase.accepted == false) {
+    if (testCase.expectedAccepted == false) {
         try {
             PllStepFeedback<FakeClock>{fakeClock, MAX_DEVIATION_HZ};
             FAIL() << "the carrier was accepted";
@@ -315,7 +323,7 @@ TEST_P(PllStepFeedbackIntegerStepTest, RefusesACarrierWhoseDeviationsCrossTheSte
     }
 
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
-    std::vector<float> samples(100, MAX_DEVIATION_HZ);
+    std::vector<float> samples(TONE_SAMPLES, MAX_DEVIATION_HZ);
     pllStepFeedback.apply(samples);
     for (const float sample: samples) {
         EXPECT_LT(std::abs(deliveredDeviation(fakeClock, sample) - static_cast<double>(MAX_DEVIATION_HZ)),
