@@ -208,8 +208,8 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
     FakeClock fakeClock{.carrier = INTEGER_STEP_CARRIER_HZ + carrierAboveStep};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
     std::vector<float> deviations;
-    for (const std::size_t toneSamples: {7U, 8U, 9U}) {
-        deviations.insert(deviations.end(), toneSamples, tone);
+    for (const std::size_t toneRun: {7U, 8U, 9U}) {
+        deviations.insert(deviations.end(), toneRun, tone);
         deviations.insert(deviations.end(), idleSamples, idle);
     }
     std::vector<float> requests{deviations};
