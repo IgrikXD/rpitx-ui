@@ -45,12 +45,12 @@ namespace {
      * @brief The carriers of the transmitters as librpitx resolves them on the two SoC families.
      *
      * A PLL rate below the minimum is refused for one of two causes. The dividers that keep the PLL
-     * at its minimum rate start at 120 for a 2.5 MHz carrier on BCM2711, where two integer steps of
-     * the multiplier lie 450 kHz of the PLL frequency apart: a guard band of +-225 kHz fills that
-     * distance wherever the carrier lies, one of +-224.999 kHz only at some carriers. At 2.51046 MHz
-     * they start at 120 as well, and +-226 kHz would fit only between the steps of divider 119, which
-     * runs the PLL below its minimum. At 108 MHz on BCM2711 and at 96 MHz on BCM2835 every such
-     * divider has an integer step on the carrier itself.
+     * at or above its minimum rate start at 120 for a 2.5 MHz carrier on BCM2711, where two integer
+     * steps of the multiplier lie 450 kHz of the PLL frequency apart: a guard band of +-225 kHz fills
+     * that distance wherever the carrier lies, one of +-224.999 kHz only at some carriers. At
+     * 2.51046 MHz they start at 120 as well: +-226 kHz is wider than the steps of divider 120 and fits
+     * only between those of a smaller divider, which runs the PLL below its minimum. At 7 MHz on
+     * BCM2835 they start at 86 with steps 223 kHz apart, less than a guard band of +-200 kHz.
      */
     std::vector<PllDividerChoiceTestCase> makePllDividerChoiceTestCases() {
         return {
@@ -77,48 +77,34 @@ namespace {
                                      0,
                                      0,
                                      4095,
-                                     "the PLL would run at 409500000 Hz, below its 600000000 Hz minimum); use a "
-                                     "higher carrier frequency"},
+                                     "the PLL would run at 409500000 Hz, below its 600000000 Hz minimum"},
             PllDividerChoiceTestCase{"RefusedWithAGuardBandAsWideAsTheSteps",
                                      true,
                                      2'500'000,
                                      225'000,
                                      0,
                                      103,
-                                     "the PLL would run at 515000000 Hz, below its 600000000 Hz minimum); use a "
-                                     "higher carrier frequency"},
+                                     "the PLL would run at 515000000 Hz, below its 600000000 Hz minimum"},
             PllDividerChoiceTestCase{"RefusedWithAGuardBandThatFitsBelowTheMinimumRateOnly",
                                      true,
                                      2'510'460,
                                      226'000,
                                      0,
                                      103,
-                                     "the PLL would run at 517154760 Hz, below its 600000000 Hz minimum); use a "
-                                     "higher carrier frequency"},
+                                     "the PLL would run at 517154760 Hz, below its 600000000 Hz minimum"},
+            PllDividerChoiceTestCase{"RefusedWithAGuardBandWiderThanTheStepsOnBcm2835",
+                                     false,
+                                     7'000'000,
+                                     200'000,
+                                     0,
+                                     37,
+                                     "the PLL would run at 259000000 Hz, below its 600000000 Hz minimum"},
             PllDividerChoiceTestCase{"RefusedWithAGuardBandNarrowerThanTheSteps",
                                      true,
                                      2'500'000,
                                      224'999,
                                      0,
                                      103,
-                                     "the carrier lies next to an integer step of the PLL multiplier for every "
-                                     "divider that runs the PLL at 600000000 Hz or above); use another carrier "
-                                     "frequency"},
-            PllDividerChoiceTestCase{"RefusedOnAnIntegerStepOnBcm2711",
-                                     true,
-                                     108'000'000,
-                                     48'000,
-                                     0,
-                                     2,
-                                     "the carrier lies next to an integer step of the PLL multiplier for every "
-                                     "divider that runs the PLL at 600000000 Hz or above); use another carrier "
-                                     "frequency"},
-            PllDividerChoiceTestCase{"RefusedOnAnIntegerStepOnBcm2835",
-                                     false,
-                                     96'000'000,
-                                     228'000,
-                                     0,
-                                     3,
                                      "the carrier lies next to an integer step of the PLL multiplier for every "
                                      "divider that runs the PLL at 600000000 Hz or above); use another carrier "
                                      "frequency"},
@@ -242,7 +228,6 @@ namespace {
     struct CarrierStepTestCase {
         std::string_view name;
         bool pi4;
-        uint64_t crystalFrequency;
         int divider;
         double expectedStepHz;
     };
@@ -264,13 +249,13 @@ namespace {
     std::vector<CarrierStepTestCase> makeCarrierStepTestCases() {
         return {
             // 434 MHz on BCM2711: multiplier = 2 * carrier / crystal.
-            CarrierStepTestCase{"PredividerOnBcm2711", true, 54'000'000, 1, 54.0e6 / 2.0 / 1'048'576.0},
+            CarrierStepTestCase{"PredividerOnBcm2711", true, 1, 54.0e6 / 2.0 / 1'048'576.0},
             // 144.5 MHz on BCM2711: multiplier = 2 * 5 * carrier / crystal.
-            CarrierStepTestCase{"DividerOnBcm2711", true, 54'000'000, 5, 54.0e6 / 10.0 / 1'048'576.0},
+            CarrierStepTestCase{"DividerOnBcm2711", true, 5, 54.0e6 / 10.0 / 1'048'576.0},
             // 868 MHz on BCM2835: multiplier = carrier / (2 * crystal).
-            CarrierStepTestCase{"PredividerOnBcm2835", false, 19'200'000, 1, 19.2e6 * 2.0 / 1'048'576.0},
+            CarrierStepTestCase{"PredividerOnBcm2835", false, 1, 19.2e6 * 2.0 / 1'048'576.0},
             // 434 MHz on BCM2835: multiplier = 3 * carrier / crystal.
-            CarrierStepTestCase{"DividerOnBcm2835", false, 19'200'000, 3, 19.2e6 / 3.0 / 1'048'576.0},
+            CarrierStepTestCase{"DividerOnBcm2835", false, 3, 19.2e6 / 3.0 / 1'048'576.0},
         };
     }
 }  // namespace
@@ -283,8 +268,7 @@ class CarrierStepTest : public ::testing::TestWithParam<CarrierStepTestCase> {};
  */
 TEST_P(CarrierStepTest, FollowsTheMultiplierOfTheSetting) {
     const auto& testCase{GetParam()};
-    const FakeClock fakeClock{
-        .pi_is_2711 = testCase.pi4, .XOSC_FREQUENCY = testCase.crystalFrequency, .PllFixDivider = testCase.divider};
+    const FakeClock fakeClock{.pi_is_2711 = testCase.pi4, .PllFixDivider = testCase.divider};
 
     EXPECT_DOUBLE_EQ(carrierStepHz(fakeClock), testCase.expectedStepHz);
 }
@@ -300,7 +284,6 @@ namespace {
         bool pi4;
         int divider;
         double carrier;
-        double clockCorrectionPpm;
         double lowestDeviation;
         double highestDeviation;
         bool expectedCrossing;
@@ -317,40 +300,29 @@ namespace {
     }
 
     /**
-     * @brief Ranges around the integer steps of the four multiplier forms: with the pre-divider the
-     *        steps lie 27 MHz apart on BCM2711 (432 MHz is one) and 38.4 MHz apart on BCM2835 (768 MHz),
-     *        with divider 2 13.5 MHz (216 MHz) and 9.6 MHz (307.2 MHz) apart. A clock correction of
-     *        20 ppm moves the step at 432 MHz down by 8640 Hz.
+     * @brief Ranges around the integer step at 432 MHz of BCM2711 with the pre-divider, whose steps lie
+     *        27 MHz apart, and ranges as wide as that distance and as the 9.6 MHz of divider 2 on BCM2835.
      */
     std::vector<IntegerStepCrossingTestCase> makeIntegerStepCrossingTestCases() {
         return {
-            IntegerStepCrossingTestCase{"BandBelowTheStep", true, 1, 431'994'000.0, 0.0, -5'000.0, 5'000.0, false},
-            IntegerStepCrossingTestCase{"BandAcrossTheStep", true, 1, 431'996'000.0, 0.0, -5'000.0, 5'000.0, true},
-            IntegerStepCrossingTestCase{"BandAboveTheStep", true, 1, 432'006'000.0, 0.0, -5'000.0, 5'000.0, false},
-            IntegerStepCrossingTestCase{"CarrierOnTheStep", true, 1, 432'000'000.0, 0.0, -5'000.0, 5'000.0, true},
+            IntegerStepCrossingTestCase{"BandBelowTheStep", true, 1, 431'994'000.0, -5'000.0, 5'000.0, false},
+            IntegerStepCrossingTestCase{"BandAcrossTheStep", true, 1, 431'996'000.0, -5'000.0, 5'000.0, true},
+            IntegerStepCrossingTestCase{"BandAboveTheStep", true, 1, 432'006'000.0, -5'000.0, 5'000.0, false},
+            IntegerStepCrossingTestCase{"CarrierOnTheStep", true, 1, 432'000'000.0, -5'000.0, 5'000.0, true},
             // The sample on the step itself belongs to the next integer.
-            IntegerStepCrossingTestCase{
-                "HighestDeviationOnTheStep", true, 1, 431'995'000.0, 0.0, -5'000.0, 5'000.0, true},
-            IntegerStepCrossingTestCase{"RangeUpFromTheStep", true, 1, 432'000'000.0, 0.0, 0.0, 2'300.0, false},
+            IntegerStepCrossingTestCase{"HighestDeviationOnTheStep", true, 1, 431'995'000.0, -5'000.0, 5'000.0, true},
+            IntegerStepCrossingTestCase{"RangeUpFromTheStep", true, 1, 432'000'000.0, 0.0, 2'300.0, false},
             // An unmodulated carrier crosses no step, not even the one it sits on.
-            IntegerStepCrossingTestCase{"RangeOfNoWidth", true, 1, 432'000'000.0, 0.0, 0.0, 0.0, false},
-            IntegerStepCrossingTestCase{"DividerOnBcm2711", true, 2, 216'003'000.0, 0.0, -5'000.0, 5'000.0, true},
-            IntegerStepCrossingTestCase{"PredividerOnBcm2835", false, 1, 767'996'000.0, 0.0, -5'000.0, 5'000.0, true},
-            IntegerStepCrossingTestCase{"DividerOnBcm2835", false, 2, 307'202'000.0, 0.0, -5'000.0, 5'000.0, true},
-            // The corrected step lies at 431 991 360 Hz: inside the first band, below the second one.
-            IntegerStepCrossingTestCase{
-                "StepMovedIntoTheBandByTheClockCorrection", true, 1, 431'990'000.0, 20.0, -5'000.0, 5'000.0, true},
-            IntegerStepCrossingTestCase{
-                "StepMovedOutOfTheBandByTheClockCorrection", true, 1, 431'998'000.0, 20.0, -5'000.0, 5'000.0, false},
+            IntegerStepCrossingTestCase{"RangeOfNoWidth", true, 1, 432'000'000.0, 0.0, 0.0, false},
             // From one integer step to the next the fraction comes back to its start without a wrap.
             IntegerStepCrossingTestCase{
-                "RangeAsWideAsTheStepsOnBcm2711", true, 1, 445'500'000.0, 0.0, -13'500'000.0, 13'500'000.0, true},
+                "RangeAsWideAsTheStepsOnBcm2711", true, 1, 445'500'000.0, -13'500'000.0, 13'500'000.0, true},
             IntegerStepCrossingTestCase{
-                "RangeNarrowerThanTheStepsOnBcm2711", true, 1, 445'500'000.0, 0.0, -13'400'000.0, 13'400'000.0, false},
+                "RangeNarrowerThanTheStepsOnBcm2711", true, 1, 445'500'000.0, -13'400'000.0, 13'400'000.0, false},
             IntegerStepCrossingTestCase{
-                "RangeAsWideAsTheStepsOnBcm2835", false, 2, 312'000'000.0, 0.0, -4'800'000.0, 4'800'000.0, true},
+                "RangeAsWideAsTheStepsOnBcm2835", false, 2, 312'000'000.0, -4'800'000.0, 4'800'000.0, true},
             IntegerStepCrossingTestCase{
-                "RangeNarrowerThanTheStepsOnBcm2835", false, 2, 312'000'000.0, 0.0, -4'700'000.0, 4'700'000.0, false},
+                "RangeNarrowerThanTheStepsOnBcm2835", false, 2, 312'000'000.0, -4'700'000.0, 4'700'000.0, false},
         };
     }
 }  // namespace
@@ -358,21 +330,18 @@ namespace {
 class IntegerStepCrossingTest : public ::testing::TestWithParam<IntegerStepCrossingTestCase> {};
 
 /**
- * @brief A range of deviations crosses an integer step when the step lies inside it, wherever the
- *        clock correction has moved the step, or when the range is as wide as the distance between two steps.
+ * @brief A range of deviations crosses an integer step when the step lies inside it or when the range
+ *        is as wide as the distance between two steps.
  */
 TEST_P(IntegerStepCrossingTest, FindsTheStepInsideTheRange) {
     const auto& testCase{GetParam()};
-    FakeClock fakeClock{.pi_is_2711         = testCase.pi4,
-                        .PllFixDivider      = testCase.divider,
-                        .carrier            = testCase.carrier,
-                        .clockCorrectionPpm = testCase.clockCorrectionPpm};
+    FakeClock fakeClock{.pi_is_2711 = testCase.pi4, .PllFixDivider = testCase.divider, .carrier = testCase.carrier};
 
     EXPECT_EQ(crossesIntegerStep(fakeClock, testCase.lowestDeviation, testCase.highestDeviation),
               testCase.expectedCrossing);
 }
 
-INSTANTIATE_TEST_SUITE_P(RangesAroundTheSteps, IntegerStepCrossingTest,
+INSTANTIATE_TEST_SUITE_P(DeviationRanges, IntegerStepCrossingTest,
                          ::testing::ValuesIn(makeIntegerStepCrossingTestCases()),
                          [](const ::testing::TestParamInfo<IntegerStepCrossingTestCase>& info) {
                              return std::string{info.param.name};

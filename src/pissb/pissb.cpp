@@ -182,7 +182,7 @@ namespace pissb {
                           DMA_CHANNEL,
                           DMA_FIFO_SIZE,
                           MODE_IQ};
-            // Refuse the carriers at which the IQ samples cross an integer step of the PLL multiplier.
+            // Refuse the carriers at which the modulated band crosses an integer step of the PLL multiplier.
             checkCarrierBand(dma, params.transmissionFrequency, IQ_HALF_BANDWIDTH_HZ);
             dma.SetPLLMasterLoop(PLL_PROPORTIONAL_GAIN, PLL_INTEGRAL_GAIN, PLL_FRACTIONAL_DIVIDER);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.

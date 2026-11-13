@@ -1,6 +1,7 @@
 /**
  * @file carrier_pll.h
- * @brief Setup of the carrier PLL of librpitx with the settings the board cannot run refused.
+ * @brief Setup of the carrier PLL of librpitx with the settings the board cannot run and the bands
+ *        that cross an integer step of its multiplier refused.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 10.11.2026
@@ -78,10 +79,12 @@ template <typename Clock>
  * ComputeBestLO is called as clkgpio::SetCenterFrequency calls it: with the PLL frequency, twice
  * the carrier on BCM2711 (fixed post-divider), and the half-span guard band of librpitx.
  *
- * The diagnostic of a PLL rate below the minimum names its cause. A guard band at least as wide
- * as the distance between two integer steps of the PLL multiplier holds one for every divider that
- * keeps the PLL at its minimum rate, so only a higher carrier is accepted. A narrower guard band
- * holds one for every such divider only at some carriers, so another carrier nearby is accepted.
+ * The diagnostic of a PLL rate below the minimum names its cause. The integer steps of the PLL
+ * multiplier lie the furthest apart for the smallest divider that keeps the PLL at or above its
+ * minimum rate. When no divider reaches that rate, or the guard band does not fit between two of
+ * those steps and so holds one for every such divider wherever the carrier lies, only a higher
+ * carrier is accepted. A guard band that fits is refused for the position of the carrier, so
+ * another carrier nearby is accepted.
  *
  * @tparam Clock    clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY, PllFixDivider and ComputeBestLO().
  * @param clock     Carrier clock the divider is chosen on.
@@ -108,20 +111,21 @@ void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::stri
     }
     const uint64_t pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
     if (pllRate < MIN_PLL_RATE_HZ) {
-        // Smallest divider that keeps the PLL at its minimum rate: its integer steps lie the furthest apart.
+        // Smallest divider at or above the minimum PLL rate: its integer steps lie the furthest apart.
         const uint64_t slowestDivider{(MIN_PLL_RATE_HZ + pllFrequency - 1) / pllFrequency};
         const bool nextToIntegerStep{slowestDivider <= MAX_PLL_DIVIDER &&
-                                     2.0 * guardBand * static_cast<double>(slowestDivider) <
-                                         static_cast<double>(clock.XOSC_FREQUENCY)};
+                                     2 * static_cast<uint64_t>(guardBand) * slowestDivider < clock.XOSC_FREQUENCY};
         std::string message{"no PLL setting "};
         message += subject;
-        message += " on this board (";
-        message += nextToIntegerStep
-                       ? "the carrier lies next to an integer step of the PLL multiplier for every divider that "
-                         "runs the PLL at " +
-                             std::to_string(MIN_PLL_RATE_HZ) + " Hz or above); use another carrier frequency"
-                       : "the PLL would run at " + std::to_string(pllRate) + " Hz, below its " +
-                             std::to_string(MIN_PLL_RATE_HZ) + " Hz minimum); use a higher carrier frequency";
+        if (nextToIntegerStep) {
+            message +=
+                " on this board (the carrier lies next to an integer step of the PLL multiplier for every "
+                "divider that runs the PLL at " +
+                std::to_string(MIN_PLL_RATE_HZ) + " Hz or above); use another carrier frequency";
+        } else {
+            message += " on this board (the PLL would run at " + std::to_string(pllRate) + " Hz, below its " +
+                       std::to_string(MIN_PLL_RATE_HZ) + " Hz minimum); use a higher carrier frequency";
+        }
         message += advice;
         throw std::runtime_error{message};
     }

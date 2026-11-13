@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <numeric>
@@ -182,10 +183,11 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
     constexpr float tone{1'500.0F};
     constexpr float idle{0.0F};
     constexpr std::size_t idleSamples{50};
+    constexpr std::array<std::size_t, 3> toneRuns{7, 8, 9};
     FakeClock fakeClock{.carrier = INTEGER_STEP_CARRIER_HZ + carrierAboveStep};
     PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, MAX_DEVIATION_HZ};
     std::vector<float> deviations;
-    for (const std::size_t toneRun: {7U, 8U, 9U}) {
+    for (const std::size_t toneRun: toneRuns) {
         deviations.insert(deviations.end(), toneRun, tone);
         deviations.insert(deviations.end(), idleSamples, idle);
     }
@@ -279,7 +281,7 @@ namespace {
             IntegerStepTestCase{"StepInsideTheDeviations", 1'000.0, false},
             IntegerStepTestCase{"StepRightAboveTheCarrier", 10.0, false},
             IntegerStepTestCase{"StepInsideTheReserve", 2'340.0, false},
-            IntegerStepTestCase{"StepBehindTheReserve", 2'380.0, true},
+            IntegerStepTestCase{"StepBehindTheReserve", 2'360.0, true},
             IntegerStepTestCase{"CarrierOnTheStep", 0.0, true},
         };
     }
