@@ -378,7 +378,7 @@ do_freq_setup
 	"6 SSB" "Single Sideband modulation" \
 	"7 AM" "Amplitude Modulation" \
 	"8 FreeDV" "Digital voice mode 800XA" \
-	"9 SSTV" "Pattern picture" \
+	"9 SSTV" "Slow-Scan Television" \
 	"10 Pocsag" "Pager message" \
     "11 Opera" "Like morse but need Opera decoder" \
     "12 RTTY" "Radioteletype" \
