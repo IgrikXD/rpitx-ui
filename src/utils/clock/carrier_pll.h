@@ -190,6 +190,7 @@ void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth);
  * @param halfBandwidth Half the width of the band modulated around the carrier, in Hz (0 for an
  *                      unmodulated carrier).
  *
- * @throws std::runtime_error as choosePllDivider() and checkCarrierBand() do.
+ * @throws std::runtime_error as choosePllDivider() does, or when the band crosses an integer step
+ *         of the PLL multiplier.
  */
 void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth);

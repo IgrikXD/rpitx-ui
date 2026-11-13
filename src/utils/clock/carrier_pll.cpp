@@ -14,6 +14,21 @@
 #include <cmath>
 #include <iostream>
 
+namespace {
+    /**
+     * @brief Refuse a band that crosses an integer step of the PLL multiplier, with the advice of the caller.
+     */
+    void refuseCrossedBand(clkgpio& clock, uint64_t frequency, double halfBandwidth, std::string_view advice) {
+        if (crossesIntegerStep(clock, -halfBandwidth, halfBandwidth)) {
+            std::string message{"the " + std::to_string(std::llround(2.0 * halfBandwidth)) +
+                                " Hz band crosses an integer step of the PLL multiplier at a " +
+                                std::to_string(frequency) + " Hz carrier, part of it would wrap by a whole step; use "};
+            message += advice;
+            throw std::runtime_error{message};
+        }
+    }
+}  // namespace
+
 void checkCarrierPll(uint64_t frequency, uint32_t sampleRate) {
     // A clock of its own: ComputeBestLO writes no register, SetPllNumber sets the source its destructor writes back.
     clkgpio clock;
@@ -26,12 +41,7 @@ void checkCarrierPll(uint64_t frequency, uint32_t sampleRate) {
 }
 
 void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth) {
-    if (crossesIntegerStep(clock, -halfBandwidth, halfBandwidth)) {
-        throw std::runtime_error{"the " + std::to_string(std::llround(2.0 * halfBandwidth)) +
-                                 " Hz band crosses an integer step of the PLL multiplier at a " +
-                                 std::to_string(frequency) +
-                                 " Hz carrier, part of it would wrap by a whole step; use another carrier frequency"};
-    }
+    refuseCrossedBand(clock, frequency, halfBandwidth, "another carrier frequency");
 }
 
 void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth) {
@@ -44,7 +54,7 @@ void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth)
     choosePllDivider(clock, frequency, guardBand, subject, halfBandwidth > 0.0 ? " or a smaller bandwidth" : "");
     clock.SetCenterFrequency(frequency, guardBand);
     // The band crosses an integer step when no divider keeps it between two of them.
-    checkCarrierBand(clock, frequency, halfBandwidth);
+    refuseCrossedBand(clock, frequency, halfBandwidth, "a smaller bandwidth or another carrier frequency");
 
     if ((clock.gpioreg[CM_LOCK] & CM_LOCK_FLOCKC) == 0) {
         std::cerr << "[WARNING] The carrier PLL reports no lock; the carrier may be off frequency." << std::endl;
