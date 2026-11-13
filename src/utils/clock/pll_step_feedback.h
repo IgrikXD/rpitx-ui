@@ -27,13 +27,13 @@ inline constexpr double MAX_CLOCK_CORRECTION{200e-6};
 /**
  * @brief Carries the part of a frequency sample the carrier PLL cannot express into the next sample.
  *
- * The FM engine of librpitx rounds every frequency deviation down to a whole
- * unit of the PLL fraction (carrierStepHz()): a carrier step of 25.7 Hz above
- * 375 MHz on BCM2711 and of 36.6 Hz above 750 MHz on the earlier SoCs. The
- * remainder of each sample is added to the next one (first-order error
- * feedback), so the deviation averaged over a run of samples follows the
- * requested one to a fraction of the step. The deviations must not be negative:
- * the engine is never asked for less than the unmodulated carrier.
+ * The FM engine of librpitx rounds every frequency sample down to the grid of
+ * the PLL fraction (carrierStepHz()): a carrier step of 25.7 Hz above 375 MHz
+ * on BCM2711 and of 36.6 Hz above 750 MHz on the earlier SoCs. The remainder
+ * of each sample is added to the next one (first-order error feedback), so
+ * the deviation averaged over a run of samples follows the requested one to a
+ * fraction of the step. The deviations must not be negative: the engine is
+ * never asked for less than the unmodulated carrier.
  *
  * @tparam Clock clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY, PllFixDivider and GetMasterFrac().
  *

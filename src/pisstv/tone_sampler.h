@@ -25,7 +25,8 @@ namespace pisstv {
      *
      * A tone rarely lasts a whole number of samples. The fraction of a sample a
      * tone leaves over is carried into the next one, so every tone ends within
-     * half a sample of its exact time however many tones precede it.
+     * half a sample of its position in the sample stream however many tones
+     * precede it.
      *
      * @code
      * ToneSampler sampler{48'000};
