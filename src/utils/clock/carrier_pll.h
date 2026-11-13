@@ -174,11 +174,10 @@ void checkCarrierPll(uint64_t frequency, uint32_t sampleRate);
  * @param frequency     Carrier frequency in Hz.
  * @param halfBandwidth Half the width of the band modulated around the carrier, in Hz: the highest
  *                      frequency deviation of the samples to either side of it.
- * @param advice        What else to change, appended to "use another carrier frequency" in the diagnostic.
  *
  * @throws std::runtime_error when the band crosses an integer step of the PLL multiplier.
  */
-void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth, std::string_view advice);
+void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth);
 
 /**
  * @brief Program the carrier PLL of clock for frequency and the band of +-halfBandwidth around it.
