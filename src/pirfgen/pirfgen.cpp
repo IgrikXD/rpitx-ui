@@ -200,7 +200,7 @@ namespace pirfgen {
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Refuse the carriers at which the band crosses an integer step of the PLL multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, params.bandwidth / 2.0, " or a smaller bandwidth");
+            checkCarrierBand(dma, params.transmissionFrequency, params.bandwidth / 2.0);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
             startTransmission(dma, IDLE_DEVIATION_HZ);
 

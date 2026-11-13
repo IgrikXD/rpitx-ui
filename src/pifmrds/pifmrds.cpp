@@ -299,7 +299,7 @@ namespace pifmrds {
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Refuse the carriers at which the deviation crosses an integer step of the PLL multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, PEAK_DEVIATION, "");
+            checkCarrierBand(dma, params.transmissionFrequency, PEAK_DEVIATION);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
             startTransmission(dma, IDLE_DEVIATION_HZ);
 

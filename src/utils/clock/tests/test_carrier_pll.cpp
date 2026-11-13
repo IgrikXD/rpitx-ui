@@ -47,8 +47,10 @@ namespace {
      * A PLL rate below the minimum is refused for one of two causes. The dividers that keep the PLL
      * at its minimum rate start at 120 for a 2.5 MHz carrier on BCM2711, where two integer steps of
      * the multiplier lie 450 kHz of the PLL frequency apart: a guard band of +-225 kHz fills that
-     * distance wherever the carrier lies, one of +-224.999 kHz only at some carriers. At 108 MHz on
-     * BCM2711 and at 96 MHz on BCM2835 every such divider has an integer step on the carrier itself.
+     * distance wherever the carrier lies, one of +-224.999 kHz only at some carriers. At 2.51046 MHz
+     * they start at 120 as well, and +-226 kHz would fit only between the steps of divider 119, which
+     * runs the PLL below its minimum. At 108 MHz on BCM2711 and at 96 MHz on BCM2835 every such
+     * divider has an integer step on the carrier itself.
      */
     std::vector<PllDividerChoiceTestCase> makePllDividerChoiceTestCases() {
         return {
@@ -84,6 +86,14 @@ namespace {
                                      0,
                                      103,
                                      "the PLL would run at 515000000 Hz, below its 600000000 Hz minimum); use a "
+                                     "higher carrier frequency"},
+            PllDividerChoiceTestCase{"RefusedWithAGuardBandThatFitsBelowTheMinimumRateOnly",
+                                     true,
+                                     2'510'460,
+                                     226'000,
+                                     0,
+                                     103,
+                                     "the PLL would run at 517154760 Hz, below its 600000000 Hz minimum); use a "
                                      "higher carrier frequency"},
             PllDividerChoiceTestCase{"RefusedWithAGuardBandNarrowerThanTheSteps",
                                      true,
