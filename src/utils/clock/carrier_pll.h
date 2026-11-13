@@ -142,8 +142,7 @@ void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::stri
  */
 template <typename Clock>
 [[nodiscard]] bool crossesIntegerStep(Clock& clock, double lowestDeviation, double highestDeviation) {
-    // A range as wide as the distance between two integer steps holds one wherever it lies; in a
-    // narrower one the fraction starts again from 0 behind the step.
+    // A range as wide as the distance between two steps holds one; in a narrower one the fraction wraps behind it.
     return highestDeviation - lowestDeviation >= carrierStepHz(clock) * PLL_FRACTION_UNITS ||
            clock.GetMasterFrac(lowestDeviation) > clock.GetMasterFrac(highestDeviation);
 }
