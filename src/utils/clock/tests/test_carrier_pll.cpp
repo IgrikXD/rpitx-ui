@@ -1,6 +1,6 @@
 /**
  * @file test_carrier_pll.cpp
- * @brief Unit tests for the carrier PLL divider choice and the PLL rate of its settings.
+ * @brief Unit tests for the carrier PLL divider choice, the PLL rate and the carrier step of its settings.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 10.11.2026
@@ -22,13 +22,15 @@
 
 namespace {
     /**
-     * @brief Carrier clock stand-in with the members choosePllDivider() uses, named as librpitx names them.
+     * @brief Carrier clock stand-in with the members choosePllDivider() and carrierStepHz() use, named as
+     *        librpitx names them.
      *
      * ComputeBestLO() records its arguments, leaves the configured divider behind and returns
      * the configured result, so a test states the outcome of librpitx instead of running it.
      */
     struct FakeClock {
         bool pi_is_2711{false};
+        uint64_t XOSC_FREQUENCY{19'200'000};
         int PllFixDivider{8};
         int result{0};
         int divider{8};
@@ -203,5 +205,61 @@ TEST_P(PllRateTest, FollowsTheDivider) {
 
 INSTANTIATE_TEST_SUITE_P(CarrierSettings, PllRateTest, ::testing::ValuesIn(makePllRateTestCases()),
                          [](const ::testing::TestParamInfo<PllRateTestCase>& info) {
+                             return std::string{info.param.name};
+                         });
+
+namespace {
+    struct CarrierStepTestCase {
+        std::string_view name;
+        bool pi4;
+        uint64_t crystalFrequency;
+        int divider;
+        double expectedStepHz;
+    };
+
+    /**
+     * @brief Render a CarrierStepTestCase as its name, divider and expected step for gtest listings
+     *        and failure messages.
+     */
+    void PrintTo(const CarrierStepTestCase& testCase, std::ostream* os) {
+        *os << testCase.name << " {divider=" << testCase.divider << ", expectedStepHz=" << testCase.expectedStepHz
+            << "}";
+    }
+
+    /**
+     * @brief The four ways clkgpio::GetMasterFrac turns a carrier into the PLL multiplier: with the
+     *        pre-divider (divider 1) and with a plain divider, on the 54 MHz crystal of BCM2711
+     *        and on the 19.2 MHz crystal of the earlier SoCs.
+     */
+    std::vector<CarrierStepTestCase> makeCarrierStepTestCases() {
+        return {
+            // 434 MHz on BCM2711: multiplier = 2 * carrier / crystal.
+            CarrierStepTestCase{"PredividerOnBcm2711", true, 54'000'000, 1, 54.0e6 / 2.0 / 1'048'576.0},
+            // 144.5 MHz on BCM2711: multiplier = 2 * 5 * carrier / crystal.
+            CarrierStepTestCase{"DividerOnBcm2711", true, 54'000'000, 5, 54.0e6 / 10.0 / 1'048'576.0},
+            // 868 MHz on BCM2835: multiplier = carrier / (2 * crystal).
+            CarrierStepTestCase{"PredividerOnBcm2835", false, 19'200'000, 1, 19.2e6 * 2.0 / 1'048'576.0},
+            // 434 MHz on BCM2835: multiplier = 3 * carrier / crystal.
+            CarrierStepTestCase{"DividerOnBcm2835", false, 19'200'000, 3, 19.2e6 / 3.0 / 1'048'576.0},
+        };
+    }
+}  // namespace
+
+class CarrierStepTest : public ::testing::TestWithParam<CarrierStepTestCase> {};
+
+/**
+ * @brief The carrier step is the crystal frequency over the multiplier scale and the 2^20 fraction units:
+ *        25.7 Hz and 5.1 Hz on BCM2711, 36.6 Hz and 6.1 Hz on BCM2835 for the settings above.
+ */
+TEST_P(CarrierStepTest, FollowsTheMultiplierOfTheSetting) {
+    const auto& testCase{GetParam()};
+    const FakeClock fakeClock{
+        .pi_is_2711 = testCase.pi4, .XOSC_FREQUENCY = testCase.crystalFrequency, .PllFixDivider = testCase.divider};
+
+    EXPECT_DOUBLE_EQ(carrierStepHz(fakeClock), testCase.expectedStepHz);
+}
+
+INSTANTIATE_TEST_SUITE_P(PllSettings, CarrierStepTest, ::testing::ValuesIn(makeCarrierStepTestCases()),
+                         [](const ::testing::TestParamInfo<CarrierStepTestCase>& info) {
                              return std::string{info.param.name};
                          });

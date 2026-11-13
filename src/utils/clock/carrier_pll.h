@@ -44,6 +44,29 @@ inline constexpr uint64_t MIN_PLL_RATE_HZ{600'000'000};
 }
 
 /**
+ * @brief Number of units of the PLL fraction per whole step of the PLL multiplier (20 bits).
+ */
+inline constexpr double PLL_FRACTION_UNITS{1'048'576.0};
+
+/**
+ * @brief Carrier frequency change of one unit of the PLL fraction, in Hz.
+ *
+ * The DMA engines of librpitx modulate the carrier by rewriting the fraction of the PLL
+ * multiplier (clkgpio::GetMasterFrac), so a frequency deviation is rounded down to a
+ * multiple of this step.
+ *
+ * @tparam Clock clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY and PllFixDivider.
+ * @param clock  Carrier clock whose PLL divider has been chosen.
+ */
+template <typename Clock>
+[[nodiscard]] double carrierStepHz(const Clock& clock) noexcept {
+    // PLL multiplier per Hz of the carrier, in units of 1 / XOSC_FREQUENCY.
+    const double multiplierScale{clock.PllFixDivider == 1 ? (clock.pi_is_2711 ? 2.0 : 0.5)
+                                                          : clock.PllFixDivider * (clock.pi_is_2711 ? 2.0 : 1.0)};
+    return static_cast<double>(clock.XOSC_FREQUENCY) / (multiplierScale * PLL_FRACTION_UNITS);
+}
+
+/**
  * @brief Choose the PLL divider of clock for a carrier, refusing the settings the board cannot run.
  *
  * ComputeBestLO is called as clkgpio::SetCenterFrequency calls it: with the PLL frequency, twice
