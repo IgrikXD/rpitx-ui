@@ -79,6 +79,7 @@ namespace pisstv {
             const auto width{static_cast<std::size_t>(mode.width)};
             const auto firstRow{static_cast<std::size_t>(scan.firstRow)};
             const auto rowCount{static_cast<std::size_t>(scan.rowCount)};
+            const auto averagedRows{static_cast<float>(rowCount)};
             const double pixelMs{scan.timeShare * mode.scanTimeMs / static_cast<double>(width)};
 
             for (std::size_t column{0}; column < width; ++column) {
@@ -91,7 +92,6 @@ namespace pisstv {
                     green += static_cast<float>(rows[pixel + 1]);
                     blue += static_cast<float>(rows[pixel + 2]);
                 }
-                const auto averagedRows{static_cast<float>(rowCount)};
                 const float level{
                     componentLevel(scan.component, red / averagedRows, green / averagedRows, blue / averagedRows)};
                 tones.push_back({BLACK_HZ + level * HZ_PER_LEVEL, pixelMs});

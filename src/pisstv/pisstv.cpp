@@ -213,10 +213,11 @@ namespace pisstv {
             const std::size_t rowSize{static_cast<std::size_t>(mode.width) * reader->samplesPerPixel()};
             std::vector<std::uint8_t> rows(rowSize * static_cast<std::size_t>(rowsPerSequence(mode)));
 
-            // Queue the tones in the DMA engine block by block, until a stop is requested.
+            // Queue the tones in the DMA engine block by block, until a stop is requested, and empty the list.
             const auto transmit{[&dma, &sampler, &stepFeedback, &tones, &samples]() {
                 samples.clear();
                 sampler.append(tones, samples);
+                tones.clear();
                 for (std::size_t offset{0}; offset < samples.size() && running.load(std::memory_order_relaxed);
                      offset += DMA_BLOCK_SAMPLES) {
                     const auto block{
@@ -229,7 +230,6 @@ namespace pisstv {
             }};
 
             while (status == PnmReadStatus::Ok && running.load(std::memory_order_relaxed)) {
-                tones.clear();
                 appendCalibrationHeader(mode, tones);
                 transmit();
 
@@ -241,13 +241,12 @@ namespace pisstv {
                             return 1;
                         }
                     }
-                    tones.clear();
                     appendSequence(mode, rows, tones);
                     transmit();
                 }
 
                 // The carrier is unmodulated between two pictures, also while the next one is awaited.
-                tones.assign(1, Tone{IDLE_DEVIATION_HZ, PICTURE_GAP_MS});
+                tones.push_back({IDLE_DEVIATION_HZ, PICTURE_GAP_MS});
                 transmit();
 
                 // Stop before the next header: reading it could block on stdin.

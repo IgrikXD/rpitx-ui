@@ -226,6 +226,6 @@ namespace pisstv {
                 sequenceTimeMs += std::get<Scan>(segment).timeShare * mode.scanTimeMs;
             }
         }
-        return mode.startSyncMs + sequenceTimeMs * mode.height / rowsPerSequence(mode);
+        return sequenceTimeMs * mode.height / rowsPerSequence(mode);
     }
 }  // namespace pisstv

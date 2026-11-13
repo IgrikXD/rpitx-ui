@@ -33,7 +33,7 @@ inline constexpr int PNM_MAX_SAMPLE_VALUE{65'535};
 /**
  * @brief Binary netpbm image type a PnmReader accepts.
  */
-enum class PnmFormat : std::uint8_t {
+enum class PnmFormat {
     Graymap,  ///< PGM (P5): one gray sample per pixel.
     Pixmap,   ///< PPM (P6): red, green and blue samples per pixel.
 };
