@@ -12,6 +12,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <span>
 #include <stdexcept>
@@ -48,20 +49,22 @@ class PllStepFeedback {
 public:
     /**
      * @brief Construct the feedback for the carrier clock of an FM engine.
+     *
+     * A request exceeds maxDeviation by less than one step and by the clock correction, which
+     * carrierStepHz() leaves out; a second step is the reserve. The carrier is refused when the
+     * range up to that request crosses an integer step of the PLL multiplier (crossesIntegerStep()).
+     *
      * @param clock        Carrier clock, set up for its carrier.
      * @param maxDeviation Highest frequency deviation of the samples in Hz; the lowest one is 0.
      *
-     * @throws std::runtime_error when a deviation would cross an integer step of the PLL multiplier
-     *         (crossesIntegerStep()).
+     * @throws std::runtime_error when a request would cross an integer step of the PLL multiplier.
      */
     PllStepFeedback(Clock& clock, float maxDeviation)
         : clock_{clock}, stepHz_{carrierStepHz(clock)}, idleFraction_{clock.GetMasterFrac(0.0)} {
-        // A request exceeds maxDeviation by less than one step and by the clock correction, which
-        // carrierStepHz() leaves out; the second step is the reserve.
+        // Highest request: maxDeviation, the clock correction and two steps on top of it.
         const double maxRequest{static_cast<double>(maxDeviation) * (1.0 + MAX_CLOCK_CORRECTION) + 2.0 * stepHz_};
         if (crossesIntegerStep(clock, 0.0, maxRequest)) {
-            throw std::runtime_error{"a frequency deviation of up to " +
-                                     std::to_string(static_cast<int>(maxDeviation)) +
+            throw std::runtime_error{"a frequency deviation of up to " + std::to_string(std::llround(maxDeviation)) +
                                      " Hz crosses an integer step of the PLL multiplier at this carrier and would "
                                      "wrap by a whole step; use another carrier frequency"};
         }

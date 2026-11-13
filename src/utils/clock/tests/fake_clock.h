@@ -44,7 +44,7 @@ struct FakeClock {
         const double crystal{static_cast<double>(XOSC_FREQUENCY) * (1.0 - clockCorrectionPpm * 1e-6)};
         double multiplier{0.0};
         if (PllFixDivider == 1) {
-            // Pre-divider: twice the carrier over the crystal on BCM2711, the carrier over twice the crystal before it.
+            // Pre-divider: carrier * 2 / crystal on BCM2711, carrier / (2 * crystal) on the earlier SoCs.
             multiplier = pi_is_2711 ? (carrier + frequency) * 2.0 / crystal : (carrier + frequency) / (2.0 * crystal);
         } else {
             multiplier = (carrier + frequency) * PllFixDivider * (pi_is_2711 ? 2.0 : 1.0) / crystal;
