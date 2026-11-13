@@ -25,25 +25,27 @@ void checkCarrierPll(uint64_t frequency, uint32_t sampleRate) {
     choosePllDivider(clock, frequency, static_cast<int>(sampleRate), subject, "");
 }
 
+void checkCarrierBand(clkgpio& clock, uint64_t frequency, double halfBandwidth, std::string_view advice) {
+    if (crossesIntegerStep(clock, -halfBandwidth, halfBandwidth)) {
+        std::string message{"the " + std::to_string(std::llround(2.0 * halfBandwidth)) +
+                            " Hz band crosses an integer step of the PLL multiplier at a " + std::to_string(frequency) +
+                            " Hz carrier, part of it would wrap by a whole step; use another carrier frequency"};
+        message += advice;
+        throw std::runtime_error{message};
+    }
+}
+
 void programCarrierPll(clkgpio& clock, uint64_t frequency, double halfBandwidth) {
     const uint64_t pllFrequencyFactor{clock.pi_is_2711 ? 2U : 1U};
     const int guardBand{static_cast<int>(std::ceil(halfBandwidth * static_cast<double>(pllFrequencyFactor)))};
-    const std::string bandwidth{std::to_string(std::llround(2.0 * halfBandwidth))};
-    const std::string subject{halfBandwidth > 0.0
-                                  ? "sweeps a " + bandwidth + " Hz band at " + std::to_string(frequency) + " Hz"
-                                  : "generates a " + std::to_string(frequency) + " Hz carrier"};
-    choosePllDivider(clock, frequency, guardBand, subject, halfBandwidth > 0.0 ? " or a smaller bandwidth" : "");
+    const std::string subject{halfBandwidth > 0.0 ? "sweeps a " + std::to_string(std::llround(2.0 * halfBandwidth)) +
+                                                        " Hz band at " + std::to_string(frequency) + " Hz"
+                                                  : "generates a " + std::to_string(frequency) + " Hz carrier"};
+    const std::string_view advice{halfBandwidth > 0.0 ? " or a smaller bandwidth" : ""};
+    choosePllDivider(clock, frequency, guardBand, subject, advice);
     clock.SetCenterFrequency(frequency, guardBand);
-
-    // The modulation writes only the 20-bit fractional part of the PLL multiplier: when no divider
-    // keeps the band between two integer steps, the fraction wraps across the band and so would the
-    // modulation.
-    if (halfBandwidth > 0.0 && clock.GetMasterFrac(-halfBandwidth) > clock.GetMasterFrac(halfBandwidth)) {
-        throw std::runtime_error{"the " + bandwidth + " Hz band crosses an integer step of the PLL multiplier at a " +
-                                 std::to_string(frequency) +
-                                 " Hz carrier, part of it would wrap by a whole step; use a smaller bandwidth or "
-                                 "another carrier frequency"};
-    }
+    // The band crosses an integer step when no divider keeps it between two of them.
+    checkCarrierBand(clock, frequency, halfBandwidth, advice);
 
     if ((clock.gpioreg[CM_LOCK] & CM_LOCK_FLOCKC) == 0) {
         std::cerr << "[WARNING] The carrier PLL reports no lock; the carrier may be off frequency." << std::endl;

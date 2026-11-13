@@ -139,6 +139,8 @@ namespace pichirp {
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
+            // Refuse the carriers at which the sweep crosses an integer step of the PLL multiplier.
+            checkCarrierBand(dma, params.transmissionFrequency, params.bandwidth / 2.0, " or a smaller bandwidth");
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
             startTransmission(dma, IDLE_DEVIATION_HZ);
 
