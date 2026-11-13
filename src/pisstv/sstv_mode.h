@@ -3,7 +3,8 @@
  * @brief SSTV mode descriptions: VIS code, picture size and the timing sequence of the scan lines.
  *
  * The timings follow "Proposal for SSTV Mode Specifications" (JL Barber N7CXI,
- * Dayton SSTV forum, 2000).
+ * Dayton SSTV forum, 2000). The porch in front of the B-Y scan of Robot 72 is
+ * sent at 1900 Hz as MMSSTV and QSSTV send it; the paper lists 1500 Hz there.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 13.11.2026

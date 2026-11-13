@@ -53,7 +53,8 @@ inline constexpr double PLL_FRACTION_UNITS{1'048'576.0};
  *
  * The DMA engines of librpitx modulate the carrier by rewriting the fraction of the PLL
  * multiplier (clkgpio::GetMasterFrac), so a frequency deviation is rounded down to a
- * multiple of this step.
+ * multiple of this step. The step is the nominal one: the clock correction of librpitx,
+ * a few parts per million, is left out.
  *
  * @tparam Clock clkgpio, or any type with its pi_is_2711, XOSC_FREQUENCY and PllFixDivider.
  * @param clock  Carrier clock whose PLL divider has been chosen.

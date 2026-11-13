@@ -25,7 +25,7 @@ if [ "$PLAYBACK" = "loop" ]; then
 fi
 
 # Picture size of the SSTV mode
-case "$MODE" in
+case "${MODE,,}" in
   robot-*) PICTURE_SIZE=320x240 ;;
   pd-120 | pd-180) PICTURE_SIZE=640x496 ;;
   *) PICTURE_SIZE=320x256 ;;
