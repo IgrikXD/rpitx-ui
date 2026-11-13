@@ -46,7 +46,7 @@
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "dma_transmission.h"
-#include "pgm_reader.h"
+#include "pnm_reader.h"
 #include "realtime_scheduling.h"
 #include "spectrum_painter.h"
 
@@ -159,7 +159,7 @@ namespace pispectrumpaint {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
-        auto reader{makePgmReader(params.useStdin, params.imagePath)};
+        auto reader{makePnmReader(PnmFormat::Graymap, params.useStdin, params.imagePath)};
         if (reader == nullptr) {
             return 1;
         }
@@ -170,17 +170,17 @@ namespace pispectrumpaint {
 
         // The first header is read before the DMA is set up, so a bad picture never reaches the hardware.
         switch (reader->readHeader()) {
-            case PgmReadStatus::Ok:
+            case PnmReadStatus::Ok:
                 break;
-            case PgmReadStatus::End:
+            case PnmReadStatus::End:
                 std::cerr << "[ERROR] pispectrumpaint: no PGM image found in the input." << std::endl;
                 return 1;
-            case PgmReadStatus::Error:
+            case PnmReadStatus::Error:
                 std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                 return 1;
         }
 
-        PgmHeader announcedHeader{reader->header()};
+        PnmHeader announcedHeader{reader->header()};
         std::cout << "pispectrumpaint: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
                   << " Hz, rate=" << params.sampleRate << " Hz, format=" << reader->description()
                   << ", line_time=" << lineTimeMs(announcedHeader.width, params.sampleRate)
@@ -188,7 +188,7 @@ namespace pispectrumpaint {
 
         // Wrap DMA construction and the painting loop in a try / catch:
         // programCarrierPll refuses the PLL settings the board cannot run and
-        // paintRow / PgmReader throw on contract violations. A stray throw
+        // paintRow / PnmReader throw on contract violations. A stray throw
         // escaping main would terminate via std::terminate without flushing
         // the diagnostic.
         try {
@@ -209,10 +209,10 @@ namespace pispectrumpaint {
 
             std::vector<std::uint8_t> row;
             std::vector<std::complex<float>> rowSamples;
-            auto status{PgmReadStatus::Ok};
+            auto status{PnmReadStatus::Ok};
 
             while (running.load(std::memory_order_relaxed)) {
-                if (status == PgmReadStatus::End) {
+                if (status == PnmReadStatus::End) {
                     if (params.loop == false) {
                         break;
                     }
@@ -222,7 +222,7 @@ namespace pispectrumpaint {
                         return 1;
                     }
                     status = reader->readHeader();
-                    if (status == PgmReadStatus::End) {
+                    if (status == PnmReadStatus::End) {
                         std::cerr << "[ERROR] pispectrumpaint: no PGM image found after rewinding the input."
                                   << std::endl;
                         dma.stop();
@@ -230,13 +230,13 @@ namespace pispectrumpaint {
                     }
                     continue;
                 }
-                if (status == PgmReadStatus::Error) {
+                if (status == PnmReadStatus::Error) {
                     std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                     dma.stop();
                     return 1;
                 }
 
-                const PgmHeader& header{reader->header()};
+                const PnmHeader& header{reader->header()};
                 if (header.width != announcedHeader.width || header.height != announcedHeader.height) {
                     announcedHeader = header;
                     std::cout << "pispectrumpaint: format=" << reader->description()
@@ -248,7 +248,7 @@ namespace pispectrumpaint {
                 // SetIQSamples blocks until the row is in the DMA FIFO (see
                 // iqdmasync.cpp upstream), so no manual pacing is needed here.
                 while (reader->rowsRemaining() > 0 && running.load(std::memory_order_relaxed)) {
-                    if (reader->readRow(row) != PgmReadStatus::Ok) {
+                    if (reader->readRow(row) != PnmReadStatus::Ok) {
                         std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                         dma.stop();
                         return 1;
