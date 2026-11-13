@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -47,18 +48,31 @@ namespace {
     constexpr std::uint32_t FRACTION_MASK{0xFFFFFU};
 
     /**
+     * @brief Clock correction close to the largest one librpitx applies, in ppm: a unit of the fraction
+     *        of the corrected clock is 1.000199 nominal steps.
+     */
+    constexpr double CLOCK_CORRECTION_PPM{-199.0};
+
+    /**
+     * @brief Deviation whose share of that correction, 119 Hz, exceeds the two steps of reserve (51.5 Hz).
+     */
+    constexpr float WIDE_DEVIATION_HZ{600'000.0F};
+
+    /**
      * @brief Carrier clock stand-in that rounds a deviation to the PLL fraction as clkgpio::GetMasterFrac
-     *        does with the pre-divider on BCM2711: the multiplier is twice the carrier over the crystal,
-     *        cut down to whole units of the fraction, of which only the fraction is kept.
+     *        does with the pre-divider on BCM2711: the multiplier is twice the carrier over the corrected
+     *        crystal frequency, cut down to whole units of the fraction, of which only the fraction is kept.
      */
     struct FakeClock {
         bool pi_is_2711{true};
         std::uint64_t XOSC_FREQUENCY{54'000'000};
         int PllFixDivider{1};
         double carrier{MID_FRACTION_CARRIER_HZ};
+        double clockCorrectionPpm{0.0};  ///< Clock correction as clkgpio takes it from NTP (clk_ppm).
 
         std::uint32_t GetMasterFrac(double frequency) {
-            const double multiplier{(carrier + frequency) * 2.0 / static_cast<double>(XOSC_FREQUENCY)};
+            const double crystal{static_cast<double>(XOSC_FREQUENCY) * (1.0 - clockCorrectionPpm * 1e-6)};
+            const double multiplier{(carrier + frequency) * 2.0 / crystal};
             return static_cast<std::uint32_t>(multiplier * PLL_FRACTION_UNITS) & FRACTION_MASK;
         }
     };
@@ -66,8 +80,8 @@ namespace {
     /**
      * @brief Deviation the stand-in clock delivers for a requested one, in Hz above its unmodulated carrier.
      *
-     * A request behind an integer step of the multiplier shows up as a deviation of about 27 MHz
-     * (above the step) or as a negative one (below the unmodulated carrier on the step).
+     * A request behind an integer step of the multiplier shows up as a deviation of about -27 MHz
+     * (request above the step) or +27 MHz (request below the unmodulated carrier on the step).
      */
     [[nodiscard]] double deliveredDeviation(FakeClock& fakeClock, float requested) {
         const auto units{static_cast<double>(fakeClock.GetMasterFrac(requested)) -
@@ -204,6 +218,42 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
     }
 }
 
+/**
+ * @brief A corrected clock is asked for more than the highest deviation, inside the validated range.
+ *
+ * The feedback counts in nominal steps while a unit of the fraction of the corrected clock is
+ * 1.000199 of them, so a 600 kHz tone is requested 119 Hz - 4.6 steps - above itself: beyond the
+ * two steps of reserve alone, within them plus the 200 ppm the constructor adds to the highest
+ * deviation.
+ */
+TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) {
+    constexpr std::size_t toneSamples{480};
+    FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
+    const double stepHz{carrierStepHz(fakeClock)};
+    PllStepFeedback<FakeClock> pllStepFeedback{fakeClock, WIDE_DEVIATION_HZ};
+    std::vector<float> samples(toneSamples, WIDE_DEVIATION_HZ);
+
+    pllStepFeedback.apply(samples);
+
+    const double highestRequest{*std::ranges::max_element(samples)};
+    EXPECT_GT(highestRequest, static_cast<double>(WIDE_DEVIATION_HZ) + 2.0 * stepHz);
+    EXPECT_LT(highestRequest, static_cast<double>(WIDE_DEVIATION_HZ) * (1.0 + MAX_CLOCK_CORRECTION) + 2.0 * stepHz);
+}
+
+/**
+ * @brief A carrier is refused when only the clock correction carries a request behind the integer step.
+ *
+ * The integer step lies four steps above the highest deviation: outside the two steps of reserve,
+ * inside the 119 Hz the corrected clock is asked for on top of a 600 kHz tone.
+ */
+TEST(PllStepFeedbackTest, RefusesACarrierWhoseStepTheClockCorrectionReaches) {
+    FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
+    const double integerStep{INTEGER_STEP_CARRIER_HZ * (1.0 - CLOCK_CORRECTION_PPM * 1e-6)};
+    fakeClock.carrier = integerStep - static_cast<double>(WIDE_DEVIATION_HZ) - 4.0 * carrierStepHz(fakeClock);
+
+    EXPECT_THROW((PllStepFeedback<FakeClock>{fakeClock, WIDE_DEVIATION_HZ}), std::runtime_error);
+}
+
 namespace {
     struct IntegerStepTestCase {
         std::string_view name;
@@ -221,9 +271,10 @@ namespace {
 
     /**
      * @brief Carriers at different distances below an integer step of the multiplier. The feedback
-     *        requests up to one step above the highest deviation and keeps a second step in reserve,
-     *        so the carrier is refused while the integer step lies within 2300 Hz + 51.5 Hz above it;
-     *        a carrier on the integer step itself has the whole range above it free.
+     *        requests up to one step and the clock correction (200 ppm, 0.5 Hz) above the highest
+     *        deviation and keeps a second step in reserve, so the carrier is refused while the integer
+     *        step lies within 2300 Hz + 52 Hz above it; a carrier on the integer step itself has the
+     *        whole range above it free.
      */
     std::vector<IntegerStepTestCase> makeIntegerStepTestCases() {
         return {

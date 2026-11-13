@@ -20,6 +20,11 @@
 #include "carrier_pll.h"
 
 /**
+ * @brief Largest clock correction librpitx takes from NTP (clkgpio::SetppmFromNTP), as a part of the crystal frequency.
+ */
+inline constexpr double MAX_CLOCK_CORRECTION{200e-6};
+
+/**
  * @brief Carries the part of a frequency sample the carrier PLL cannot express into the next sample.
  *
  * The FM engine of librpitx rounds every frequency deviation down to a whole
@@ -51,9 +56,10 @@ public:
      */
     PllStepFeedback(Clock& clock, float maxDeviation)
         : clock_{clock}, stepHz_{carrierStepHz(clock)}, idleFraction_{clock.GetMasterFrac(0.0)} {
-        // A request exceeds maxDeviation by less than one step; the second step covers the clock correction
-        // of librpitx, which carrierStepHz() leaves out.
-        if (clock.GetMasterFrac(static_cast<double>(maxDeviation) + 2.0 * stepHz_) < idleFraction_) {
+        // A request exceeds maxDeviation by less than one step and by the clock correction, which
+        // carrierStepHz() leaves out; the second step is the reserve.
+        const double maxRequest{static_cast<double>(maxDeviation) * (1.0 + MAX_CLOCK_CORRECTION) + 2.0 * stepHz_};
+        if (clock.GetMasterFrac(maxRequest) < idleFraction_) {
             throw std::runtime_error{"a frequency deviation of up to " +
                                      std::to_string(static_cast<int>(maxDeviation)) +
                                      " Hz crosses an integer step of the PLL multiplier at this carrier and would "
