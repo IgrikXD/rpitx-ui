@@ -301,7 +301,8 @@ namespace {
 
     /**
      * @brief Ranges around the integer step at 432 MHz of BCM2711 with the pre-divider, whose steps lie
-     *        27 MHz apart, and ranges as wide as that distance and as the 9.6 MHz of divider 2 on BCM2835.
+     *        27 MHz apart, and ranges as wide as and a little narrower than that distance and the 9.6 MHz
+     *        of divider 2 on BCM2835.
      */
     std::vector<IntegerStepCrossingTestCase> makeIntegerStepCrossingTestCases() {
         return {

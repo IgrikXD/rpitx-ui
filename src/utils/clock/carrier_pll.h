@@ -111,7 +111,7 @@ void choosePllDivider(Clock& clock, uint64_t frequency, int guardBand, std::stri
     }
     const uint64_t pllRate{pllRateHz(pllFrequency, clock.PllFixDivider)};
     if (pllRate < MIN_PLL_RATE_HZ) {
-        // Smallest divider at or above the minimum PLL rate: its integer steps lie the furthest apart.
+        // Smallest divider that runs the PLL at or above its minimum rate: its integer steps lie the furthest apart.
         const uint64_t slowestDivider{(MIN_PLL_RATE_HZ + pllFrequency - 1) / pllFrequency};
         const bool nextToIntegerStep{slowestDivider <= MAX_PLL_DIVIDER &&
                                      2 * static_cast<uint64_t>(guardBand) * slowestDivider < clock.XOSC_FREQUENCY};
