@@ -49,7 +49,7 @@ public:
     /**
      * @brief Construct the feedback for the carrier clock of an FM engine.
      * @param clock        Carrier clock, set up for its carrier.
-     * @param maxDeviation Highest frequency deviation of the samples in Hz, less than the distance between two
+     * @param maxDeviation Highest frequency deviation of the samples in Hz, well below the distance between two
      *                     integer steps of the PLL multiplier; the lowest one is 0.
      *
      * @throws std::runtime_error when a deviation would cross an integer step of the PLL multiplier:

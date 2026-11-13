@@ -54,7 +54,7 @@ namespace {
     constexpr double CLOCK_CORRECTION_PPM{-199.0};
 
     /**
-     * @brief Deviation whose share of that correction, 119 Hz, exceeds the two steps of reserve (51.5 Hz).
+     * @brief Deviation whose share of that correction, 119 Hz, exceeds the two steps the constructor adds (51.5 Hz).
      */
     constexpr float WIDE_DEVIATION_HZ{600'000.0F};
 
@@ -223,8 +223,8 @@ TEST(PllStepFeedbackTest, KeepsIdleSamplesOnTheUnmodulatedCarrier) {
  *
  * The feedback counts in nominal steps while a unit of the fraction of the corrected clock is
  * 1.000199 of them, so a 600 kHz tone is requested 119 Hz - 4.6 steps - above itself: beyond the
- * two steps of reserve alone, within them plus the 200 ppm the constructor adds to the highest
- * deviation.
+ * two steps the constructor adds to the highest deviation, within them plus the 200 ppm it adds
+ * as well.
  */
 TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) {
     constexpr std::size_t toneSamples{480};
@@ -243,8 +243,8 @@ TEST(PllStepFeedbackTest, KeepsTheRequestsOfACorrectedClockInTheValidatedRange) 
 /**
  * @brief A carrier is refused when only the clock correction carries a request behind the integer step.
  *
- * The integer step lies four steps above the highest deviation: outside the two steps of reserve,
- * inside the 119 Hz the corrected clock is asked for on top of a 600 kHz tone.
+ * The integer step lies four steps above the highest deviation: outside the two steps the
+ * constructor adds to it, inside the 119 Hz the corrected clock is asked for on top of a 600 kHz tone.
  */
 TEST(PllStepFeedbackTest, RefusesACarrierWhoseStepTheClockCorrectionReaches) {
     FakeClock fakeClock{.clockCorrectionPpm = CLOCK_CORRECTION_PPM};
