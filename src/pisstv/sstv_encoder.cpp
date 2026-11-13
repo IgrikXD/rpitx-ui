@@ -128,8 +128,8 @@ namespace pisstv {
         }
 
         for (const LineSegment& segment: mode.sequence) {
-            if (const auto* tone{std::get_if<Tone>(&segment)}; tone != nullptr) {
-                tones.push_back(*tone);
+            if (std::holds_alternative<Tone>(segment)) {
+                tones.push_back(std::get<Tone>(segment));
             } else {
                 appendScan(mode, std::get<Scan>(segment), rows, tones);
             }

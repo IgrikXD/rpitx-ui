@@ -201,8 +201,9 @@ namespace pisstv {
     [[nodiscard]] constexpr int rowsPerSequence(const SstvMode& mode) noexcept {
         int rows{0};
         for (const LineSegment& segment: mode.sequence) {
-            if (const auto* scan{std::get_if<Scan>(&segment)}; scan != nullptr) {
-                rows = std::max(rows, scan->firstRow + scan->rowCount);
+            if (std::holds_alternative<Scan>(segment)) {
+                const Scan& scan{std::get<Scan>(segment)};
+                rows = std::max(rows, scan.firstRow + scan.rowCount);
             }
         }
         return rows;
@@ -218,8 +219,8 @@ namespace pisstv {
     [[nodiscard]] constexpr double pictureTimeMs(const SstvMode& mode) noexcept {
         double sequenceTimeMs{0.0};
         for (const LineSegment& segment: mode.sequence) {
-            if (const auto* tone{std::get_if<Tone>(&segment)}; tone != nullptr) {
-                sequenceTimeMs += tone->durationMs;
+            if (std::holds_alternative<Tone>(segment)) {
+                sequenceTimeMs += std::get<Tone>(segment).durationMs;
             } else {
                 sequenceTimeMs += std::get<Scan>(segment).timeShare * mode.scanTimeMs;
             }
