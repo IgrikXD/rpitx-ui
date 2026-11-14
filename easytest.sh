@@ -208,6 +208,18 @@ fi
 
 }
 
+do_check_rtty_message()
+{
+
+# Characters of the ITA2 alphabet only (letters are sent in upper case)
+if printf '%s' "$MESSAGE" | LC_ALL=C grep -q "[^[:alnum:] !\"#\$&'(),./:;?-]"; then
+	whiptail --title "Error!" --msgbox "Message must contain only characters of the ITA2 alphabet (Latin letters, digits, space and ! \" # \$ & ' ( ) , - . / : ; ?)!" 8 78
+	return 1
+fi
+return 0
+
+}
+
 do_enter_rtty_mode()
 {
 
@@ -508,7 +520,7 @@ do_freq_setup
 			;;
 
 			11\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
-			if [ $abort_action -eq 0 ]; then
+			if [ $abort_action -eq 0 ] && do_check_rtty_message; then
 				do_enter_rtty_mode
 				if [ $abort_action -eq 0 ]; then
 					testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" "${RTTY_MODE#RTTY-}" >/dev/null 2>/dev/null &
