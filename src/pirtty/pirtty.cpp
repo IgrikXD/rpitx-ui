@@ -152,9 +152,9 @@ namespace pirtty {
         enableRealtimeScheduling();
 
         const EncodedMessage encoded{encodeMessage(params.message)};
-        if (encoded.skippedCharacters > 0) {
-            std::cerr << "[WARNING] pirtty: skipped the characters of the message the ITA2 alphabet does not have: "
-                      << encoded.skippedCharacters << std::endl;
+        if (encoded.skippedCharacters) {
+            std::cerr << "[WARNING] pirtty: the characters of the message the ITA2 alphabet does not have are skipped."
+                      << std::endl;
         }
         const std::size_t bitSamples{samplesPerBit(mode)};
         // A character is the start bit, the data bits and the stop bit.

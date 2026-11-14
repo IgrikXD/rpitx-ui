@@ -133,8 +133,8 @@ namespace pirtty {
      * @brief Baudot codes of one RTTY transmission.
      */
     struct EncodedMessage {
-        std::vector<std::uint8_t> codes;   ///< Codes in the order of transmission.
-        std::size_t skippedCharacters{0};  ///< Characters of the message that ITA2 does not have.
+        std::vector<std::uint8_t> codes;  ///< Codes in the order of transmission.
+        bool skippedCharacters{false};    ///< Whether the message had characters that ITA2 does not have.
     };
 
     /**
