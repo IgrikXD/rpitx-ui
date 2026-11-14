@@ -12,10 +12,6 @@ add_subdirectory(utils)
 # ----------------------------------------------------------
 # Define targets for each rpitx-ui component
 # ----------------------------------------------------------
-# --- freedv ---
-add_executable(freedv freedv/freedv.cpp)
-target_link_libraries(freedv PRIVATE librpitx::librpitx)
-
 # --- piam (audio file -> librpitx amdmasync, self-contained) ---
 add_executable(piam
     piam/piam.cpp
@@ -219,7 +215,7 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    freedv piam pichirp pifmrds pimorse pinfm piopera pirfgen
+    piam pichirp pifmrds pimorse pinfm piopera pirfgen
     pirtty pispectrumpaint pissb pisstv pitune pocsag sendiq
 )
 
@@ -254,7 +250,7 @@ endif()
 
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
-    fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh testfreedv.sh
+    fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
     testmorse.sh testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
     testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )

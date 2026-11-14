@@ -149,8 +149,8 @@ jobs:
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
-              corel8 foxhunt freedv piam pichirp pifmrds
-              pifsq pift8 pimorse pinfm piopera pirfgen pirtty pispectrumpaint
+              corel8 foxhunt piam pichirp pifmrds pifsq pift8
+              pimorse pinfm piopera pirfgen pirtty pispectrumpaint
               pissb pisstv pitune pocsag sendiq sendook
             )
             OPTIONAL_BINARIES=(dvbrf rpitx)
@@ -177,9 +177,9 @@ jobs:
             INSTALLED_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
-              testfoxhunt.sh testfreedv.sh testfsq.sh testmorse.sh
-              testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-              testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
+              testfoxhunt.sh testfsq.sh testmorse.sh testnfm.sh testopera.sh
+              testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
+              testssb.sh testsstv.sh testtune.sh transponder.sh
             )
 
             for s in "${INSTALLED_SCRIPTS[@]}"; do
@@ -234,8 +234,8 @@ jobs:
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
-              corel8 dvbrf foxhunt freedv piam pichirp pifmrds
-              pifsq pift8 pimorse pinfm piopera pirfgen pirtty pispectrumpaint
+              corel8 dvbrf foxhunt piam pichirp pifmrds pifsq pift8
+              pimorse pinfm piopera pirfgen pirtty pispectrumpaint
               pissb pisstv pitune pocsag rpitx sendiq sendook
             )
 
@@ -255,9 +255,9 @@ jobs:
             ALL_SCRIPTS=(
               rpitx-ui ft8menu.sh rtlmenu.sh
               fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
-              testfoxhunt.sh testfreedv.sh testfsq.sh testmorse.sh
-              testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
-              testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
+              testfoxhunt.sh testfsq.sh testmorse.sh testnfm.sh testopera.sh
+              testpocsag.sh testrfgen.sh testrtty.sh testspectrum.sh
+              testssb.sh testsstv.sh testtune.sh transponder.sh
             )
 
             for s in "${ALL_SCRIPTS[@]}"; do
