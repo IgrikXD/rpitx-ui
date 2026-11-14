@@ -6,6 +6,7 @@ RESOURCES_LOCATION="${RPITX_RESOURCES_LOCATION:-/usr/share/rpitx-ui}"
 DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
+DEFAULT_RTTY_MODE="RTTY-45"
 DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
 DEFAULT_CW_WPM=5
 DEFAULT_RFGEN_SAMPLE_RATE=500000
@@ -199,6 +200,22 @@ if SSTV_MODE=$(whiptail --default-item "$DEFAULT_SSTV_MODE" --title "SSTV mode" 
 	"PD-90" "320x256 picture in 90 seconds" \
 	"PD-120" "640x496 picture in 126 seconds" \
 	"PD-180" "640x496 picture in 187 seconds" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
+do_enter_rtty_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if RTTY_MODE=$(whiptail --default-item "$DEFAULT_RTTY_MODE" --title "RTTY mode" --menu "Select RTTY mode (170 Hz shift):" 15 78 3 \
+	"RTTY-45" "45.45 baud (60 WPM)" \
+	"RTTY-50" "50 baud (66 WPM)" \
+	"RTTY-75" "75 baud (100 WPM)" \
 	3>&1 1>&2 2>&3); then
 	abort_action=0
 else
@@ -492,8 +509,11 @@ do_freq_setup
 
 			11\ *) do_enter_message "RTTY" "$DEFAULT_RTTY_MESSAGE"
 			if [ $abort_action -eq 0 ]; then
-				testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_rtty_mode
+				if [ $abort_action -eq 0 ]; then
+					testrtty.sh "$OUTPUT_FREQ""e6" "$MESSAGE" "${RTTY_MODE#RTTY-}" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 
