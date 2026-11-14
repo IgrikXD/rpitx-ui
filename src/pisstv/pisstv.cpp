@@ -188,17 +188,17 @@ namespace pisstv {
             return 1;
         }
 
-        std::cout << "pisstv: carrier=" << params.transmissionFrequency << " Hz, mode=" << mode.name
-                  << ", format=" << reader->description()
-                  << ", picture_time=" << std::lround(pictureTimeMs(mode) / 1000.0)
-                  << " s, loop=" << (params.loop ? "yes" : "no") << std::endl;
-
         // Wrap DMA construction and the transmission loop in a try / catch:
         // checkCarrierPll and PllStepFeedback refuse the PLL settings the board
         // cannot run and appendSequence / PnmReader throw on contract
         // violations. A stray throw escaping main would terminate via
         // std::terminate without flushing the diagnostic.
         try {
+            std::cout << "pisstv: carrier=" << params.transmissionFrequency << " Hz, mode=" << mode.name
+                      << ", format=" << reader->description()
+                      << ", picture_time=" << std::lround(pictureTimeMs(mode) / 1000.0)
+                      << " s, loop=" << (params.loop ? "yes" : "no") << std::endl;
+
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
