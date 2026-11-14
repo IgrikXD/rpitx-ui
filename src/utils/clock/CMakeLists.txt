@@ -9,9 +9,12 @@
 # ----------------------------------------------------------
 # Provides the carrier PLL setup shared by the transmitters: the settings
 # librpitx would program although the board cannot run them are refused
-# before the transmitter engine is constructed, and the transmitters that
-# program the PLL themselves get its divider chosen for the whole modulated
-# band.
+# before the transmitter engine is constructed, a modulated band that
+# crosses an integer step of the PLL multiplier is refused before the first
+# sample, the transmitters that program the PLL themselves get its divider
+# chosen for the whole modulated band, and the frequency samples of an FM
+# engine are delivered finer than the frequency step of the PLL
+# (PllStepFeedback, header-only).
 # ----------------------------------------------------------
 add_library(rpitx_clock_utils STATIC
     carrier_pll.cpp
