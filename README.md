@@ -119,7 +119,8 @@ Added SSB sideband selection ("_**USB**_" / "_**LSB**_") for the "_**SSB**_" tra
 Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labeled "**FmRds**" in the menu_): RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and 50 us / 75 us FM pre-emphasis selection.  
 ![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
 
-Added SSTV mode selection for the "_**SSTV**_" transmitter - "_**Martin M1**_" / "_**M2**_", "_**Scottie S1**_" / "_**S2**_", "_**Robot 36**_" / "_**72**_" and "_**PD-90**_" / "_**120**_" / "_**180**_" - replacing the original [rpitx] hard-coded Martin M1 mode.
+Added SSTV mode selection for the "_**SSTV**_" transmitter - "_**Martin M1**_" / "_**M2**_", "_**Scottie S1**_" / "_**S2**_", "_**Robot 36**_" / "_**72**_" and "_**PD-90**_" / "_**120**_" / "_**180**_" - replacing the original [rpitx] hard-coded Martin M1 mode.  
+![rpitx-ui-sstv-mode](./doc/rpitx-ui-sstv-mode.gif)
 
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
