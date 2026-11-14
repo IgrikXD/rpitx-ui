@@ -49,8 +49,13 @@ namespace pisstv {
 
     /**
      * @brief Duration of the unmodulated carrier that follows every picture, in milliseconds.
+     *
+     * At least one DMA ring: the engine repeats its ring while the next picture is awaited,
+     * and after the gap every slot of it holds the unmodulated carrier.
      */
     inline constexpr double PICTURE_GAP_MS{500.0};
+    static_assert(PICTURE_GAP_MS * SAMPLE_RATE / 1000.0 >= DMA_FIFO_SIZE,
+                  "the gap between two pictures must fill the DMA ring");
 
     /**
      * @brief SSTV parameters extracted from argv.

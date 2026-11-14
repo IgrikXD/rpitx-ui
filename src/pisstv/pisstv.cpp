@@ -189,8 +189,9 @@ namespace pisstv {
         }
 
         // Wrap DMA construction and the transmission loop in a try / catch:
-        // checkCarrierPll and PllStepFeedback refuse the PLL settings the board
-        // cannot run and appendSequence / PnmReader throw on contract
+        // checkCarrierPll refuses the PLL settings the board cannot run,
+        // PllStepFeedback a carrier whose tones cross an integer step of the
+        // PLL multiplier, and appendSequence / PnmReader throw on contract
         // violations. A stray throw escaping main would terminate via
         // std::terminate without flushing the diagnostic.
         try {

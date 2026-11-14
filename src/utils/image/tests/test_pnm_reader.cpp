@@ -378,8 +378,10 @@ TEST(PnmReaderTest, TruncatedPixmapRasterReportsError) {
  *
  * A destination whose size differs from the width is a programmer error (the consumer sized
  * its buffer from the wrong header) and throws std::invalid_argument; calling readRow()
- * before readHeader() has produced a pending row is a sequencing error and throws
- * std::logic_error. Both are distinct from the runtime Error status used for bad input data.
+ * before readHeader() has produced a pending row, or after the last row of the image, is a
+ * sequencing error and throws std::logic_error. Both are distinct from the runtime Error
+ * status used for bad input data. Only the call after the last row tells the two apart: its
+ * destination has the right size, and std::invalid_argument is a std::logic_error.
  */
 TEST(PnmReaderTest, ReadRowThrowsOnContractViolations) {
     const auto pnmReader{makeMemoryReader(PnmFormat::Graymap, makePgm(2, 1, 255, {1, 2}))};
@@ -390,6 +392,8 @@ TEST(PnmReaderTest, ReadRowThrowsOnContractViolations) {
     ASSERT_EQ(pnmReader->readHeader(), PnmReadStatus::Ok);
     EXPECT_THROW(
         { [[maybe_unused]] const PnmReadStatus status{pnmReader->readRow(wrongSizeRow)}; }, std::invalid_argument);
+    ASSERT_EQ(pnmReader->readRow(row), PnmReadStatus::Ok);
+    EXPECT_THROW({ [[maybe_unused]] const PnmReadStatus status{pnmReader->readRow(row)}; }, std::logic_error);
 }
 
 /**
@@ -438,7 +442,8 @@ namespace {
      * @brief Headers that must be rejected: every other netpbm type, a non-PNM magic, a missing
      *        or zero field, dimensions and sample maximum above the format limits, and a header
      *        whose raster is not introduced by a single whitespace character, for a PGM reader;
-     *        a PGM image, a non-PNM magic and a missing field for a PPM reader. Each case names
+     *        a PGM image, a non-PNM magic, a missing field, a zero width and a raster without
+     *        that character for a PPM reader, which names its own format. Each case names
      *        the fragment the diagnostic must carry so a wrong error branch is caught, not only
      *        the Error status.
      */
@@ -462,9 +467,16 @@ namespace {
             MalformedHeaderTestCase{
                 "NoRasterSeparator", PnmFormat::Graymap, "P5\n1 1\n255", "single whitespace character"},
             MalformedHeaderTestCase{"BinaryPgmForPixmap", PnmFormat::Pixmap, "P5\n1 1\n255\n0", "only binary PPM (P6)"},
-            MalformedHeaderTestCase{"NotPnmForPixmap", PnmFormat::Pixmap, "GIF89a", "magic number P6 not found"},
+            MalformedHeaderTestCase{
+                "NotPnmForPixmap", PnmFormat::Pixmap, "GIF89a", "invalid PPM header: magic number P6 not found"},
             MalformedHeaderTestCase{
                 "MissingHeightOfPixmap", PnmFormat::Pixmap, "P6\n1\n", "invalid PPM header: missing height"},
+            MalformedHeaderTestCase{
+                "ZeroWidthOfPixmap", PnmFormat::Pixmap, "P6\n0 1\n255\n", "invalid PPM header: width must be in"},
+            MalformedHeaderTestCase{"NoRasterSeparatorOfPixmap",
+                                    PnmFormat::Pixmap,
+                                    "P6\n1 1\n255",
+                                    "invalid PPM header: a single whitespace character"},
         };
     }
 }  // namespace
