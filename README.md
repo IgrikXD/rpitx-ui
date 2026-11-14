@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.28-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.29-blue.svg?longCache=true&style=for-the-badge)
 
 ## Supported hardware
 **rpitx-ui** works only on Raspberry Pi boards built on the SoCs supported by the `librpitx` backend:
@@ -89,11 +89,10 @@ rpitx-ui
 You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the project directory every time. You can simply run the `rpitx-ui` command from anywhere on the system - during installation, [`./easytest.sh`](./easytest.sh) is copied to `/usr/bin/rpitx-ui` via CMake.  
 ![rpitx-ui-running](./doc/rpitx-ui-running.gif)
 
-[`easytest.sh`](./easytest.sh) now has a friendlier user interface and lets you select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_", "_**FreeDV**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode:
+[`easytest.sh`](./easytest.sh) now has a friendlier user interface and lets you select the specific file used for transmission in the "_**Spectrum**_", "_**WFM**_", "_**NFM**_", "_**SSB**_", "_**AM**_" and "_**SSTV**_" modes. The menu filters files by the extension required for the chosen mode:
 - "_**WFM**_" / "_**NFM**_" / "_**SSB**_" / "_**AM**_" - any libsndfile-supported audio file (`.aif`, `.aiff`, `.caf`, `.flac`, `.mp3`, `.wav`)
 - "_**Spectrum**_" - `.jpg` (_pictures larger than 320x256 are scaled down_)
 - "_**SSTV**_" - `.jpg` (_pictures are scaled to the picture size of the selected SSTV mode_)
-- "_**FreeDV**_" - `.rf`
 
 After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
 ![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
