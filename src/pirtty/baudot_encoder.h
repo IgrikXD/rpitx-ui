@@ -129,14 +129,6 @@ namespace pirtty {
     }
 
     /**
-     * @brief Baudot codes of one RTTY transmission.
-     */
-    struct EncodedMessage {
-        std::vector<std::uint8_t> codes;  ///< Codes in the order of transmission.
-        bool charactersSkipped{false};    ///< Whether the message had characters that ITA2 does not have.
-    };
-
-    /**
      * @brief Encode a message as the Baudot codes of one RTTY transmission.
      *
      * Two LTRS codes the receiver synchronises on and a carriage return and line
@@ -146,6 +138,7 @@ namespace pirtty {
      * returns to letters there. Characters ITA2 does not have are skipped.
      *
      * @param message Text to encode; letters are sent in upper case.
+     * @return Codes in the order of transmission.
      */
-    [[nodiscard]] EncodedMessage encodeMessage(std::string_view message);
+    [[nodiscard]] std::vector<std::uint8_t> encodeMessage(std::string_view message);
 }  // namespace pirtty

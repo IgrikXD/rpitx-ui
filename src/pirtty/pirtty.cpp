@@ -11,7 +11,7 @@
  *
  * @note Usage: pirtty --freq <Hz> --message "<text>" [--mode 45|50|75] [-h | --help]
  *   - --freq      Carrier frequency in Hz, the frequency a receiver is tuned to in USB mode
- *   - --message   Message to transmit (quote multi-word strings); letters are sent in upper case
+ *   - --message   Message to transmit in the ITA2 alphabet (quote multi-word strings); letters are sent in upper case
  *   - --mode      RTTY mode: 45 (45.45 baud, default) | 50 (50 baud) | 75 (75 baud)
  *   - -h, --help  Print this help message and exit
  *
@@ -97,8 +97,8 @@ namespace pirtty {
             ->check(rpitx::cli::validators::FrequencyHz);
         app.add_option("--message",
                        params.message,
-                       "Message to transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\"); letters are "
-                       "sent in upper case")
+                       "Message to transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\") in the ITA2 "
+                       "alphabet: Latin letters (sent in upper case), digits, space and ! \" # $ & ' ( ) , - . / : ; ?")
             ->required();
 
         // The --mode values come from the mode table.
@@ -120,8 +120,12 @@ namespace pirtty {
             return result;
         }
 
-        if (std::ranges::none_of(params.message, [](char ch) { return charToBaudot(ch) != std::nullopt; })) {
-            std::cerr << "[ERROR] --message must contain at least one character of the ITA2 alphabet!" << std::endl;
+        if (params.message.empty()) {
+            std::cerr << "[ERROR] --message must not be empty!" << std::endl;
+            return rpitx::cli::ParseResult::Error;
+        }
+        if (std::ranges::any_of(params.message, [](char ch) { return charToBaudot(ch) == std::nullopt; })) {
+            std::cerr << "[ERROR] --message must contain only characters of the ITA2 alphabet!" << std::endl;
             return rpitx::cli::ParseResult::Error;
         }
 
@@ -151,15 +155,11 @@ namespace pirtty {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
-        const EncodedMessage encoded{encodeMessage(params.message)};
-        if (encoded.charactersSkipped) {
-            std::cerr << "[WARNING] pirtty: the characters of the message the ITA2 alphabet does not have are skipped."
-                      << std::endl;
-        }
+        const auto codes{encodeMessage(params.message)};
         const std::size_t bitSamples{samplesPerBit(mode)};
         // A character is the start bit, the data bits and the stop bit.
-        const double transmissionSeconds{static_cast<double>(encoded.codes.size()) *
-                                         (1.0 + BAUDOT_CODE_BITS + STOP_BITS) / mode.baudRate};
+        const double transmissionSeconds{static_cast<double>(codes.size()) * (1.0 + BAUDOT_CODE_BITS + STOP_BITS) /
+                                         mode.baudRate};
 
         // Wrap DMA construction and the transmission loop in a try / catch:
         // checkCarrierPll refuses the PLL settings the board cannot run and
@@ -181,7 +181,7 @@ namespace pirtty {
 
             // Queue the characters in the DMA engine block by block, until a stop is requested.
             std::vector<float> samples;
-            for (const std::uint8_t code: encoded.codes) {
+            for (const std::uint8_t code: codes) {
                 if (running.load(std::memory_order_relaxed) == 0) {
                     break;
                 }
