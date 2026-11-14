@@ -380,7 +380,7 @@ TEST(PnmReaderTest, TruncatedPixmapRasterReportsError) {
  * its buffer from the wrong header) and throws std::invalid_argument; calling readRow()
  * before readHeader() has produced a pending row is a sequencing error and throws
  * std::logic_error. Both are distinct from the runtime Error status used for bad input data.
- * A row asked for after the last one pins the second check alone: its destination has the
+ * A row asked for after the last one pins the pending-row check alone: its destination has the
  * right size, and std::invalid_argument is itself a std::logic_error.
  */
 TEST(PnmReaderTest, ReadRowThrowsOnContractViolations) {
