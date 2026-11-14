@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -134,7 +133,7 @@ namespace pirtty {
      */
     struct EncodedMessage {
         std::vector<std::uint8_t> codes;  ///< Codes in the order of transmission.
-        bool skippedCharacters{false};    ///< Whether the message had characters that ITA2 does not have.
+        bool charactersSkipped{false};    ///< Whether the message had characters that ITA2 does not have.
     };
 
     /**

@@ -152,7 +152,7 @@ namespace pirtty {
         enableRealtimeScheduling();
 
         const EncodedMessage encoded{encodeMessage(params.message)};
-        if (encoded.skippedCharacters) {
+        if (encoded.charactersSkipped) {
             std::cerr << "[WARNING] pirtty: the characters of the message the ITA2 alphabet does not have are skipped."
                       << std::endl;
         }

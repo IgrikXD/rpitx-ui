@@ -31,7 +31,7 @@ namespace pirtty {
         const auto append{[&encoded, &receiverCase](char ch) {
             const auto character{charToBaudot(ch)};
             if (character == std::nullopt) {
-                encoded.skippedCharacters = true;
+                encoded.charactersSkipped = true;
                 return;
             }
             if (character->letterCase != BaudotCase::Both && receiverCase != character->letterCase) {
