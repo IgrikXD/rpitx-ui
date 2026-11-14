@@ -8,13 +8,14 @@
 # Shared image utility library
 # ----------------------------------------------------------
 # Provides the picture front-end shared by the picture-transmitting binaries:
-# a streaming reader for binary PGM (P5) grayscale images (PgmReader) that
-# accepts a file or stdin, 8- and 16-bit samples, and streams of concatenated
-# images, so the binaries parse a trivial text header instead of linking an
-# image-decoding library - ImageMagick converts the user's picture up front.
+# a streaming reader for binary PGM (P5) grayscale and PPM (P6) color images
+# (PnmReader) that accepts a file or stdin, 8- and 16-bit samples, and streams
+# of concatenated images, so the binaries parse a trivial text header instead
+# of linking an image-decoding library - ImageMagick converts the user's
+# picture up front.
 # ----------------------------------------------------------
 add_library(rpitx_image_utils STATIC
-    pgm_reader.cpp
+    pnm_reader.cpp
 )
 target_include_directories(rpitx_image_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

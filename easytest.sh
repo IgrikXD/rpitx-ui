@@ -14,6 +14,7 @@ DEFAULT_MULTITONE_TONES=8
 DEFAULT_NFM_MODE="Wide"
 DEFAULT_PLAYBACK="loop"
 DEFAULT_SSB_SIDEBAND="USB"
+DEFAULT_SSTV_MODE="Martin-M1"
 DEFAULT_RDS_PI="0x1234"
 DEFAULT_RDS_PS="rpitx-ui"
 DEFAULT_RDS_RT="rpitx-ui Broadcast WFM with RDS"
@@ -176,6 +177,28 @@ LAST_ITEM="$menuchoice"
 if SSB_SIDEBAND=$(whiptail --default-item "$DEFAULT_SSB_SIDEBAND" --title "SSB sideband" --menu "Select SSB sideband:" 15 78 2 \
 	"USB" "Upper Side Band modulation" \
 	"LSB" "Lower Side Band modulation" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
+do_enter_sstv_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if SSTV_MODE=$(whiptail --default-item "$DEFAULT_SSTV_MODE" --title "SSTV mode" --menu "Select SSTV mode:" 17 78 9 \
+	"Martin-M1" "320x256 picture in 114 seconds" \
+	"Martin-M2" "320x256 picture in 58 seconds" \
+	"Scottie-S1" "320x256 picture in 110 seconds" \
+	"Scottie-S2" "320x256 picture in 71 seconds" \
+	"Robot-36" "320x240 picture in 36 seconds" \
+	"Robot-72" "320x240 picture in 72 seconds" \
+	"PD-90" "320x256 picture in 90 seconds" \
+	"PD-120" "640x496 picture in 126 seconds" \
+	"PD-180" "640x496 picture in 187 seconds" \
 	3>&1 1>&2 2>&3); then
 	abort_action=0
 else
@@ -355,7 +378,7 @@ do_freq_setup
 	"6 SSB" "Single Sideband modulation" \
 	"7 AM" "Amplitude Modulation" \
 	"8 FreeDV" "Digital voice mode 800XA" \
-	"9 SSTV" "Pattern picture" \
+	"9 SSTV" "Slow-Scan Television" \
 	"10 Pocsag" "Pager message" \
     "11 Opera" "Like morse but need Opera decoder" \
     "12 RTTY" "Radioteletype" \
@@ -450,10 +473,16 @@ do_freq_setup
 			fi
 			;;
 			
-			9\ *) do_file_choose "320x256 .jpg" "$RESOURCES_LOCATION" '\.jpg$'
+			9\ *) do_file_choose ".jpg" "$RESOURCES_LOCATION" '\.jpg$'
 			if [ $abort_action -eq 0 ]; then
-				testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_sstv_mode
+				if [ $abort_action -eq 0 ]; then
+					do_enter_playback_mode
+					if [ $abort_action -eq 0 ]; then
+						testsstv.sh "$OUTPUT_FREQ""e6" "$FILE_LOC" "$PLAYBACK_MODE" "${SSTV_MODE,,}" >/dev/null 2>/dev/null &
+						do_status
+					fi
+				fi
 			fi
 			;;
 			

@@ -8,7 +8,7 @@
 # Unit tests for the shared image utility library
 # ----------------------------------------------------------
 add_executable(rpitx_image_utils_tests
-    test_pgm_reader.cpp
+    test_pnm_reader.cpp
 )
 
 target_link_libraries(rpitx_image_utils_tests

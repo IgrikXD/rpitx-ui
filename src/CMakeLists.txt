@@ -139,9 +139,20 @@ target_link_libraries(pissb
         librpitx::librpitx
 )
 
-# --- pisstv ---
-add_executable(pisstv sstv/pisstv.cpp)
-target_link_libraries(pisstv PRIVATE librpitx::librpitx)
+# --- pisstv (PPM picture -> librpitx ngfmdmasync, self-contained) ---
+add_executable(pisstv
+    pisstv/pisstv.cpp
+    pisstv/sstv_encoder.cpp
+)
+target_link_libraries(pisstv
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_image_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pitune (unmodulated carrier -> librpitx clkgpio, self-contained) ---
 add_executable(pitune pitune/pitune.cpp)
