@@ -121,6 +121,9 @@ Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labeled "**
 Added SSTV mode selection for the "_**SSTV**_" transmitter - "_**Martin M1**_" / "_**M2**_", "_**Scottie S1**_" / "_**S2**_", "_**Robot 36**_" / "_**72**_" and "_**PD-90**_" / "_**120**_" / "_**180**_" - replacing the original [rpitx] hard-coded Martin M1 mode.  
 ![rpitx-ui-sstv-mode](./doc/rpitx-ui-sstv-mode.gif)
 
+Added RTTY mode selection for the "_**RTTY**_" transmitter - "_**RTTY-45**_" (_45.45 baud_), "_**RTTY-50**_" and "_**RTTY-75**_", all with a 170 Hz shift - replacing the original [rpitx] hard-coded 45.45 baud mode.  
+![rpitx-ui-rtty-mode](./doc/rpitx-ui-rtty-mode.gif)
+
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
 Fixed the "_Bye bye_" exit message not being displayed correctly when leaving the program.
