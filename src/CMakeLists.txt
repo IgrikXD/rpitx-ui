@@ -103,9 +103,19 @@ target_link_libraries(pirfgen
         librpitx::librpitx
 )
 
-# --- pirtty ---
-add_executable(pirtty pirtty/pirtty.cpp)
-target_link_libraries(pirtty PRIVATE librpitx::librpitx)
+# --- pirtty (text message -> librpitx ngfmdmasync, self-contained) ---
+add_executable(pirtty
+    pirtty/baudot_encoder.cpp
+    pirtty/pirtty.cpp
+)
+target_link_libraries(pirtty
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pispectrumpaint (PGM picture -> librpitx iqdmasync, self-contained) ---
 add_executable(pispectrumpaint pispectrumpaint/pispectrumpaint.cpp)
