@@ -98,7 +98,8 @@ namespace pirtty {
         app.add_option("--message",
                        params.message,
                        "Message to transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\") in the ITA2 "
-                       "alphabet: Latin letters (sent in upper case), digits, space and ! \" # $ & ' ( ) , - . / : ; ?")
+                       "alphabet: Latin letters (sent in upper case), digits, space, CR, LF, BELL and "
+                       "! \" # $ & ' ( ) , - . / : ; ?")
             ->required();
 
         // The --mode values come from the mode table.
@@ -165,7 +166,8 @@ namespace pirtty {
         // checkCarrierPll refuses the PLL settings the board cannot run and
         // PllStepFeedback a carrier whose tones cross an integer step of the
         // PLL multiplier. A stray throw escaping main would terminate via
-        // std::terminate without flushing the diagnostic.
+        // std::terminate without the destructor of ngfmdmasync stopping the
+        // DMA engine and the clock generator.
         try {
             std::cout << "pirtty: carrier=" << params.transmissionFrequency << " Hz, mode=" << mode.name << " ("
                       << mode.baudRate << " baud), space=" << SPACE_TONE_HZ << " Hz, mark=" << MARK_TONE_HZ

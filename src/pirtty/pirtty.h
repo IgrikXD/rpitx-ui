@@ -36,7 +36,7 @@ namespace pirtty {
     inline constexpr uint32_t SAMPLE_RATE{48'000};
 
     /**
-     * @brief Number of samples queued per librpitx::SetFrequencySamples call (~21 ms at 48 kHz).
+     * @brief Largest number of samples queued per librpitx::SetFrequencySamples call (~21 ms at 48 kHz).
      *
      * Small enough for prompt SIGTERM/SIGINT response, large enough to
      * amortise per-call overhead inside librpitx.
