@@ -7,7 +7,7 @@
 # RF transmitter for Raspberry Pi with improved UI functionality, built with CMake.
 
 # Invokes: pirtty --freq <Hz> --message <text> --mode <name>
-#   --message : letters are sent in upper case, characters ITA2 does not have are skipped.
+#   --message : letters are sent in upper case, a message with a character ITA2 does not have is refused.
 #   --mode    : 45 (45.45 baud, default) | 50 | 75 - all with a 170 Hz shift.
 FREQ="$1"
 MESSAGE="$2"
