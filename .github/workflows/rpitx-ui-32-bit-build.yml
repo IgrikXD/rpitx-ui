@@ -30,7 +30,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build on latest Raspberry Pi OS 32-bit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Checkout repository
