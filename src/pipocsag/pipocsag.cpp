@@ -130,11 +130,13 @@ namespace pipocsag {
         // value with the spelling of the table, and its description is overridden because the option
         // descriptions already list the values.
         std::vector<std::string> modeNames;
+        std::string modeList;
         for (const uint32_t bitRate: BIT_RATES) {
             modeNames.push_back(std::to_string(bitRate));
+            modeList += (modeList.empty() ? "" : " | ") + modeNames.back();
         }
         std::string mode{std::to_string(params.bitRate)};
-        app.add_option("--mode", mode, "POCSAG mode, the bit rate in bit/s: 512 (default) | 1200 | 2400")
+        app.add_option("--mode", mode, "POCSAG mode, the bit rate in bit/s, " + mode + " by default: " + modeList)
             ->transform(CLI::IsMember(modeNames).description(""));
         const std::vector<std::string> typeNames{TYPE_NAMES.begin(), TYPE_NAMES.end()};
         std::string type{typeName(params.type)};
