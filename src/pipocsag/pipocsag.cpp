@@ -10,12 +10,12 @@
  * 1 below it. Transmission ends with the last batch, or on SIGTERM / SIGINT.
  *
  * @note Usage: pipocsag --freq <Hz> --address <address> [--message "<text>"] [--mode 512|1200|2400]
- *               [--type tone-only|numeric|alphanumeric] [--function a|b|c|d] [-h | --help]
+ *               [--type alphanumeric|numeric|tone-only] [--function a|b|c|d] [-h | --help]
  *   - --freq      Carrier frequency in Hz, the centre of the two tones
  *   - --address   Pager address (RIC) in decimal notation
  *   - --message   Message to transmit (quote multi-word strings); none for a tone-only call
- *   - --mode      POCSAG mode, the bit rate in bit/s: 512 | 1200 (default) | 2400
- *   - --type      Message type: tone-only | numeric | alphanumeric (default)
+ *   - --mode      POCSAG mode, the bit rate in bit/s: 512 (default) | 1200 | 2400
+ *   - --type      Message type: alphanumeric (default) | numeric | tone-only
  *   - --function  Function A - D of the pager: a (default) | b | c | d (default for an alphanumeric message)
  *   - -h, --help  Print this help message and exit
  *
@@ -120,8 +120,8 @@ namespace pipocsag {
         const auto* messageOption{app.add_option(
             "--message",
             params.message,
-            "Message to transmit (quote multi-word strings, e.g. --message \"Hello world\"): digits, space, U, - "
-            "and the brackets [ ] or ( ) with --type numeric, 7-bit ASCII with --type alphanumeric, none with "
+            "Message to transmit (quote multi-word strings, e.g. --message \"Hello world\"): 7-bit ASCII with "
+            "--type alphanumeric, digits, space, U, - and the brackets [ ] or ( ) with --type numeric, none with "
             "--type tone-only")};
 
         // The --mode, --type and --function values are the names of their tables: IsMember replaces a
@@ -132,11 +132,11 @@ namespace pipocsag {
             modeNames.push_back(std::to_string(bitRate));
         }
         std::string mode{std::to_string(params.bitRate)};
-        app.add_option("--mode", mode, "POCSAG mode, the bit rate in bit/s: 512 | 1200 (default) | 2400")
+        app.add_option("--mode", mode, "POCSAG mode, the bit rate in bit/s: 512 (default) | 1200 | 2400")
             ->transform(CLI::IsMember(modeNames).description(""));
         const std::vector<std::string> typeNames{TYPE_NAMES.begin(), TYPE_NAMES.end()};
         std::string type{typeName(params.type)};
-        app.add_option("--type", type, "Message type: tone-only (no message) | numeric | alphanumeric (default)")
+        app.add_option("--type", type, "Message type: alphanumeric (default) | numeric | tone-only (no message)")
             ->transform(CLI::IsMember(typeNames, CLI::ignore_case).description(""));
         const std::vector<std::string> functionNames{FUNCTION_NAMES.begin(), FUNCTION_NAMES.end()};
         std::string function;

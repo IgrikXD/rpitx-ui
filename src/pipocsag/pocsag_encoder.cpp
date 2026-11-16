@@ -202,14 +202,14 @@ namespace pipocsag {
         // No default branch: MessageType is closed-set, so -Wswitch flags any future
         // enumerator that forgets to update this dispatch.
         switch (type) {
-            case MessageType::ToneOnly:
-                return message.empty();
-            case MessageType::Numeric:
-                return std::ranges::all_of(message, [](char ch) { return numericCode(ch) != std::nullopt; });
             case MessageType::Alphanumeric:
                 return std::ranges::all_of(message, [](char ch) {
                     return (static_cast<unsigned char>(ch) >> ALPHANUMERIC_CHARACTER_BITS) == 0;
                 });
+            case MessageType::Numeric:
+                return std::ranges::all_of(message, [](char ch) { return numericCode(ch) != std::nullopt; });
+            case MessageType::ToneOnly:
+                return message.empty();
         }
         return false;
     }

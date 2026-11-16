@@ -47,9 +47,9 @@ namespace pipocsag {
      * @brief Format of the message that follows the address of a pager.
      */
     enum class MessageType : std::uint8_t {
-        ToneOnly,      ///< No message: the pager only alerts.
-        Numeric,       ///< Numeric-only format, 4 bits per character.
         Alphanumeric,  ///< Alphanumeric format, 7 bits per character.
+        Numeric,       ///< Numeric-only format, 4 bits per character.
+        ToneOnly,      ///< No message: the pager only alerts.
     };
 
     /**

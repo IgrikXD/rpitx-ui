@@ -60,7 +60,7 @@ namespace pipocsag {
      */
     struct PocsagParameters {
         uint64_t transmissionFrequency{0};
-        uint32_t bitRate{1'200};  ///< Default to POCSAG 1200, the mode of the upstream binary.
+        uint32_t bitRate{512};  ///< Default to POCSAG 512, the original bit rate of the code.
         uint32_t address{0};
         MessageType type{MessageType::Alphanumeric};  ///< Default to an alphanumeric message, as the upstream binary.
         Function function{Function::D};
@@ -79,7 +79,7 @@ namespace pipocsag {
     /**
      * @brief --type values, in the order of MessageType.
      */
-    inline constexpr std::array<std::string_view, 3> TYPE_NAMES{"tone-only", "numeric", "alphanumeric"};
+    inline constexpr std::array<std::string_view, 3> TYPE_NAMES{"alphanumeric", "numeric", "tone-only"};
 
     /**
      * @brief --function values, in the order of Function.

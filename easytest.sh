@@ -7,7 +7,7 @@ DEFAULT_POCSAG_ADDRESS="1234567"
 DEFAULT_POCSAG_MESSAGE="Hello world from rpitx-ui"
 DEFAULT_POCSAG_NUMERIC_MESSAGE="0123456789"
 DEFAULT_POCSAG_TYPE="Alphanumeric"
-DEFAULT_POCSAG_MODE="POCSAG-1200"
+DEFAULT_POCSAG_MODE="POCSAG-512"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_RTTY_MODE="RTTY-45"
@@ -240,9 +240,9 @@ fi
 
 # Message type
 if ! POCSAG_TYPE=$(whiptail --default-item "$DEFAULT_POCSAG_TYPE" --title "POCSAG message type" --menu "Select POCSAG message type:" 15 78 3 \
-	"Tone-only" "Call without a message" \
-	"Numeric" "Digits, space, U, - and brackets" \
 	"Alphanumeric" "Text in 7-bit ASCII" \
+	"Numeric" "Digits, space, U, - and brackets" \
+	"Tone-only" "Call without a message" \
 	3>&1 1>&2 2>&3); then
 	abort_action=1
 	return
