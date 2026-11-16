@@ -3,7 +3,11 @@ abort_action=0
 
 OUTPUT_FREQ=434.0
 RESOURCES_LOCATION="${RPITX_RESOURCES_LOCATION:-/usr/share/rpitx-ui}"
-DEFAULT_POCSAG_MESSAGE="1:YOURCALL\n2: Hello world"
+DEFAULT_POCSAG_ADDRESS="1234567"
+DEFAULT_POCSAG_MESSAGE="Hello world from rpitx-ui"
+DEFAULT_POCSAG_NUMERIC_MESSAGE="0123456789"
+DEFAULT_POCSAG_TYPE="Alphanumeric"
+DEFAULT_POCSAG_MODE="POCSAG-1200"
 DEFAULT_OPERA_CALLSIGN="F5OEO"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_RTTY_MODE="RTTY-45"
@@ -208,6 +212,81 @@ fi
 
 }
 
+do_enter_pocsag_params()
+{
+
+LAST_ITEM="$menuchoice"
+MESSAGE=""
+
+# Pager address: decimal, without the eight addresses of the idle codeword
+if POCSAG_ADDRESS=$(whiptail --inputbox "Enter pager address (RIC, 0-2097151):" 8 78 "$DEFAULT_POCSAG_ADDRESS" --title "POCSAG pager address" 3>&1 1>&2 2>&3); then
+	if ! printf '%s' "$POCSAG_ADDRESS" | LC_ALL=C grep -Eq '^[0-9]{1,7}$' || [ "$POCSAG_ADDRESS" -gt 2097151 ] || { [ "$POCSAG_ADDRESS" -ge 2007664 ] && [ "$POCSAG_ADDRESS" -le 2007671 ]; }; then
+		whiptail --title "Error!" --msgbox "Address must be an integer in [0, 2097151], except 2007664-2007671 (the addresses of the idle codeword)!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# Message type
+if ! POCSAG_TYPE=$(whiptail --default-item "$DEFAULT_POCSAG_TYPE" --title "POCSAG message type" --menu "Select POCSAG message type:" 15 78 3 \
+	"Tone-only" "Call without a message" \
+	"Numeric" "Digits, space, U, - and brackets" \
+	"Alphanumeric" "Text in 7-bit ASCII" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# Message of the selected type; the standard assigns function A to numeric and D to alphanumeric messages
+POCSAG_DEFAULT_FUNCTION="A"
+if [ "$POCSAG_TYPE" = "Numeric" ]; then
+	do_enter_message "POCSAG" "$DEFAULT_POCSAG_NUMERIC_MESSAGE"
+	if [ $abort_action -ne 0 ]; then
+		return
+	elif printf '%s' "$MESSAGE" | LC_ALL=C grep -q '[^][0-9U ()-]'; then
+		whiptail --title "Error!" --msgbox "Numeric message must contain only digits, spaces, U, - and brackets!" 8 78
+		abort_action=1
+		return
+	fi
+elif [ "$POCSAG_TYPE" = "Alphanumeric" ]; then
+	POCSAG_DEFAULT_FUNCTION="D"
+	do_enter_message "POCSAG" "$DEFAULT_POCSAG_MESSAGE"
+	if [ $abort_action -ne 0 ]; then
+		return
+	elif printf '%s' "$MESSAGE" | LC_ALL=C grep -q '[^ -~]'; then
+		whiptail --title "Error!" --msgbox "Alphanumeric message must contain only printable ASCII (0x20-0x7E)!" 8 78
+		abort_action=1
+		return
+	fi
+fi
+
+# Function: one of the four addresses of the pager
+if ! POCSAG_FUNCTION=$(whiptail --default-item "$POCSAG_DEFAULT_FUNCTION" --title "POCSAG function" --menu "Select POCSAG function (address A-D of the pager):" 15 78 4 \
+	"A" "Function bits 00 (numeric messages by the standard)" \
+	"B" "Function bits 01" \
+	"C" "Function bits 10" \
+	"D" "Function bits 11 (alphanumeric messages by the standard)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# POCSAG mode: the bit rate
+if POCSAG_MODE=$(whiptail --default-item "$DEFAULT_POCSAG_MODE" --title "POCSAG mode" --menu "Select POCSAG mode:" 15 78 3 \
+	"POCSAG-512" "512 bit/s" \
+	"POCSAG-1200" "1200 bit/s" \
+	"POCSAG-2400" "2400 bit/s" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
 do_check_rtty_message()
 {
 
@@ -348,13 +427,13 @@ do_stop_transmit()
 	sudo killall pimorse 2>/dev/null
 	sudo killall pinfm 2>/dev/null
 	sudo killall piopera 2>/dev/null
+	sudo killall pipocsag 2>/dev/null
 	sudo killall pirfgen 2>/dev/null
 	sudo killall pirtty 2>/dev/null
 	sudo killall pispectrumpaint 2>/dev/null
 	sudo killall pissb 2>/dev/null
 	sudo killall pisstv 2>/dev/null
 	sudo killall pitune 2>/dev/null
-	sudo killall pocsag 2>/dev/null
 	sudo killall rpitx 2>/dev/null
 	sudo killall sendiq 2>/dev/null
 
@@ -505,9 +584,9 @@ do_freq_setup
 			fi
 			;;
 			
-			9\ *) do_enter_message "POCSAG (ADDR:MESSAGE_BODY)" "$DEFAULT_POCSAG_MESSAGE"
+			9\ *) do_enter_pocsag_params
 			if [ $abort_action -eq 0 ]; then
-				testpocsag.sh "$OUTPUT_FREQ""e6" "$MESSAGE" >/dev/null 2>/dev/null &
+				testpocsag.sh "$OUTPUT_FREQ""e6" "$POCSAG_ADDRESS" "$MESSAGE" "${POCSAG_TYPE,,}" "${POCSAG_MODE#POCSAG-}" "${POCSAG_FUNCTION,,}" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
