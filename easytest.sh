@@ -218,10 +218,18 @@ do_enter_pocsag_params()
 LAST_ITEM="$menuchoice"
 MESSAGE=""
 
-# Pager address: decimal, without the eight addresses of the idle codeword
+# Pager address: decimal, without the addresses of the idle and of the synchronization codeword
 if POCSAG_ADDRESS=$(whiptail --inputbox "Enter pager address (RIC, 0-2097151):" 8 78 "$DEFAULT_POCSAG_ADDRESS" --title "POCSAG pager address" 3>&1 1>&2 2>&3); then
-	if ! printf '%s' "$POCSAG_ADDRESS" | LC_ALL=C grep -Eq '^[0-9]{1,7}$' || [ "$POCSAG_ADDRESS" -gt 2097151 ] || { [ "$POCSAG_ADDRESS" -ge 2007664 ] && [ "$POCSAG_ADDRESS" -le 2007671 ]; }; then
-		whiptail --title "Error!" --msgbox "Address must be an integer in [0, 2097151], except 2007664-2007671 (the addresses of the idle codeword)!" 8 78
+	if ! printf '%s' "$POCSAG_ADDRESS" | LC_ALL=C grep -Eq '^[0-9]{1,7}$' || [ "$POCSAG_ADDRESS" -gt 2097151 ]; then
+		whiptail --title "Error!" --msgbox "Address must be an integer in [0, 2097151]!" 8 78
+		abort_action=1
+		return
+	elif [ "$POCSAG_ADDRESS" -ge 2007664 ] && [ "$POCSAG_ADDRESS" -le 2007671 ]; then
+		whiptail --title "Error!" --msgbox "Addresses 2007664-2007671 belong to the idle codeword!" 8 78
+		abort_action=1
+		return
+	elif [ "$POCSAG_ADDRESS" -ge 2045056 ] && [ "$POCSAG_ADDRESS" -le 2045063 ]; then
+		whiptail --title "Error!" --msgbox "Addresses 2045056-2045063 belong to the synchronization codeword!" 8 78
 		abort_action=1
 		return
 	fi

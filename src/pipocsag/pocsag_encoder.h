@@ -34,9 +34,14 @@ namespace pipocsag {
     inline constexpr std::uint32_t MAX_ADDRESS{(1U << 21) - 1};
 
     /**
-     * @brief First of the eight addresses whose address codeword is the idle codeword; no pager has them.
+     * @brief First of the eight addresses whose address codeword of function A is the idle codeword.
      */
     inline constexpr std::uint32_t IDLE_ADDRESS{2'007'664};
+
+    /**
+     * @brief First of the eight addresses whose address codeword of function C is the synchronization codeword.
+     */
+    inline constexpr std::uint32_t SYNC_ADDRESS{2'045'056};
 
     /**
      * @brief Format of the message that follows the address of a pager.
@@ -58,10 +63,13 @@ namespace pipocsag {
     };
 
     /**
-     * @brief Whether a pager can have the address: a 21-bit identity other than the eight of the idle codeword.
+     * @brief Whether a pager can have the address: a 21-bit identity other than the eight addresses
+     *        of the idle codeword and the eight of the synchronization codeword.
      */
     [[nodiscard]] constexpr bool isPagerAddress(std::uint32_t address) noexcept {
-        return address <= MAX_ADDRESS && (address >> FRAME_BITS) != (IDLE_ADDRESS >> FRAME_BITS);
+        const std::uint32_t addressBits{address >> FRAME_BITS};
+        return address <= MAX_ADDRESS && addressBits != (IDLE_ADDRESS >> FRAME_BITS) &&
+               addressBits != (SYNC_ADDRESS >> FRAME_BITS);
     }
 
     /**

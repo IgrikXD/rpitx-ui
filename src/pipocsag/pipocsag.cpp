@@ -108,9 +108,12 @@ namespace pipocsag {
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         // Addresses a pager can have, as --help and the diagnostic name them.
-        const std::string addressRange{
-            "0 - " + std::to_string(MAX_ADDRESS) + ", except " + std::to_string(IDLE_ADDRESS) + " - " +
-            std::to_string(IDLE_ADDRESS | ((1U << FRAME_BITS) - 1U)) + " (the addresses of the idle codeword)"};
+        const auto frameAddresses{[](uint32_t first) {
+            return std::to_string(first) + " - " + std::to_string(first | ((1U << FRAME_BITS) - 1U));
+        }};
+        const std::string addressRange{"0 - " + std::to_string(MAX_ADDRESS) + ", except " +
+                                       frameAddresses(IDLE_ADDRESS) + " and " + frameAddresses(SYNC_ADDRESS) +
+                                       " (the addresses of the idle and of the synchronization codeword)"};
         std::string addressText;
         app.add_option("--address", addressText, "Pager address (RIC) in decimal notation: " + addressRange)
             ->required();
@@ -121,20 +124,16 @@ namespace pipocsag {
             "and the brackets [ ] or ( ) with --type numeric, 7-bit ASCII with --type alphanumeric, none with "
             "--type tone-only")};
 
-        // The --mode values come from the bit rate table.
-        std::string bitRateList;
+        // The --mode, --type and --function values are the names of their tables: IsMember replaces a
+        // value with the spelling of the table, and its description is overridden because the option
+        // descriptions already list the values.
+        std::vector<std::string> modeNames;
         for (const uint32_t bitRate: BIT_RATES) {
-            bitRateList += (bitRateList.empty() ? "" : " | ") + std::to_string(bitRate);
+            modeNames.push_back(std::to_string(bitRate));
         }
-        // The description of IsMember is overridden because the option description already lists the values.
-        app.add_option(
-               "--mode",
-               params.bitRate,
-               "POCSAG mode, the bit rate in bit/s, " + std::to_string(params.bitRate) + " by default: " + bitRateList)
-            ->check(CLI::IsMember(BIT_RATES).description(""));
-
-        // The --type and --function values come from their name tables: IsMember replaces the
-        // value with the spelling of the table.
+        std::string mode{std::to_string(params.bitRate)};
+        app.add_option("--mode", mode, "POCSAG mode, the bit rate in bit/s: 512 | 1200 (default) | 2400")
+            ->transform(CLI::IsMember(modeNames).description(""));
         const std::vector<std::string> typeNames{TYPE_NAMES.begin(), TYPE_NAMES.end()};
         std::string type{typeName(params.type)};
         app.add_option("--type", type, "Message type: tone-only (no message) | numeric | alphanumeric (default)")
@@ -159,10 +158,16 @@ namespace pipocsag {
             return rpitx::cli::ParseResult::Error;
         }
         params.address = address.value();
-        params.type    = static_cast<MessageType>(std::ranges::find(typeNames, type) - typeNames.begin());
+
+        // Position of a parsed name in its table.
+        const auto position{[](const std::vector<std::string>& names, const std::string& name) {
+            return static_cast<std::size_t>(std::ranges::find(names, name) - names.begin());
+        }};
+        params.bitRate = BIT_RATES[position(modeNames, mode)];
+        params.type    = static_cast<MessageType>(position(typeNames, type));
 
         if (params.type == MessageType::ToneOnly) {
-            // Reject (not ignore) a message the call cannot carry, so nothing but the requested call is sent.
+            // A tone-only call carries no message.
             if (messageOption->count() > 0) {
                 std::cerr << "[ERROR] --message is not valid with --type tone-only!" << std::endl;
                 return rpitx::cli::ParseResult::Error;
@@ -178,11 +183,8 @@ namespace pipocsag {
             return rpitx::cli::ParseResult::Error;
         }
 
-        // Without --function, the function the Recommendation gives the messages of the format.
-        params.function =
-            functionOption->count() == 0
-                ? defaultFunction(params.type)
-                : static_cast<Function>(std::ranges::find(functionNames, function) - functionNames.begin());
+        params.function = functionOption->count() == 0 ? defaultFunction(params.type)
+                                                       : static_cast<Function>(position(functionNames, function));
 
         return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
@@ -219,7 +221,7 @@ namespace pipocsag {
 
             std::cout << "pipocsag: carrier=" << params.transmissionFrequency << " Hz, mode=" << params.bitRate
                       << " bit/s, type=" << typeName(params.type) << ", address=" << params.address
-                      << ", function=" << FUNCTION_NAMES[static_cast<std::size_t>(params.function)]
+                      << ", function=" << functionName(params.function)
                       << ", transmission_time=" << words.size() * WORD_BITS * 1000 / params.bitRate << " ms"
                       << std::endl;
 

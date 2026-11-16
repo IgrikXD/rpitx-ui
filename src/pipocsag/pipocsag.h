@@ -67,7 +67,9 @@ namespace pipocsag {
     };
 
     /**
-     * @brief Function the Recommendation gives the messages of a format: A for numeric-only, D for alphanumeric ones.
+     * @brief Function a call gets without --function: D for an alphanumeric message, A otherwise.
+     *
+     * The Recommendation gives numeric-only messages function A and alphanumeric ones function D.
      */
     [[nodiscard]] constexpr Function defaultFunction(MessageType type) noexcept {
         return type == MessageType::Alphanumeric ? Function::D : Function::A;
@@ -88,6 +90,13 @@ namespace pipocsag {
      */
     [[nodiscard]] constexpr std::string_view typeName(MessageType type) noexcept {
         return TYPE_NAMES[static_cast<std::size_t>(type)];
+    }
+
+    /**
+     * @brief Display name for a Function (matches the --function CLI value).
+     */
+    [[nodiscard]] constexpr std::string_view functionName(Function function) noexcept {
+        return FUNCTION_NAMES[static_cast<std::size_t>(function)];
     }
 
     /**

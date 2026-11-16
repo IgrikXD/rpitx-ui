@@ -27,6 +27,9 @@ namespace pipocsag {
 
         /**
          * @brief Idle codeword, sent wherever a batch has no address or message codeword to carry.
+         *
+         * Table 2 of the Recommendation prints its bit 10 as a 1 (0x7AC9C197), which is not a
+         * codeword of the code; this is the value receivers use.
          */
         constexpr std::uint32_t IDLE_CODEWORD{0x7A89C197};
 
@@ -112,9 +115,19 @@ namespace pipocsag {
 
         static_assert(makeCodeword(SYNC_CODEWORD >> (CHECK_BITS + 1)) == SYNC_CODEWORD &&
                           makeCodeword(IDLE_CODEWORD >> (CHECK_BITS + 1)) == IDLE_CODEWORD,
-                      "makeCodeword must reproduce the synchronization and the idle codeword of the Recommendation");
-        static_assert(makeCodeword((IDLE_ADDRESS >> FRAME_BITS) << FUNCTION_BITS) == IDLE_CODEWORD,
-                      "IDLE_ADDRESS must be an address of the idle codeword");
+                      "makeCodeword must reproduce the synchronization and the idle codeword");
+
+        /**
+         * @brief Build the address codeword of a pager: its address without the frame bits and the function bits.
+         */
+        [[nodiscard]] constexpr std::uint32_t makeAddressCodeword(std::uint32_t address, Function function) noexcept {
+            return makeCodeword(((address >> FRAME_BITS) << FUNCTION_BITS) | static_cast<std::uint32_t>(function));
+        }
+
+        static_assert(
+            makeAddressCodeword(IDLE_ADDRESS, Function::A) == IDLE_CODEWORD &&
+                makeAddressCodeword(SYNC_ADDRESS, Function::C) == SYNC_CODEWORD,
+            "IDLE_ADDRESS and SYNC_ADDRESS must be addresses of the idle and of the synchronization codeword");
 
         /**
          * @brief Look up the 4-bit code of a character of the numeric-only format.
@@ -211,8 +224,7 @@ namespace pipocsag {
         // the pager, the address, the message, the idle codeword that ends it, idle to the end of the batch.
         const std::size_t frame{address & ((1U << FRAME_BITS) - 1U)};
         std::vector<std::uint32_t> codewords(FRAME_CODEWORDS * frame, IDLE_CODEWORD);
-        codewords.push_back(
-            makeCodeword(((address >> FRAME_BITS) << FUNCTION_BITS) | static_cast<std::uint32_t>(function)));
+        codewords.push_back(makeAddressCodeword(address, function));
         appendMessage(type, message, codewords);
         codewords.push_back(IDLE_CODEWORD);
         codewords.resize((codewords.size() + BATCH_CODEWORDS - 1) / BATCH_CODEWORDS * BATCH_CODEWORDS, IDLE_CODEWORD);

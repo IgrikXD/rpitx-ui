@@ -11,7 +11,7 @@
 #   --address  : pager address (RIC) in decimal notation.
 #   --type     : tone-only | numeric | alphanumeric (default).
 #   --mode     : 512 | 1200 (default) | 2400 - the bit rate of the POCSAG mode.
-#   --message  : not passed for a tone-only call.
+#   --message  : passed when a message is given; a tone-only call has none.
 #   --function : a | b | c | d - without it pipocsag chooses the function of the message type.
 FREQ="$1"
 ADDRESS="$2"
@@ -20,10 +20,9 @@ TYPE="${4:-alphanumeric}"
 MODE="${5:-1200}"
 FUNCTION="$6"
 
-# Bash arrays keep the optional arguments properly quoted and only present
-# when they apply; pipocsag rejects --message for a tone-only call.
+# Bash arrays keep the optional arguments properly quoted and only present when they are given.
 MESSAGE_FLAG=()
-if [ "${TYPE,,}" != "tone-only" ]; then
+if [ -n "$MESSAGE" ]; then
   MESSAGE_FLAG=(--message "$MESSAGE")
 fi
 FUNCTION_FLAG=()
