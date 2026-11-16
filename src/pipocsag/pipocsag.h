@@ -50,9 +50,10 @@ namespace pipocsag {
     inline constexpr float DEVIATION_HZ{4'500.0F};
 
     /**
-     * @brief Frequency deviation of the idle samples around the transmission: the unmodulated carrier.
+     * @brief Frequency deviation of the idle samples around the transmission: the tone of a 1, which no
+     *        receiver takes for an address codeword.
      */
-    inline constexpr float IDLE_DEVIATION_HZ{0.0F};
+    inline constexpr float IDLE_DEVIATION_HZ{-DEVIATION_HZ};
 
     /**
      * @brief POCSAG parameters extracted from argv.
