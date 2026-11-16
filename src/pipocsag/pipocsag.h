@@ -45,15 +45,10 @@ namespace pipocsag {
                   "every bit rate must divide the sample rate");
 
     /**
-     * @brief Frequency deviation of the two tones from the carrier in Hz: a 0 is sent above the carrier, a 1 below it.
+     * @brief Frequency deviation of the two tones from the carrier in Hz: a 0 is sent above the carrier and a 1
+     *        below it, the other way round with --invert.
      */
     inline constexpr float DEVIATION_HZ{4'500.0F};
-
-    /**
-     * @brief Frequency deviation of the idle samples around the transmission: the tone of a 1, which no
-     *        receiver takes for an address codeword.
-     */
-    inline constexpr float IDLE_DEVIATION_HZ{-DEVIATION_HZ};
 
     /**
      * @brief POCSAG parameters extracted from argv.
@@ -65,6 +60,7 @@ namespace pipocsag {
         MessageType type{MessageType::Alphanumeric};  ///< Default to an alphanumeric message, as the upstream binary.
         Function function{Function::D};
         std::string message;
+        bool invert{false};  ///< Swap the two tones: a 1 above the carrier, a 0 below it.
     };
 
     /**

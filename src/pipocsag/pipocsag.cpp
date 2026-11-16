@@ -7,16 +7,18 @@
  * unless the call is tone-only, a numeric or an alphanumeric message. The bits
  * are sent as frequency shift keying at 512, 1200 or 2400 bit/s with the two
  * tones 4.5 kHz to either side of the requested frequency: a 0 above it and a
- * 1 below it. Transmission ends with the last batch, or on SIGTERM / SIGINT.
+ * 1 below it, or the other way round with --invert. Transmission ends with the
+ * last batch, or on SIGTERM / SIGINT.
  *
  * @note Usage: pipocsag --freq <Hz> --address <address> [--message "<text>"] [--mode 512|1200|2400]
- *               [--type alphanumeric|numeric|tone-only] [--function a|b|c|d] [-h | --help]
+ *               [--type alphanumeric|numeric|tone-only] [--function a|b|c|d] [--invert] [-h | --help]
  *   - --freq      Carrier frequency in Hz, the centre of the two tones
  *   - --address   Pager address (RIC) in decimal notation
  *   - --message   Message to transmit (quote multi-word strings); none for a tone-only call
  *   - --mode      POCSAG mode, the bit rate in bit/s: 512 (default) | 1200 | 2400
  *   - --type      Message type: alphanumeric (default) | numeric | tone-only
  *   - --function  Function A - D of the pager: a (default) | b | c | d (default for an alphanumeric message)
+ *   - --invert    Swap the two tones for a pager that decodes the inverted polarity
  *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -85,13 +87,13 @@ namespace pipocsag {
         /**
          * @brief Fill samples with the frequency samples of a word of the transmission, sent from bit 31 on.
          *
-         * Every bit takes an equal share of the samples: a 1 is the tone below the carrier, a 0 the one above it.
+         * Every bit takes an equal share of the samples: a 1 is the tone at oneDeviation, a 0 the opposite one.
          */
-        void modulateWord(uint32_t word, std::span<float> samples) {
+        void modulateWord(uint32_t word, float oneDeviation, std::span<float> samples) {
             const auto bitSamples{static_cast<std::ptrdiff_t>(samples.size() / WORD_BITS)};
             auto sample{samples.begin()};
             for (int bit{WORD_BITS - 1}; bit >= 0; --bit) {
-                sample = std::fill_n(sample, bitSamples, ((word >> bit) & 1U) != 0 ? -DEVIATION_HZ : DEVIATION_HZ);
+                sample = std::fill_n(sample, bitSamples, ((word >> bit) & 1U) != 0 ? oneDeviation : -oneDeviation);
             }
         }
     }  // namespace
@@ -146,6 +148,10 @@ namespace pipocsag {
                            "Function, the address A - D of the pager: a (default) | b | c | d (default with --type "
                            "alphanumeric)")
                 ->transform(CLI::IsMember(functionNames, CLI::ignore_case).description(""))};
+        app.add_flag("--invert",
+                     params.invert,
+                     "Swap the two tones (a 1 above the carrier, a 0 below it) for a pager that decodes the "
+                     "inverted polarity");
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
@@ -222,6 +228,7 @@ namespace pipocsag {
             std::cout << "pipocsag: carrier=" << params.transmissionFrequency << " Hz, mode=" << params.bitRate
                       << " bit/s, type=" << typeName(params.type) << ", address=" << params.address
                       << ", function=" << functionName(params.function)
+                      << ", polarity=" << (params.invert ? "inverted" : "normal")
                       << ", transmission_time=" << words.size() * WORD_BITS * 1000 / params.bitRate << " ms"
                       << std::endl;
 
@@ -231,8 +238,11 @@ namespace pipocsag {
             // Refuse the carriers at which the two tones lie on different sides of an integer step of the PLL
             // multiplier.
             checkCarrierBand(dma, params.transmissionFrequency, DEVIATION_HZ);
+            // The idle samples around the transmission are the tone of a 1 as well: no receiver takes ones for
+            // an address codeword.
+            const float oneDeviation{params.invert ? DEVIATION_HZ : -DEVIATION_HZ};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, IDLE_DEVIATION_HZ);
+            startTransmission(dma, oneDeviation);
 
             // Queue the transmission in the DMA engine word by word, until a stop is requested.
             std::vector<float> samples(static_cast<std::size_t>(WORD_BITS) * (SAMPLE_RATE / params.bitRate));
@@ -240,7 +250,7 @@ namespace pipocsag {
                 if (running.load(std::memory_order_relaxed) == 0) {
                     break;
                 }
-                modulateWord(word, samples);
+                modulateWord(word, oneDeviation, samples);
                 // SetFrequencySamples blocks until the samples are in the DMA FIFO (see
                 // ngfmdmasync.cpp upstream), so no manual pacing is needed here.
                 dma.SetFrequencySamples(samples.data(), samples.size());
@@ -248,7 +258,7 @@ namespace pipocsag {
 
             // The queued words are transmitted when the transmission ended by itself, discarded on a stop request.
             const bool transmissionEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, IDLE_DEVIATION_HZ, transmissionEnded);
+            stopTransmission(dma, oneDeviation, transmissionEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pipocsag: " << e.what() << std::endl;
             return 1;
