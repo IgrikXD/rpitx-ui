@@ -38,7 +38,7 @@ namespace pipocsag {
     inline constexpr uint32_t SAMPLE_RATE{38'400};
 
     /**
-     * @brief Bit rates of the POCSAG modes in bit/s: POCSAG 512, 1200 and 2400.
+     * @brief Bit rates of the POCSAG modes in bit/s: POCSAG 512, 1200 and 2400; the first one is the default.
      */
     inline constexpr std::array<uint32_t, 3> BIT_RATES{512, 1'200, 2'400};
     static_assert(std::ranges::all_of(BIT_RATES, [](uint32_t bitRate) { return SAMPLE_RATE % bitRate == 0; }),
@@ -55,7 +55,7 @@ namespace pipocsag {
      */
     struct PocsagParameters {
         uint64_t transmissionFrequency{0};
-        uint32_t bitRate{512};  ///< Default to POCSAG 512, the original bit rate of the code.
+        uint32_t bitRate{BIT_RATES.front()};  ///< Default to POCSAG 512, the original bit rate of the code.
         uint32_t address{0};
         MessageType type{MessageType::Alphanumeric};  ///< Default to an alphanumeric message, as the upstream binary.
         Function function{Function::D};
