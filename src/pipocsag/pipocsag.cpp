@@ -38,6 +38,7 @@
 #include <charconv>
 #include <csignal>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <iostream>
 #include <optional>
@@ -75,8 +76,8 @@ namespace pipocsag {
          *
          * @return Address, or std::nullopt if text is not a decimal number of 32 bits.
          */
-        [[nodiscard]] std::optional<uint32_t> parseAddress(std::string_view text) noexcept {
-            uint32_t address{};
+        [[nodiscard]] std::optional<std::uint32_t> parseAddress(std::string_view text) noexcept {
+            std::uint32_t address{};
             const auto last{text.data() + text.size()};
             if (const auto [ptr, ec]{std::from_chars(text.data(), last, address)}; ec != std::errc{} || ptr != last) {
                 return std::nullopt;
@@ -89,7 +90,7 @@ namespace pipocsag {
          *
          * Every bit takes an equal share of the samples: a 1 is the tone at oneDeviation, a 0 the opposite one.
          */
-        void modulateWord(uint32_t word, float oneDeviation, std::span<float> samples) {
+        void modulateWord(std::uint32_t word, float oneDeviation, std::span<float> samples) {
             const auto bitSamples{static_cast<std::ptrdiff_t>(samples.size() / WORD_BITS)};
             auto sample{samples.begin()};
             for (int bit{WORD_BITS - 1}; bit >= 0; --bit) {
@@ -110,7 +111,7 @@ namespace pipocsag {
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
         // Addresses a pager can have, as --help and the diagnostic name them.
-        const auto frameAddresses{[](uint32_t first) {
+        const auto frameAddresses{[](std::uint32_t first) {
             return std::to_string(first) + " - " + std::to_string(first | ((1U << FRAME_BITS) - 1U));
         }};
         const std::string addressRange{"0 - " + std::to_string(MAX_ADDRESS) + ", except " +
@@ -131,7 +132,7 @@ namespace pipocsag {
         // descriptions already list the values.
         std::vector<std::string> modeNames;
         std::string modeList;
-        for (const uint32_t bitRate: BIT_RATES) {
+        for (const std::uint32_t bitRate: BIT_RATES) {
             modeNames.push_back(std::to_string(bitRate));
             modeList += (modeList.empty() ? "" : " | ") + modeNames.back();
         }
@@ -248,7 +249,7 @@ namespace pipocsag {
 
             // Queue the transmission in the DMA engine word by word, until a stop is requested.
             std::vector<float> samples(static_cast<std::size_t>(WORD_BITS) * (SAMPLE_RATE / params.bitRate));
-            for (const uint32_t word: words) {
+            for (const std::uint32_t word: words) {
                 if (running.load(std::memory_order_relaxed) == 0) {
                     break;
                 }
