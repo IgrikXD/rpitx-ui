@@ -124,7 +124,7 @@ Added SSTV mode selection for the "_**SSTV**_" transmitter - "_**Martin M1**_" /
 Added RTTY mode selection for the "_**RTTY**_" transmitter - "_**RTTY-45**_" (_45.45 baud_), "_**RTTY-50**_" and "_**RTTY-75**_", all with a 170 Hz shift - replacing the original [rpitx] hard-coded 45.45 baud mode.  
 ![rpitx-ui-rtty-mode](./doc/rpitx-ui-rtty-mode.gif)
 
-Added pager address, message type, function and POCSAG mode selection for the "_**Pocsag**_" transmitter - a "_**Tone-only**_", "_**Numeric**_" or "_**Alphanumeric**_" message for function "_**A**_" - "_**D**_" in the "_**POCSAG-512**_", "_**POCSAG-1200**_" or "_**POCSAG-2400**_" mode - replacing the original [rpitx] hard-coded alphanumeric messages at 1200 bit/s.  
+Added pager address, message type, function and POCSAG mode selection for the "_**Pocsag**_" transmitter - an "_**Alphanumeric**_", "_**Numeric**_" or "_**Tone-only**_" message for function "_**A**_" - "_**D**_" in the "_**POCSAG-512**_", "_**POCSAG-1200**_" or "_**POCSAG-2400**_" mode - replacing the original [rpitx] hard-coded alphanumeric messages at 1200 bit/s.  
 ![rpitx-ui-pocsag-mode](./doc/rpitx-ui-pocsag-mode.gif)
 
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
