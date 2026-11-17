@@ -23,7 +23,7 @@ namespace pipocsag {
         /**
          * @brief Synchronization codeword that opens every batch.
          */
-        constexpr std::uint32_t SYNC_CODEWORD{0x7CD215D8};
+        constexpr uint32_t SYNC_CODEWORD{0x7CD215D8};
 
         /**
          * @brief Idle codeword, sent wherever a batch has no address or message codeword to carry.
@@ -31,12 +31,12 @@ namespace pipocsag {
          * Table 2 of the Recommendation prints its bit 10 as a 1 (0x7AC9C197), which is not a
          * codeword of the code; this is the value receivers use.
          */
-        constexpr std::uint32_t IDLE_CODEWORD{0x7A89C197};
+        constexpr uint32_t IDLE_CODEWORD{0x7A89C197};
 
         /**
          * @brief Word of the preamble: reversals that start with a 1.
          */
-        constexpr std::uint32_t PREAMBLE_WORD{0xAAAAAAAA};
+        constexpr uint32_t PREAMBLE_WORD{0xAAAAAAAA};
 
         /**
          * @brief Number of words of the preamble: 576 bits, the duration of a batch plus a codeword.
@@ -61,7 +61,7 @@ namespace pipocsag {
         /**
          * @brief Generator polynomial of the check bits: x^10 + x^9 + x^8 + x^6 + x^5 + x^3 + 1.
          */
-        constexpr std::uint32_t GENERATOR_POLYNOMIAL{0b111'0110'1001};
+        constexpr uint32_t GENERATOR_POLYNOMIAL{0b111'0110'1001};
 
         /**
          * @brief Number of message bits of a message codeword.
@@ -71,7 +71,7 @@ namespace pipocsag {
         /**
          * @brief Flag bit of a codeword: set in a message codeword, clear in an address codeword.
          */
-        constexpr std::uint32_t MESSAGE_FLAG{1U << MESSAGE_BITS};
+        constexpr uint32_t MESSAGE_FLAG{1U << MESSAGE_BITS};
 
         /**
          * @brief Number of function bits of an address codeword, behind its address bits.
@@ -91,7 +91,7 @@ namespace pipocsag {
         /**
          * @brief Code of the space of the numeric-only format, which also fills its last codeword.
          */
-        constexpr std::uint8_t NUMERIC_SPACE{0xC};
+        constexpr uint8_t NUMERIC_SPACE{0xC};
 
         /**
          * @brief Build a codeword from its 21 information bits.
@@ -102,15 +102,15 @@ namespace pipocsag {
          * @param information Flag bit and the 20 bits behind it, the flag in bit 20.
          * @return Codeword, the first bit on the air in bit 31.
          */
-        [[nodiscard]] constexpr std::uint32_t makeCodeword(std::uint32_t information) noexcept {
-            std::uint32_t remainder{information << CHECK_BITS};
+        [[nodiscard]] constexpr uint32_t makeCodeword(uint32_t information) noexcept {
+            uint32_t remainder{information << CHECK_BITS};
             for (int bit{MESSAGE_BITS + CHECK_BITS}; bit >= CHECK_BITS; --bit) {
                 if (((remainder >> bit) & 1U) != 0) {
                     remainder ^= GENERATOR_POLYNOMIAL << (bit - CHECK_BITS);
                 }
             }
-            const std::uint32_t block{(information << CHECK_BITS) | remainder};
-            return (block << 1) | (static_cast<std::uint32_t>(std::popcount(block)) & 1U);
+            const uint32_t block{(information << CHECK_BITS) | remainder};
+            return (block << 1) | (static_cast<uint32_t>(std::popcount(block)) & 1U);
         }
 
         static_assert(makeCodeword(SYNC_CODEWORD >> (CHECK_BITS + 1)) == SYNC_CODEWORD &&
@@ -120,8 +120,8 @@ namespace pipocsag {
         /**
          * @brief Build the address codeword of a pager: its address without the frame bits and the function bits.
          */
-        [[nodiscard]] constexpr std::uint32_t makeAddressCodeword(std::uint32_t address, Function function) noexcept {
-            return makeCodeword(((address >> FRAME_BITS) << FUNCTION_BITS) | static_cast<std::uint32_t>(function));
+        [[nodiscard]] constexpr uint32_t makeAddressCodeword(uint32_t address, Function function) noexcept {
+            return makeCodeword(((address >> FRAME_BITS) << FUNCTION_BITS) | static_cast<uint32_t>(function));
         }
 
         static_assert(
@@ -136,7 +136,7 @@ namespace pipocsag {
          *
          * @return Code of the character, or std::nullopt if the format does not have it.
          */
-        [[nodiscard]] constexpr std::optional<std::uint8_t> numericCode(char ch) noexcept {
+        [[nodiscard]] constexpr std::optional<uint8_t> numericCode(char ch) noexcept {
             switch (ch) {
                 case 'U':
                     return 0xB;
@@ -152,7 +152,7 @@ namespace pipocsag {
                     return 0xF;
                 default:
                     if (ch >= '0' && ch <= '9') {
-                        return static_cast<std::uint8_t>(ch - '0');
+                        return static_cast<uint8_t>(ch - '0');
                     }
                     return std::nullopt;
             }
@@ -165,11 +165,11 @@ namespace pipocsag {
          * codeword after another. The last codeword is completed with space characters in the
          * numeric-only format and with zero bits (Null) in the alphanumeric one.
          */
-        void appendMessage(MessageType type, std::string_view message, std::vector<std::uint32_t>& codewords) {
+        void appendMessage(MessageType type, std::string_view message, std::vector<uint32_t>& codewords) {
             // Message bits of the codeword under construction, the first one on the air highest.
-            std::uint32_t messageBits{0};
+            uint32_t messageBits{0};
             int bitCount{0};
-            const auto append{[&codewords, &messageBits, &bitCount](std::uint32_t character, int characterBits) {
+            const auto append{[&codewords, &messageBits, &bitCount](uint32_t character, int characterBits) {
                 for (int bit{0}; bit < characterBits; ++bit) {
                     messageBits = (messageBits << 1) | ((character >> bit) & 1U);
                     if (++bitCount == MESSAGE_BITS) {
@@ -214,8 +214,8 @@ namespace pipocsag {
         return false;
     }
 
-    std::vector<std::uint32_t> encodeTransmission(std::uint32_t address, Function function, MessageType type,
-                                                  std::string_view message) {
+    std::vector<uint32_t> encodeTransmission(uint32_t address, Function function, MessageType type,
+                                             std::string_view message) {
         if (isPagerAddress(address) == false || isEncodable(type, message) == false) {
             throw std::invalid_argument{"the pager address or the message cannot be encoded"};
         }
@@ -223,13 +223,13 @@ namespace pipocsag {
         // Codewords of the batches behind their synchronization codewords: idle up to the frame of
         // the pager, the address, the message, the idle codeword that ends it, idle to the end of the batch.
         const std::size_t frame{address & ((1U << FRAME_BITS) - 1U)};
-        std::vector<std::uint32_t> codewords(FRAME_CODEWORDS * frame, IDLE_CODEWORD);
+        std::vector<uint32_t> codewords(FRAME_CODEWORDS * frame, IDLE_CODEWORD);
         codewords.push_back(makeAddressCodeword(address, function));
         appendMessage(type, message, codewords);
         codewords.push_back(IDLE_CODEWORD);
         codewords.resize((codewords.size() + BATCH_CODEWORDS - 1) / BATCH_CODEWORDS * BATCH_CODEWORDS, IDLE_CODEWORD);
 
-        std::vector<std::uint32_t> words(PREAMBLE_WORDS, PREAMBLE_WORD);
+        std::vector<uint32_t> words(PREAMBLE_WORDS, PREAMBLE_WORD);
         for (std::size_t offset{0}; offset < codewords.size(); offset += BATCH_CODEWORDS) {
             const auto batch{std::span{codewords}.subspan(offset, BATCH_CODEWORDS)};
             words.push_back(SYNC_CODEWORD);

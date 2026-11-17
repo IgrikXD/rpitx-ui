@@ -31,22 +31,22 @@ namespace pipocsag {
     /**
      * @brief Highest pager address: the identity of a pager is 21 bits wide.
      */
-    inline constexpr std::uint32_t MAX_ADDRESS{(1U << 21) - 1};
+    inline constexpr uint32_t MAX_ADDRESS{(1U << 21) - 1};
 
     /**
      * @brief First of the eight addresses whose address codeword of function A is the idle codeword.
      */
-    inline constexpr std::uint32_t IDLE_ADDRESS{2'007'664};
+    inline constexpr uint32_t IDLE_ADDRESS{2'007'664};
 
     /**
      * @brief First of the eight addresses whose address codeword of function C is the synchronization codeword.
      */
-    inline constexpr std::uint32_t SYNC_ADDRESS{2'045'056};
+    inline constexpr uint32_t SYNC_ADDRESS{2'045'056};
 
     /**
      * @brief Format of the message that follows the address of a pager.
      */
-    enum class MessageType : std::uint8_t {
+    enum class MessageType : uint8_t {
         Alphanumeric,  ///< Alphanumeric format, 7 bits per character.
         Numeric,       ///< Numeric-only format, 4 bits per character.
         ToneOnly,      ///< No message: the pager only alerts.
@@ -55,7 +55,7 @@ namespace pipocsag {
     /**
      * @brief Function bits of an address codeword: one of the four addresses of a pager.
      */
-    enum class Function : std::uint8_t {
+    enum class Function : uint8_t {
         A,  ///< Function bits 00, the address of numeric-only messages.
         B,  ///< Function bits 01.
         C,  ///< Function bits 10.
@@ -66,8 +66,8 @@ namespace pipocsag {
      * @brief Whether a pager can have the address: a 21-bit identity other than the eight addresses
      *        of the idle codeword and the eight of the synchronization codeword.
      */
-    [[nodiscard]] constexpr bool isPagerAddress(std::uint32_t address) noexcept {
-        const std::uint32_t addressBits{address >> FRAME_BITS};
+    [[nodiscard]] constexpr bool isPagerAddress(uint32_t address) noexcept {
+        const uint32_t addressBits{address >> FRAME_BITS};
         return address <= MAX_ADDRESS && addressBits != (IDLE_ADDRESS >> FRAME_BITS) &&
                addressBits != (SYNC_ADDRESS >> FRAME_BITS);
     }
@@ -97,6 +97,6 @@ namespace pipocsag {
      *
      * @throws std::invalid_argument when the address or the message cannot be encoded.
      */
-    [[nodiscard]] std::vector<std::uint32_t> encodeTransmission(std::uint32_t address, Function function,
-                                                                MessageType type, std::string_view message);
+    [[nodiscard]] std::vector<uint32_t> encodeTransmission(uint32_t address, Function function, MessageType type,
+                                                           std::string_view message);
 }  // namespace pipocsag
