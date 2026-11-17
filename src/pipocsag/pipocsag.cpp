@@ -240,8 +240,8 @@ namespace pipocsag {
             // Refuse the carriers at which the two tones lie on different sides of an integer step of the PLL
             // multiplier.
             checkCarrierBand(dma, params.transmissionFrequency, DEVIATION_HZ);
-            // The idle samples around the transmission are the tone of a 1 as well: no receiver takes ones for
-            // an address codeword.
+            // The idle samples around the transmission are the tone of a 1: a word of ones is a message
+            // codeword, a word of zeros an address codeword.
             const float oneDeviation{params.invert ? DEVIATION_HZ : -DEVIATION_HZ};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
             startTransmission(dma, oneDeviation);
