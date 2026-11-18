@@ -3,8 +3,8 @@
  * @brief Encoding of a callsign into the symbols of an Opera beacon transmission.
  *
  * Follows the coding of the Opera program by EA5HVK: the callsign packed into 28
- * bits, two CRC check values, scrambling, a Walsh-Hadamard block code,
- * interleaving and Manchester coding, sent as on-off keying of the carrier.
+ * bits with CRC check bits, scrambling, a Walsh-Hadamard block code, interleaving
+ * and Manchester coding, sent as on-off keying of the carrier.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 18.11.2026

@@ -23,7 +23,7 @@
 
 namespace piopera {
     /**
-     * @brief DMA sample buffer depth (1.024 s at the sample rate).
+     * @brief DMA sample buffer depth.
      */
     inline constexpr uint32_t DMA_FIFO_SIZE{1024};
 
