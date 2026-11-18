@@ -81,9 +81,19 @@ target_link_libraries(pinfm
         librpitx::librpitx
 )
 
-# --- piopera ---
-add_executable(piopera opera/opera.cpp)
-target_link_libraries(piopera PRIVATE librpitx::librpitx)
+# --- piopera (callsign -> librpitx iqdmasync, self-contained) ---
+add_executable(piopera
+    piopera/opera_encoder.cpp
+    piopera/piopera.cpp
+)
+target_link_libraries(piopera
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pipocsag (pager call -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pipocsag
