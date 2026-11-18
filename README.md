@@ -127,6 +127,9 @@ Added RTTY mode selection for the "_**RTTY**_" transmitter - "_**RTTY-45**_" (_4
 Added pager address, message type, function and POCSAG mode selection for the "_**Pocsag**_" transmitter - an "_**Alphanumeric**_", "_**Numeric**_" or "_**Tone-only**_" message for function "_**A**_" - "_**D**_" in the "_**POCSAG-512**_", "_**POCSAG-1200**_" or "_**POCSAG-2400**_" mode - replacing the original [rpitx] hard-coded alphanumeric messages at 1200 bit/s.  
 ![rpitx-ui-pocsag-mode](./doc/rpitx-ui-pocsag-mode.gif)
 
+Added Opera mode selection for the "_**Opera**_" transmitter - "_**Op05**_", "_**Op1**_", "_**Op2**_", "_**Op4**_", "_**Op8**_", "_**Op16**_" and "_**Op32**_" (_31 seconds to 33 minutes per callsign_) - replacing the original [rpitx] hard-coded Op05 mode.  
+![rpitx-ui-opera-mode](./doc/rpitx-ui-opera-mode.gif)
+
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
 Fixed the "_Bye bye_" exit message not being displayed correctly when leaving the program.
