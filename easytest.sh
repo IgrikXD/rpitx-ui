@@ -517,7 +517,7 @@ do_freq_setup
 	"7 AM" "Amplitude Modulation" \
 	"8 SSTV" "Slow-Scan Television" \
 	"9 Pocsag" "Pager message" \
-    "10 Opera" "Weak-signal callsign beacon (Opera decoder)" \
+    "10 Opera" "Weak-signal ASK beacon" \
     "11 RTTY" "Radioteletype" \
     "12 CW" "Continuous Wave (Morse code)" \
     "13 RFgen" "Wideband RF generator" \
