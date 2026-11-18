@@ -8,7 +8,7 @@ DEFAULT_POCSAG_MESSAGE="Hello world from rpitx-ui"
 DEFAULT_POCSAG_NUMERIC_MESSAGE="0123456789"
 DEFAULT_POCSAG_TYPE="Alphanumeric"
 DEFAULT_POCSAG_MODE="POCSAG-512"
-DEFAULT_OPERA_CALLSIGN="F5OEO"
+DEFAULT_OPERA_CALLSIGN="Q0CAL"
 DEFAULT_OPERA_MODE="Op05"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_RTTY_MODE="RTTY-45"
@@ -435,13 +435,13 @@ do_enter_opera_mode()
 
 LAST_ITEM="$menuchoice"
 if OPERA_MODE=$(whiptail --default-item "$DEFAULT_OPERA_MODE" --title "Opera mode" --menu "Select Opera mode:" 15 78 7 \
-	"Op05" "Callsign in 31 seconds (2 m - 23 cm)" \
-	"Op1" "Callsign in 61 seconds (15 m - 4 m)" \
-	"Op2" "Callsign in 2 minutes (80 m - 17 m)" \
-	"Op4" "Callsign in 4 minutes (160 m)" \
-	"Op8" "Callsign in 8 minutes (630 m)" \
-	"Op16" "Callsign in 16 minutes (2200 m)" \
-	"Op32" "Callsign in 33 minutes (2200 m)" \
+	"Op05" "Callsign in 31 seconds" \
+	"Op1" "Callsign in 61 seconds" \
+	"Op2" "Callsign in 2 minutes" \
+	"Op4" "Callsign in 4 minutes" \
+	"Op8" "Callsign in 8 minutes" \
+	"Op16" "Callsign in 16 minutes" \
+	"Op32" "Callsign in 33 minutes" \
 	3>&1 1>&2 2>&3); then
 	abort_action=0
 else
@@ -517,7 +517,7 @@ do_freq_setup
 	"7 AM" "Amplitude Modulation" \
 	"8 SSTV" "Slow-Scan Television" \
 	"9 Pocsag" "Pager message" \
-    "10 Opera" "Like morse but need Opera decoder" \
+    "10 Opera" "Weak-signal callsign beacon (Opera decoder)" \
     "11 RTTY" "Radioteletype" \
     "12 CW" "Continuous Wave (Morse code)" \
     "13 RFgen" "Wideband RF generator" \
