@@ -30,7 +30,9 @@
 #include <atomic>
 #include <cctype>
 #include <cmath>
+#include <complex>
 #include <csignal>
+#include <cstddef>
 #include <exception>
 #include <iostream>
 #include <string>
