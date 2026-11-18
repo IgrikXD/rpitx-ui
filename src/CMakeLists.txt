@@ -85,6 +85,20 @@ target_link_libraries(pinfm
 add_executable(piopera opera/opera.cpp)
 target_link_libraries(piopera PRIVATE librpitx::librpitx)
 
+# --- pipocsag (pager call -> librpitx ngfmdmasync, self-contained) ---
+add_executable(pipocsag
+    pipocsag/pipocsag.cpp
+    pipocsag/pocsag_encoder.cpp
+)
+target_link_libraries(pipocsag
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
+
 # --- pirfgen ---
 add_executable(pirfgen
     pirfgen/pirfgen.cpp
@@ -164,10 +178,6 @@ target_link_libraries(pisstv
 add_executable(pitune pitune/pitune.cpp)
 target_link_libraries(pitune PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
 
-# --- pocsag ---
-add_executable(pocsag pocsag/pocsag.cpp)
-target_link_libraries(pocsag PRIVATE librpitx::librpitx)
-
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)
 target_link_libraries(sendiq PRIVATE librpitx::librpitx)
@@ -225,8 +235,8 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    piam pichirp pifmrds pimorse pinfm piopera pirfgen
-    pirtty pispectrumpaint pissb pisstv pitune pocsag sendiq
+    piam pichirp pifmrds pimorse pinfm piopera pipocsag
+    pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
 )
 
 # Install optional targets if they were built successfully
