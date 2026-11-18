@@ -8,10 +8,10 @@
  * 1500 Hz tone, with the receiver tuned 1500 Hz below the carrier. Transmission
  * ends with the last symbol, or on SIGTERM / SIGINT.
  *
- * @note Usage: piopera --freq <Hz> --callsign <callsign> [--mode 05|1|2|4|8|16|32] [-h | --help]
+ * @note Usage: piopera --freq <Hz> --callsign <callsign> [--mode <name>] [-h | --help]
  *   - --freq      Carrier frequency in Hz, 1500 Hz above the dial frequency of a USB receiver
  *   - --callsign  Callsign to transmit: one or two letters or digits, a digit and one to three letters
- *   - --mode      Opera mode: 05 (default) | 1 | 2 | 4 | 8 | 16 | 32
+ *   - --mode      Opera mode: op05 (default) | op1 | op2 | op4 | op8 | op16 | op32
  *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -76,7 +76,7 @@ namespace piopera {
         app.add_option("--callsign",
                        params.callsign,
                        "Callsign to transmit: one or two letters or digits, a digit and one to three letters (e.g. "
-                       "F5OEO, AA1AA, 7L1RLL); letters are sent in upper case")
+                       "Q1A, Q0CAL, QA1ABC); letters are sent in upper case")
             ->required();
 
         // The --mode values come from the mode table.
@@ -87,12 +87,13 @@ namespace piopera {
             modeList += (modeList.empty() ? "" : " | ") + modeNames.back();
         }
         std::string modeName{params.mode->name};
-        // The description of IsMember is overridden because the option description already lists the values.
+        // IsMember replaces the value with the spelling of the table; its description is
+        // overridden because the option description already lists the values.
         app.add_option("--mode",
                        modeName,
-                       "Opera mode, about the transmission time in minutes (05 stands for half a minute), " + modeName +
-                           " by default: " + modeList)
-            ->transform(CLI::IsMember(modeNames).description(""));
+                       "Opera mode, named after the transmission time in minutes (op05 stands for half a minute), " +
+                           modeName + " by default: " + modeList)
+            ->transform(CLI::IsMember(modeNames, CLI::ignore_case).description(""));
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
@@ -140,7 +141,7 @@ namespace piopera {
         try {
             const auto symbols{encodeTransmission(params.callsign)};
 
-            std::cout << "piopera: carrier=" << params.transmissionFrequency << " Hz, mode=Op" << mode.name
+            std::cout << "piopera: carrier=" << params.transmissionFrequency << " Hz, mode=" << mode.name
                       << ", symbol=" << mode.symbolMs << " ms, callsign=" << params.callsign << ", transmission_time="
                       << std::lround(static_cast<double>(SYMBOL_COUNT * mode.symbolMs) / 1'000.0) << " s" << std::endl;
 

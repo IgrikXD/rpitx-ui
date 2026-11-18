@@ -64,7 +64,7 @@ namespace piopera {
      * @brief Opera mode: the duration of a symbol.
      */
     struct OperaMode {
-        std::string_view name;  ///< --mode value: about the transmission time in minutes, 05 for half a minute.
+        std::string_view name;  ///< --mode value, named after the transmission time in minutes.
         uint32_t symbolMs;      ///< Duration of a symbol in ms, 256 ms times the number of the mode.
     };
 
@@ -72,13 +72,13 @@ namespace piopera {
      * @brief Opera modes of the amateur bands, from Op05 for 2 m - 23 cm to Op16 and Op32 for 2200 m.
      */
     inline constexpr std::array<OperaMode, 7> OPERA_MODES{{
-        {"05", 128},
-        {"1", 256},
-        {"2", 512},
-        {"4", 1'024},
-        {"8", 2'048},
-        {"16", 4'096},
-        {"32", 8'192},
+        {"op05", 128},
+        {"op1", 256},
+        {"op2", 512},
+        {"op4", 1'024},
+        {"op8", 2'048},
+        {"op16", 4'096},
+        {"op32", 8'192},
     }};
 
     /**

@@ -627,7 +627,7 @@ do_freq_setup
 			if [ $abort_action -eq 0 ]; then
 				do_enter_opera_mode
 				if [ $abort_action -eq 0 ]; then
-					testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" "${OPERA_MODE#Op}" >/dev/null 2>/dev/null &
+					testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" "${OPERA_MODE,,}" >/dev/null 2>/dev/null &
 					do_status
 				fi
 			fi

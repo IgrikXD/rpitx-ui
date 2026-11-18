@@ -8,9 +8,9 @@
 
 # Invokes: piopera --freq <Hz> --callsign <callsign> --mode <name>
 #   --callsign : letters are sent in upper case, a callsign the Opera code cannot carry is refused.
-#   --mode     : 05 (default) | 1 | 2 | 4 | 8 | 16 | 32 - the Opera mode.
+#   --mode     : op05 (default) | op1 | op2 | op4 | op8 | op16 | op32 - the Opera mode.
 FREQ="$1"
 CALLSIGN="$2"
-MODE="${3:-05}"
+MODE="${3:-op05}"
 
 sudo piopera --freq "$FREQ" --callsign "$CALLSIGN" --mode "$MODE"
