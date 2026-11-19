@@ -8,7 +8,8 @@ DEFAULT_POCSAG_MESSAGE="Hello world from rpitx-ui"
 DEFAULT_POCSAG_NUMERIC_MESSAGE="0123456789"
 DEFAULT_POCSAG_TYPE="Alphanumeric"
 DEFAULT_POCSAG_MODE="POCSAG-512"
-DEFAULT_OPERA_CALLSIGN="F5OEO"
+DEFAULT_OPERA_CALLSIGN="Q0CAL"
+DEFAULT_OPERA_MODE="Op05"
 DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_RTTY_MODE="RTTY-45"
 DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
@@ -419,7 +420,30 @@ if CALLSIGN=$(whiptail --inputbox "Type callsign:" 8 78 "$DEFAULT_OPERA_CALLSIGN
 	if [ -z "$CALLSIGN" ]; then
     	whiptail --title "Error!" --msgbox "Empty callsign!" 8 78
 		abort_action=1
+	elif ! printf '%s' "$CALLSIGN" | LC_ALL=C grep -Eq '^[A-Za-z0-9]{1,2}[0-9][A-Za-z]{1,3}$'; then
+		whiptail --title "Error!" --msgbox "Callsign must be one or two letters or digits, a digit and one to three letters!" 8 78
+		abort_action=1
 	fi
+else
+	abort_action=1
+fi
+
+}
+
+do_enter_opera_mode()
+{
+
+LAST_ITEM="$menuchoice"
+if OPERA_MODE=$(whiptail --default-item "$DEFAULT_OPERA_MODE" --title "Opera mode" --menu "Select Opera mode:" 15 78 7 \
+	"Op05" "Callsign in 31 seconds" \
+	"Op1" "Callsign in 61 seconds" \
+	"Op2" "Callsign in 2 minutes" \
+	"Op4" "Callsign in 4 minutes" \
+	"Op8" "Callsign in 8 minutes" \
+	"Op16" "Callsign in 16 minutes" \
+	"Op32" "Callsign in 33 minutes" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
 else
 	abort_action=1
 fi
@@ -493,7 +517,7 @@ do_freq_setup
 	"7 AM" "Amplitude Modulation" \
 	"8 SSTV" "Slow-Scan Television" \
 	"9 Pocsag" "Pager message" \
-    "10 Opera" "Like morse but need Opera decoder" \
+    "10 Opera" "Weak-signal ASK beacon" \
     "11 RTTY" "Radioteletype" \
     "12 CW" "Continuous Wave (Morse code)" \
     "13 RFgen" "Wideband RF generator" \
@@ -601,8 +625,11 @@ do_freq_setup
 
 			10\ *) do_enter_callsign
 			if [ $abort_action -eq 0 ]; then
-				testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" >/dev/null 2>/dev/null &
-				do_status
+				do_enter_opera_mode
+				if [ $abort_action -eq 0 ]; then
+					testopera.sh "$OUTPUT_FREQ""e6" "$CALLSIGN" "${OPERA_MODE,,}" >/dev/null 2>/dev/null &
+					do_status
+				fi
 			fi
 			;;
 
