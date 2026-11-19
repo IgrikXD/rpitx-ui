@@ -149,27 +149,27 @@ namespace piopera {
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             iqdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A};
             // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first symbol reaches the air.
-            startTransmission(dma, CARRIER_OFF_SAMPLE, HARMONIC);
+            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             // Queue the symbols in the DMA engine block by block, until a stop is requested.
             const std::size_t symbolSamples{samplesPerSymbol(mode)};
             std::vector<std::complex<float>> block(DMA_BLOCK_SAMPLES);
             for (const bool carrierOn: symbols) {
+                if (running.load(std::memory_order_relaxed) == 0) {
+                    break;
+                }
                 std::ranges::fill(block, carrierOn ? CARRIER_ON_SAMPLE : CARRIER_OFF_SAMPLE);
                 for (std::size_t queued{0}; queued < symbolSamples && running.load(std::memory_order_relaxed);
                      queued += block.size()) {
                     // SetIQSamples blocks until the block is in the DMA FIFO (see
                     // iqdmasync.cpp upstream), so no manual pacing is needed here.
-                    dma.SetIQSamples(block.data(), block.size(), HARMONIC);
-                }
-                if (running.load(std::memory_order_relaxed) == 0) {
-                    break;
+                    dma.SetIQSamples(block.data(), block.size(), DEFAULT_HARMONIC);
                 }
             }
 
             // The queued symbols are transmitted when the transmission ended by itself, discarded on a stop request.
             const bool transmissionEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, CARRIER_OFF_SAMPLE, HARMONIC, transmissionEnded);
+            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, transmissionEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] piopera: " << e.what() << std::endl;
             return 1;

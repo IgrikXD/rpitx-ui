@@ -46,9 +46,9 @@ namespace piopera {
     inline constexpr std::size_t DMA_BLOCK_SAMPLES{16};
 
     /**
-     * @brief Harmonic passed to iqdmasync.
+     * @brief Default harmonic passed to iqdmasync.
      */
-    inline constexpr int HARMONIC{1};
+    inline constexpr int DEFAULT_HARMONIC{1};
 
     /**
      * @brief Sample of iqdmasync MODE_FREQ_A that keys the carrier on: no frequency offset, the strongest pad drive.

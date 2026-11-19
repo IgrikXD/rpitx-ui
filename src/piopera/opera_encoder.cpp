@@ -170,7 +170,7 @@ namespace piopera {
                 }
             }
             const unsigned low{(crc & 0xFFU) != 0 ? crc & 0xFFU : 27U};
-            const unsigned high{(crc >> 8) != 0 ? crc >> 8U : 43U};
+            const unsigned high{(crc >> 8) != 0 ? crc >> 8 : 43U};
             return static_cast<uint16_t>((low << 8) | high);
         }
     }  // namespace
