@@ -94,14 +94,11 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 - "_**Spectrum**_" - `.jpg` (_pictures larger than 320x256 are scaled down_)
 - "_**SSTV**_" - `.jpg` (_pictures are scaled to the picture size of the selected SSTV mode_)
 
-After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).  
-![rpitx-ui-file-choose-process](./doc/rpitx-ui-file-choose-process.gif)
+After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).
 
-Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.  
-![rpitx-ui-custom-messages](./doc/rpitx-ui-custom-messages.gif)
+Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.
 
-Added the ability to specify your call sign in "_**Opera**_" mode.  
-![rpitx-ui-custom-call-sign](./doc/rpitx-ui-custom-call-sign.gif)
+Added the ability to specify your call sign in "_**Opera**_" mode.
 
 Added "_**CW**_" mode for Morse code transmission with a custom message and adjustable transmission speed in words per minute (_WPM_).  
 ![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
@@ -116,7 +113,7 @@ Added SSB sideband selection ("_**USB**_" / "_**LSB**_") for the "_**SSB**_" tra
 ![rpitx-ui-ssb-mode](./doc/rpitx-ui-ssb-mode.gif)
 
 Added RDS parameter setup for the "_**WFM**_" transmitter (_formerly labeled "**FmRds**" in the menu_): RDS Programme Identification (_PI_) code, Programme Service (_PS_) name, RadioText (_RT_), and 50 us / 75 us FM pre-emphasis selection.  
-![rpitx-ui-fmrds-mode](./doc/rpitx-ui-fmrds-mode.gif)
+![rpitx-ui-wfm-mode](./doc/rpitx-ui-wfm-mode.gif)
 
 Added SSTV mode selection for the "_**SSTV**_" transmitter - "_**Martin M1**_" / "_**M2**_", "_**Scottie S1**_" / "_**S2**_", "_**Robot 36**_" / "_**72**_" and "_**PD-90**_" / "_**120**_" / "_**180**_" - replacing the original [rpitx] hard-coded Martin M1 mode.  
 ![rpitx-ui-sstv-mode](./doc/rpitx-ui-sstv-mode.gif)
