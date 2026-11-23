@@ -96,9 +96,7 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 
 After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).
 
-Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes.
-
-Added the ability to specify your call sign in "_**Opera**_" mode.
+Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_" and "_**CW**_" modes and to specify your call sign in "_**Opera**_" mode.
 
 Added "_**CW**_" mode for Morse code transmission with a custom message and adjustable transmission speed in words per minute (_WPM_).  
 ![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
