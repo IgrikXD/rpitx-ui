@@ -132,7 +132,7 @@ namespace pimorse {
 
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
         checkCarrierPll(transmissionFrequency, 0);
-        // The engine keys one sample per DMA step; the samples of every character are rendered below.
+        // ookburst keys every value for one sample (upsample 1); the samples of every character are rendered below.
         const std::size_t maxSamples{longestCharacterSymbols * OOK_UPSAMPLE};
         ookburst ook(transmissionFrequency,
                      symbolRate * static_cast<float>(OOK_UPSAMPLE),

@@ -23,7 +23,8 @@ namespace pimorse {
     /**
      * @brief DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      *
-     * Few enough that the next character is queued before its DMA chain is due.
+     * Few enough that the next character is queued before its DMA chain is due, and enough that
+     * `--wpm 1` keeps the pacing rate within the range of the PCM clock divider.
      */
     inline constexpr std::size_t OOK_UPSAMPLE{500};
 
