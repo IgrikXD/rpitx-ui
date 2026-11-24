@@ -72,15 +72,15 @@ namespace pimorse {
         for (std::size_t i{0}; i < message.size(); ++i) {
             const auto morse{charToMorse(message[i])};
             if (morse == std::nullopt) {
-                std::cout << "Message[" << std::setw(2) << std::setfill('0') << i << "]: " << message[i]
-                          << "\tskipped (unsupported character)" << std::endl;
+                std::cout << "pimorse: message[" << std::setw(2) << std::setfill('0') << i << "]=\"" << message[i]
+                          << "\", skipped (unsupported character)" << std::endl;
                 continue;
             }
 
             const auto cw{morseToCw(morse.value())};
-            std::cout << "Message[" << std::setw(2) << std::setfill('0') << i
-                      << "]: " << static_cast<char>(std::toupper(static_cast<unsigned char>(message[i]))) << "\tmorse["
-                      << morse.value() << "]\tcw[" << cw << "]" << std::endl;
+            std::cout << "pimorse: message[" << std::setw(2) << std::setfill('0') << i << "]=\""
+                      << static_cast<char>(std::toupper(static_cast<unsigned char>(message[i]))) << "\", morse=\""
+                      << morse.value() << "\", cw=" << cw << std::endl;
             encodedMessage += cw;
         }
 
@@ -95,7 +95,7 @@ namespace pimorse {
 
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
         checkCarrierPll(transmissionFrequency, 0);
-        ookburst ook(transmissionFrequency, symbolRate, OOK_DMA_BITS, fifoSize, OOK_UPSAMPLE);
+        ookburst ook(transmissionFrequency, symbolRate, DMA_CHANNEL, fifoSize, OOK_UPSAMPLE);
 
         std::vector<unsigned char> symbols(fifoSize);
         std::ranges::transform(cw.substr(0, fifoSize), symbols.begin(), [](char c) -> unsigned char {
@@ -138,7 +138,7 @@ namespace pimorse {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;
             return 1;
         }
-
+        std::cout << "pimorse: transmission stopped." << std::endl;
         return 0;
     }
 }  // namespace pimorse

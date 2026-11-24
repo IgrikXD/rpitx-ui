@@ -24,9 +24,9 @@ namespace pimorse {
     inline constexpr float OOK_UPSAMPLE{125.0F};
 
     /**
-     * @brief DMA bit depth for ookburst.
+     * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
      */
-    inline constexpr int OOK_DMA_BITS{14};
+    inline constexpr int DMA_CHANNEL{14};
 
     /**
      * @brief Divisor to convert words-per-minute to OOK symbol rate.
