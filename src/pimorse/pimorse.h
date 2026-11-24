@@ -24,7 +24,7 @@ namespace pimorse {
      *
      * Every character is a DMA chain of its own, which starts at least 65 samples after the previous one
      * ended (the pacing FIFO still holds 64 of them, the fill block adds one); 1250 samples per symbol
-     * keep that wait at about 5 % of a dit.
+     * keep those 65 samples at about 5 % of a dit.
      */
     inline constexpr float OOK_UPSAMPLE{1250.0F};
 
