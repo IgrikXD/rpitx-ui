@@ -25,6 +25,7 @@
 #include <CLI/CLI.hpp>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <exception>
 #include <iomanip>
@@ -121,11 +122,17 @@ namespace pimorse {
 
         const auto encodedMessage{encodeMessage(params.message)};
         const auto symbolRate{params.wpm / WPM_TO_SYMBOL_RATE_DIVISOR};
+        // sendCwOok keys every symbol of the CW stream but the last, each for 1 / symbolRate seconds.
+        const double transmissionSeconds{
+            encodedMessage.size() > 1 ? static_cast<double>(encodedMessage.size() - 1) / symbolRate : 0.0};
 
         // Wrap the OOK setup in a try / catch: checkCarrierPll refuses the PLL
         // settings the board cannot run with an exception, and a stray throw
         // escaping main would terminate via std::terminate without the diagnostic.
         try {
+            std::cout << "pimorse: carrier=" << params.transmissionFrequency << " Hz, wpm=" << params.wpm
+                      << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
+
             sendCwOok(params.transmissionFrequency, symbolRate, encodedMessage);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;

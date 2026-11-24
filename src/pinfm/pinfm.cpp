@@ -173,10 +173,11 @@ namespace pinfm {
         const float peakDeviation{peakDeviationFor(params.mode)};
 
         // Wrap resource construction and the streaming loop in a try / catch:
-        // AudioPipeline (libsoxr handle creation), NfmProcessor (Biquad design)
-        // and ngfmdmasync (DMA setup) all surface fatal failures as exceptions,
-        // and a stray throw escaping main would terminate via std::terminate
-        // without flushing the diagnostic the user expects on stderr.
+        // AudioPipeline (libsoxr handle creation), NfmProcessor (Biquad design),
+        // checkCarrierPll and checkCarrierBand all surface fatal failures as
+        // exceptions. A stray throw escaping main would terminate via
+        // std::terminate without the destructor of ngfmdmasync stopping the DMA
+        // engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {
@@ -186,7 +187,7 @@ namespace pinfm {
                                     .channelMode        = AudioChannelMode::Mono,
                                 }};
 
-            std::cout << "pinfm: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+            std::cout << "pinfm: carrier=" << params.transmissionFrequency << " Hz, audio_rate=" << fmt.sampleRate
                       << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
                       << ", format=" << source->description() << ", mode=" << modeName(params.mode) << " (+-"
                       << peakDeviation << " Hz), loop=" << (params.loop ? "yes" : "no") << std::endl;

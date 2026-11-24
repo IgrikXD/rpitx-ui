@@ -173,19 +173,21 @@ namespace pirfgen {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
-        std::cout << "pirfgen: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
-                  << " Hz, mode=" << modeName(params.mode) << ", rate=" << params.sampleRate << " Hz";
-        if (params.mode == RfGenMode::Multitone) {
-            std::cout << ", tones=" << params.toneCount.value();
-        }
-        std::cout << std::endl;
-
         // Wrap RfGenProcessor and DMA construction plus the streaming loop in
         // a try / catch: RfGenProcessor validates its config (and inner
-        // generators may throw on bad parameters), and ngfmdmasync surfaces
-        // DMA setup failures as exceptions. A stray throw escaping main would
-        // terminate via std::terminate without flushing the stderr diagnostic.
+        // generators may throw on bad parameters), and checkCarrierPll and
+        // checkCarrierBand refuse a carrier with an exception. A stray throw
+        // escaping main would terminate via std::terminate without the
+        // destructor of ngfmdmasync stopping the DMA engine and the clock
+        // generator.
         try {
+            std::cout << "pirfgen: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
+                      << " Hz, mode=" << modeName(params.mode) << ", rate=" << params.sampleRate << " Hz";
+            if (params.mode == RfGenMode::Multitone) {
+                std::cout << ", tones=" << params.toneCount.value();
+            }
+            std::cout << std::endl;
+
             RfGenProcessor rfgen{{
                 .mode       = params.mode,
                 .bandwidth  = params.bandwidth,
