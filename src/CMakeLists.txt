@@ -67,6 +67,7 @@ target_link_libraries(pimorse
     PRIVATE
         rpitx_cli_utils
         rpitx_clock_utils
+        rpitx_dma_utils
         rpitx_realtime_utils
         librpitx::librpitx
 )

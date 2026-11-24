@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -20,13 +21,11 @@
 
 namespace pimorse {
     /**
-     * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
+     * @brief DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      *
-     * Every character is a DMA chain of its own, which starts at least 65 samples after the previous one
-     * ended (the pacing FIFO still holds 64 of them, the fill block adds one); 1250 samples per symbol
-     * keep those 65 samples at about 5 % of a dit.
+     * Few enough that the next character is queued before its DMA chain is due.
      */
-    inline constexpr float OOK_UPSAMPLE{1250.0F};
+    inline constexpr std::size_t OOK_UPSAMPLE{500};
 
     /**
      * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).

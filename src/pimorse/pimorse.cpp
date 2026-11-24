@@ -3,7 +3,8 @@
  * @brief Morse code CW OOK transmitter implementation.
  *
  * Converts a text message to Morse code and transmits it as on-off keying (OOK)
- * at the specified RF frequency and words-per-minute rate.
+ * at the specified RF frequency and words-per-minute rate. Transmission ends with
+ * the message, or after the character in progress on SIGTERM / SIGINT.
  *
  * @note Usage: pimorse --freq <Hz> --wpm <value> --message "<text>" [-h | --help]
  *   - --freq      Carrier frequency in Hz
@@ -40,11 +41,22 @@
 #include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "dma_transmission.h"
 #include "morse_encoder.h"
 #include "realtime_scheduling.h"
 
 namespace pimorse {
     namespace {
+        /**
+         * @brief Samples by which every DMA chain of ookburst after the first starts late.
+         *
+         * The pacing FIFO still holds PCM_FIFO_DEPTH samples of the previous chain, and the
+         * fill block of the new one adds one.
+         */
+        constexpr std::size_t CHAIN_START_SAMPLES{PCM_FIFO_DEPTH + 1};
+        static_assert(CHAIN_START_SAMPLES <= OOK_UPSAMPLE,
+                      "the trimmed samples must lie in the silent last symbol of a character");
+
         /**
          * @brief Atomic shutdown flag accessed from a signal handler.
          *
@@ -110,34 +122,39 @@ namespace pimorse {
     }
 
     void sendCwOok(uint64_t transmissionFrequency, float symbolRate, const std::vector<std::string>& characters) {
-        std::size_t longestCharacter{0};
+        std::size_t longestCharacterSymbols{0};
         for (const auto& cw: characters) {
-            longestCharacter = std::max(longestCharacter, cw.size());
+            longestCharacterSymbols = std::max(longestCharacterSymbols, cw.size());
         }
-        if (longestCharacter == 0) {
+        if (longestCharacterSymbols == 0) {
             return;
         }
 
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
         checkCarrierPll(transmissionFrequency, 0);
-        ookburst ook(
-            transmissionFrequency, symbolRate, DMA_CHANNEL, static_cast<uint32_t>(longestCharacter), OOK_UPSAMPLE);
+        // The engine keys one sample per DMA step; the samples of every character are rendered below.
+        const std::size_t maxSamples{longestCharacterSymbols * OOK_UPSAMPLE};
+        ookburst ook(transmissionFrequency,
+                     symbolRate * static_cast<float>(OOK_UPSAMPLE),
+                     DMA_CHANNEL,
+                     static_cast<uint32_t>(maxSamples));
 
         // One DMA chain per character: SetSymbols returns once it is sent, so a stop request ends the message there.
-        std::vector<unsigned char> symbols;
-        symbols.reserve(longestCharacter);
-        for (const auto& cw: characters) {
+        std::vector<unsigned char> samples;
+        samples.reserve(maxSamples);
+        for (std::size_t index{0}; index < characters.size(); ++index) {
             if (running.load(std::memory_order_relaxed) == 0) {
                 break;
             }
-            symbols.resize(cw.size());
-            std::ranges::transform(cw, symbols.begin(), [](char c) -> unsigned char {
-                if (c != '0') {
-                    return 1;
-                }
-                return 0;
-            });
-            ook.SetSymbols(symbols.data(), static_cast<uint32_t>(symbols.size()));
+            samples.clear();
+            for (const char c: characters[index]) {
+                samples.insert(samples.end(), OOK_UPSAMPLE, static_cast<unsigned char>(c != '0'));
+            }
+            // The chain of the next character starts late, so the gap behind this one is shortened by as much.
+            if (index + 1 < characters.size()) {
+                samples.resize(samples.size() - CHAIN_START_SAMPLES);
+            }
+            ook.SetSymbols(samples.data(), static_cast<uint32_t>(samples.size()));
         }
     }
 
