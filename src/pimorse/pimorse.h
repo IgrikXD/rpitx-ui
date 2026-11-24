@@ -23,8 +23,8 @@ namespace pimorse {
     /**
      * @brief DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      *
-     * Few enough that the next character is queued before its DMA chain is due, and enough that
-     * `--wpm 1` keeps the pacing rate within the range of the PCM clock divider.
+     * Few enough that up to MAX_WPM the gaps behind the characters stay within 0.05 dits, and enough that
+     * MIN_WPM keeps the pacing rate within the range of the PCM clock divider.
      */
     inline constexpr std::size_t OOK_UPSAMPLE{500};
 
@@ -37,6 +37,16 @@ namespace pimorse {
      * @brief Divisor to convert words-per-minute to OOK symbol rate.
      */
     inline constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2F};
+
+    /**
+     * @brief Minimum accepted speed in words per minute.
+     */
+    inline constexpr float MIN_WPM{1.0F};
+
+    /**
+     * @brief Maximum accepted speed in words per minute.
+     */
+    inline constexpr float MAX_WPM{200.0F};
 
     /**
      * @brief Morse transmitter parameters extracted from argv.

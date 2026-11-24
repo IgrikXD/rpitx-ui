@@ -8,7 +8,7 @@
  *
  * @note Usage: pimorse --freq <Hz> --wpm <value> --message "<text>" [-h | --help]
  *   - --freq      Carrier frequency in Hz
- *   - --wpm       Speed in words per minute (positive finite)
+ *   - --wpm       Speed in words per minute (1 - 200)
  *   - --message   Message to encode and transmit (quote multi-word strings)
  *   - -h, --help  Print this help message and exit
  *
@@ -81,9 +81,10 @@ namespace pimorse {
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
             ->required()
             ->check(rpitx::cli::validators::FrequencyHz);
-        app.add_option("--wpm", params.wpm, "Speed in words per minute (positive finite)")
+        app.add_option("--wpm", params.wpm, "Speed in words per minute")
             ->required()
-            ->check(rpitx::cli::validators::PositiveFiniteFloat);
+            ->check(rpitx::cli::validators::PositiveFiniteFloat)
+            ->check(CLI::Range(MIN_WPM, MAX_WPM));
         app.add_option("--message",
                        params.message,
                        "Message to encode and transmit (quote multi-word strings, e.g. --message \"CQ CQ DE RPITX\")")

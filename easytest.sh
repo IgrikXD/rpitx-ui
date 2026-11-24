@@ -103,8 +103,8 @@ if CW_WPM=$(whiptail --inputbox "Enter CW speed (WPM):" 8 78 $DEFAULT_CW_WPM --t
 	if [ -z "$CW_WPM" ]; then
 		whiptail --title "Error!" --msgbox "Empty WPM value!" 8 78
 		abort_action=1
-	elif ! printf '%s' "$CW_WPM" | LC_ALL=C grep -Eq '^0*[1-9][0-9]*$'; then
-		whiptail --title "Error!" --msgbox "WPM must be a positive integer!" 8 78
+	elif ! printf '%s' "$CW_WPM" | LC_ALL=C grep -Eq '^0*[1-9][0-9]{0,2}$' || [ "$CW_WPM" -gt 200 ]; then
+		whiptail --title "Error!" --msgbox "WPM must be an integer in [1, 200]!" 8 78
 		abort_action=1
 	fi
 else
