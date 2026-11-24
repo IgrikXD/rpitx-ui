@@ -24,22 +24,44 @@
 
 #include <CLI/CLI.hpp>
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
+#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
 #include "morse_encoder.h"
+#include "realtime_scheduling.h"
 
 namespace pimorse {
+    namespace {
+        /**
+         * @brief Atomic shutdown flag accessed from a signal handler.
+         *
+         * Uses int (not bool) because std::atomic<bool> is not always lock-free
+         * on 32-bit ARMv6 (default Raspberry Pi OS 32-bit target). The
+         * static_assert below fails fast on any platform where the chosen type
+         * is not lock-free.
+         */
+        std::atomic<int> running{1};
+        static_assert(std::atomic<int>::is_always_lock_free,
+                      "std::atomic<int> must be lock-free for signal-handler access");
+    }  // namespace
+
+    void handleSignal([[maybe_unused]] int sig) {
+        running.store(0, std::memory_order_relaxed);
+    }
+
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params) {
         CLI::App app{"Morse code CW OOK transmitter"};
 
@@ -67,8 +89,8 @@ namespace pimorse {
         return rpitx::cli::assignFrequencyHz(transmissionFrequencyText, params.transmissionFrequency);
     }
 
-    std::string encodeMessage(std::string_view message) {
-        std::string encodedMessage;
+    std::vector<std::string> encodeMessage(std::string_view message) {
+        std::vector<std::string> characters;
         for (std::size_t i{0}; i < message.size(); ++i) {
             const auto morse{charToMorse(message[i])};
             if (morse == std::nullopt) {
@@ -77,34 +99,46 @@ namespace pimorse {
                 continue;
             }
 
-            const auto cw{morseToCw(morse.value())};
+            auto cw{morseToCw(morse.value())};
             std::cout << "pimorse: message[" << std::setw(2) << std::setfill('0') << i << "]=\""
                       << static_cast<char>(std::toupper(static_cast<unsigned char>(message[i]))) << "\", morse=\""
                       << morse.value() << "\", cw=" << cw << std::endl;
-            encodedMessage += cw;
+            characters.push_back(std::move(cw));
         }
 
-        return encodedMessage;
+        return characters;
     }
 
-    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, std::string_view cw) {
-        const auto fifoSize{static_cast<int>(cw.size()) - 1};
-        if (fifoSize <= 0) {
+    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, const std::vector<std::string>& characters) {
+        std::size_t longestCharacter{0};
+        for (const auto& cw: characters) {
+            longestCharacter = std::max(longestCharacter, cw.size());
+        }
+        if (longestCharacter == 0) {
             return;
         }
 
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
         checkCarrierPll(transmissionFrequency, 0);
-        ookburst ook(transmissionFrequency, symbolRate, DMA_CHANNEL, fifoSize, OOK_UPSAMPLE);
+        ookburst ook(
+            transmissionFrequency, symbolRate, DMA_CHANNEL, static_cast<uint32_t>(longestCharacter), OOK_UPSAMPLE);
 
-        std::vector<unsigned char> symbols(fifoSize);
-        std::ranges::transform(cw.substr(0, fifoSize), symbols.begin(), [](char c) -> unsigned char {
-            if (c != '0') {
-                return 1;
+        // One DMA chain per character: SetSymbols returns once it is sent, so a stop request ends the message there.
+        std::vector<unsigned char> symbols;
+        symbols.reserve(longestCharacter);
+        for (const auto& cw: characters) {
+            if (running.load(std::memory_order_relaxed) == 0) {
+                break;
             }
-            return 0;
-        });
-        ook.SetSymbols(symbols.data(), fifoSize);
+            symbols.resize(cw.size());
+            std::ranges::transform(cw, symbols.begin(), [](char c) -> unsigned char {
+                if (c != '0') {
+                    return 1;
+                }
+                return 0;
+            });
+            ook.SetSymbols(symbols.data(), static_cast<uint32_t>(symbols.size()));
+        }
     }
 
     int run(int argc, char* argv[]) {
@@ -118,22 +152,34 @@ namespace pimorse {
                 return 1;
         }
 
+        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
+        std::signal(SIGTERM, handleSignal);
+        // SIGINT: stop cleanly on Ctrl+C during manual runs.
+        std::signal(SIGINT, handleSignal);
+
+        // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.
+        enableRealtimeScheduling();
+
         std::cout << "pimorse: message=\"" << params.message << "\"" << std::endl;
 
-        const auto encodedMessage{encodeMessage(params.message)};
+        const auto characters{encodeMessage(params.message)};
         const auto symbolRate{params.wpm / WPM_TO_SYMBOL_RATE_DIVISOR};
-        // sendCwOok keys every symbol of the CW stream but the last, each for 1 / symbolRate seconds.
-        const double transmissionSeconds{
-            encodedMessage.size() > 1 ? static_cast<double>(encodedMessage.size() - 1) / symbolRate : 0.0};
+        // sendCwOok keys every symbol of every character, each for 1 / symbolRate seconds.
+        std::size_t symbolCount{0};
+        for (const auto& cw: characters) {
+            symbolCount += cw.size();
+        }
+        const double transmissionSeconds{static_cast<double>(symbolCount) / symbolRate};
 
         // Wrap the OOK setup in a try / catch: checkCarrierPll refuses the PLL
-        // settings the board cannot run with an exception, and a stray throw
-        // escaping main would terminate via std::terminate without the diagnostic.
+        // settings the board cannot run with an exception. A stray throw escaping
+        // main would terminate via std::terminate without the destructor of
+        // ookburst stopping the DMA engine and the clock generator.
         try {
             std::cout << "pimorse: carrier=" << params.transmissionFrequency << " Hz, wpm=" << params.wpm
                       << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
-            sendCwOok(params.transmissionFrequency, symbolRate, encodedMessage);
+            sendCwOok(params.transmissionFrequency, symbolRate, characters);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;
             return 1;

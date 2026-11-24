@@ -63,7 +63,13 @@ add_executable(pimorse
     pimorse/morse_encoder.cpp
     pimorse/pimorse.cpp
 )
-target_link_libraries(pimorse PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
+target_link_libraries(pimorse
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
 
 # --- pinfm (audio file -> librpitx ngfmdmasync, self-contained) ---
 add_executable(pinfm

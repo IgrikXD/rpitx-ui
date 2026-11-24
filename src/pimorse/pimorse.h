@@ -14,14 +14,18 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "cli_parse_result.h"
 
 namespace pimorse {
     /**
      * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
+     *
+     * Every character is a DMA chain of its own, which starts only once 65 samples have filled the
+     * pacing FIFO; 1250 samples per symbol keep that wait at about 5 % of a dit.
      */
-    inline constexpr float OOK_UPSAMPLE{125.0F};
+    inline constexpr float OOK_UPSAMPLE{1250.0F};
 
     /**
      * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
@@ -48,14 +52,21 @@ namespace pimorse {
     [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
 
     /**
-     * @brief Convert a text message into a contiguous CW OOK binary stream.
+     * @brief Signal handler for SIGTERM and SIGINT.
+     * @param sig Signal number.
      */
-    [[nodiscard]] std::string encodeMessage(std::string_view message);
+    void handleSignal(int sig);
 
     /**
-     * @brief Transmit a CW OOK binary string at the given frequency and symbol rate.
+     * @brief Convert a text message into the CW OOK binary stream of each supported character.
      */
-    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, std::string_view cw);
+    [[nodiscard]] std::vector<std::string> encodeMessage(std::string_view message);
+
+    /**
+     * @brief Transmit the CW OOK binary streams of the characters at the given frequency and symbol rate,
+     *        one character after the other, until all are sent or a stop is requested.
+     */
+    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, const std::vector<std::string>& characters);
 
     /**
      * @brief Run the Morse code CW OOK transmitter.
