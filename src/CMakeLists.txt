@@ -196,11 +196,6 @@ target_link_libraries(sendiq PRIVATE librpitx::librpitx)
 # Optional targets (not used by easytest.sh directly)
 # ----------------------------------------------------------
 if(BUILD_OPTIONAL_TARGETS)
-    # --- corel8 ---
-    add_executable(corel8 corel8/corel8.cpp)
-    target_compile_options(corel8 PRIVATE -Wno-write-strings)
-    target_link_libraries(corel8 PRIVATE librpitx::librpitx)
-
     # --- dvbrf (ARM32 assembly - only works on 32-bit ARM) ---
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
         add_executable(dvbrf
@@ -250,7 +245,7 @@ set(INSTALL_TARGETS
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET corel8 dvbrf foxhunt pifsq pift8 rpitx sendook)
+foreach(OPTIONAL_TARGET dvbrf foxhunt pifsq pift8 rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
