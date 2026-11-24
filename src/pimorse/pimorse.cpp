@@ -133,8 +133,8 @@ namespace pimorse {
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
         checkCarrierPll(transmissionFrequency, 0);
         // ookburst keys every value for one sample (upsample 1); the samples of every character are rendered below.
-        // librpitx truncates the pacing rate to whole Hz, so the nearest one is passed.
         const std::size_t maxSamples{longestCharacterSymbols * OOK_UPSAMPLE};
+        // librpitx truncates the pacing rate to whole Hz, so it is rounded to the nearest whole Hz first.
         ookburst ook{transmissionFrequency,
                      std::round(symbolRate * static_cast<float>(OOK_UPSAMPLE)),
                      DMA_CHANNEL,
