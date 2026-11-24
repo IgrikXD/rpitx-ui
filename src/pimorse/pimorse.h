@@ -23,8 +23,8 @@ namespace pimorse {
     /**
      * @brief DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      *
-     * Few enough that up to MAX_WPM the gaps behind the characters stay within 0.05 dits, and enough that
-     * MIN_WPM keeps the pacing rate within the range of the PCM clock divider.
+     * Few enough that up to MAX_WPM the gaps behind the characters stay within 0.05 dits on BCM2711, and enough
+     * that MIN_WPM keeps the pacing rate within the range of the PCM clock divider.
      */
     inline constexpr std::size_t OOK_UPSAMPLE{500};
 
