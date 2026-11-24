@@ -22,8 +22,9 @@ namespace pimorse {
     /**
      * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      *
-     * Every character is a DMA chain of its own, which starts only once 65 samples have filled the
-     * pacing FIFO; 1250 samples per symbol keep that wait at about 5 % of a dit.
+     * Every character is a DMA chain of its own, which starts at least 65 samples after the previous one
+     * ended (the pacing FIFO still holds 64 of them, the fill block adds one); 1250 samples per symbol
+     * keep that wait at about 5 % of a dit.
      */
     inline constexpr float OOK_UPSAMPLE{1250.0F};
 
@@ -47,15 +48,15 @@ namespace pimorse {
     };
 
     /**
-     * @brief Parse and validate command-line arguments via CLI11.
-     */
-    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
-
-    /**
      * @brief Signal handler for SIGTERM and SIGINT.
      * @param sig Signal number.
      */
     void handleSignal(int sig);
+
+    /**
+     * @brief Parse and validate command-line arguments via CLI11.
+     */
+    [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
 
     /**
      * @brief Convert a text message into the CW OOK binary stream of each supported character.

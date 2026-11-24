@@ -174,7 +174,7 @@ namespace pimorse {
         // Wrap the OOK setup in a try / catch: checkCarrierPll refuses the PLL
         // settings the board cannot run with an exception. A stray throw escaping
         // main would terminate via std::terminate without the destructor of
-        // ookburst stopping the DMA engine and the clock generator.
+        // ookburst stopping the clock generator.
         try {
             std::cout << "pimorse: carrier=" << params.transmissionFrequency << " Hz, wpm=" << params.wpm
                       << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
