@@ -19,7 +19,7 @@
 
 namespace pimorse {
     /**
-     * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolrate seconds).
+     * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
      */
     inline constexpr float OOK_UPSAMPLE{125.0F};
 
