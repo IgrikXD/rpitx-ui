@@ -181,17 +181,20 @@ namespace pispectrumpaint {
         }
 
         PnmHeader announcedHeader{reader->header()};
-        std::cout << "pispectrumpaint: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
-                  << " Hz, rate=" << params.sampleRate << " Hz, format=" << reader->description()
-                  << ", line_time=" << lineTimeMs(announcedHeader.width, params.sampleRate)
-                  << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
         // Wrap DMA construction and the painting loop in a try / catch:
         // programCarrierPll refuses the PLL settings the board cannot run and
         // paintRow / PnmReader throw on contract violations. A stray throw
-        // escaping main would terminate via std::terminate without flushing
-        // the diagnostic.
+        // escaping main would terminate via std::terminate without the
+        // destructor of iqdmasync stopping the DMA engine and the clock
+        // generator.
         try {
+            std::cout << "pispectrumpaint: center=" << params.transmissionFrequency
+                      << " Hz, bandwidth=" << params.bandwidth << " Hz, rate=" << params.sampleRate
+                      << " Hz, format=" << reader->description()
+                      << ", line_time=" << lineTimeMs(announcedHeader.width, params.sampleRate)
+                      << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
+
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,

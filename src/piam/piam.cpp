@@ -136,10 +136,11 @@ namespace piam {
         }
 
         // Wrap resource construction and the streaming loop in a try / catch:
-        // AudioPipeline (libsoxr handle creation), AmProcessor (Biquad design)
-        // and amdmasync (DMA setup) all surface fatal failures as exceptions,
-        // and a stray throw escaping main would terminate via std::terminate
-        // without flushing the diagnostic the user expects on stderr.
+        // AudioPipeline (libsoxr handle creation), AmProcessor (AGC
+        // configuration check) and checkCarrierPll all surface fatal failures
+        // as exceptions. A stray throw escaping main would terminate via
+        // std::terminate without the destructor of amdmasync stopping the DMA
+        // engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {
@@ -149,7 +150,7 @@ namespace piam {
                                     .channelMode        = AudioChannelMode::Mono,
                                 }};
 
-            std::cout << "piam: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+            std::cout << "piam: carrier=" << params.transmissionFrequency << " Hz, audio_rate=" << fmt.sampleRate
                       << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
                       << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 

@@ -193,7 +193,8 @@ namespace pisstv {
         // PllStepFeedback a carrier whose tones cross an integer step of the
         // PLL multiplier, and appendSequence / PnmReader throw on contract
         // violations. A stray throw escaping main would terminate via
-        // std::terminate without flushing the diagnostic.
+        // std::terminate without the destructor of ngfmdmasync stopping the
+        // DMA engine and the clock generator.
         try {
             std::cout << "pisstv: carrier=" << params.transmissionFrequency << " Hz, mode=" << mode.name
                       << ", format=" << reader->description()

@@ -129,13 +129,16 @@ namespace pichirp {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
-        std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
-                  << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
-
-        // Wrap DMA construction and the streaming loop in a try / catch so
-        // that any librpitx-side failure (DMA setup, register access, ...)
-        // surfaces on stderr and main returns 1 instead of std::terminate.
+        // Wrap DMA construction and the streaming loop in a try / catch:
+        // checkCarrierPll refuses the PLL settings the board cannot run and
+        // checkCarrierBand a carrier whose band crosses an integer step of the
+        // PLL multiplier. A stray throw escaping main would terminate via
+        // std::terminate without the destructor of ngfmdmasync stopping the
+        // DMA engine and the clock generator.
         try {
+            std::cout << "pichirp: center=" << params.transmissionFrequency << " Hz, bandwidth=" << params.bandwidth
+                      << " Hz, sweep_time=" << params.sweepTime << " s" << std::endl;
+
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};

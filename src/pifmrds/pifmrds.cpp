@@ -264,10 +264,10 @@ namespace pifmrds {
 
         // Wrap resource construction and the streaming loop in a try / catch:
         // AudioPipeline (libsoxr handle creation), FmRdsProcessor (config
-        // contract checks) and ngfmdmasync (DMA setup) all surface fatal
-        // failures as exceptions, and a stray throw escaping main would
-        // terminate via std::terminate without flushing the diagnostic the
-        // user expects on stderr.
+        // contract checks), checkCarrierPll and checkCarrierBand all surface
+        // fatal failures as exceptions. A stray throw escaping main would
+        // terminate via std::terminate without the destructor of ngfmdmasync
+        // stopping the DMA engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {
@@ -277,11 +277,11 @@ namespace pifmrds {
                                     .channelMode        = AudioChannelMode::Preserve,
                                 }};
 
-            std::cout << "pifmrds: center=" << params.transmissionFrequency
+            std::cout << "pifmrds: carrier=" << params.transmissionFrequency
                       << " Hz, audio_rate=" << audioFormat.sampleRate << " Hz, channels=" << audioFormat.channels
                       << ", mpx_rate=" << MPX_SAMPLE_RATE << " Hz, format=" << source->description()
-                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl
-                      << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
+                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
+            std::cout << "pifmrds: PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
                       << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
             FmRdsProcessor proc{{

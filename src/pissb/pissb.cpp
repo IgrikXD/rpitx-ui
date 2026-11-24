@@ -156,10 +156,11 @@ namespace pissb {
         }
 
         // Wrap resource construction and the streaming loop in a try / catch:
-        // AudioPipeline (libsoxr handle creation), SsbProcessor (filter setup)
-        // and iqdmasync (DMA setup) all surface fatal failures as exceptions,
-        // and a stray throw escaping main would terminate via std::terminate
-        // without flushing the diagnostic the user expects on stderr.
+        // AudioPipeline (libsoxr handle creation), SsbProcessor (filter setup),
+        // checkCarrierPll and checkCarrierBand all surface fatal failures as
+        // exceptions. A stray throw escaping main would terminate via
+        // std::terminate without the destructor of iqdmasync stopping the DMA
+        // engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {
@@ -169,7 +170,7 @@ namespace pissb {
                                     .channelMode        = AudioChannelMode::Mono,
                                 }};
 
-            std::cout << "pissb: center=" << params.transmissionFrequency << " Hz, src_rate=" << fmt.sampleRate
+            std::cout << "pissb: carrier=" << params.transmissionFrequency << " Hz, audio_rate=" << fmt.sampleRate
                       << " Hz, iq_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
                       << ", format=" << source->description() << ", sideband=" << modeName(params.mode)
                       << ", loop=" << (params.loop ? "yes" : "no") << std::endl;

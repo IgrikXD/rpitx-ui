@@ -156,6 +156,8 @@ namespace pirtty {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
+        std::cout << "pirtty: message=\"" << params.message << "\"" << std::endl;
+
         const auto codes{encodeMessage(params.message)};
         const std::size_t bitSamples{samplesPerBit(mode)};
         // A character is the start bit, the data bits and the stop bit.
