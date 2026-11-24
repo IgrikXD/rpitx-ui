@@ -136,11 +136,11 @@ namespace piam {
         }
 
         // Wrap resource construction and the streaming loop in a try / catch:
-        // AudioPipeline (libsoxr handle creation), AmProcessor (Biquad design)
-        // and checkCarrierPll all surface fatal failures as exceptions. A stray
-        // throw escaping main would terminate via std::terminate without the
-        // destructor of amdmasync stopping the DMA engine and the clock
-        // generator.
+        // AudioPipeline (libsoxr handle creation), AmProcessor (AGC
+        // configuration check) and checkCarrierPll all surface fatal failures
+        // as exceptions. A stray throw escaping main would terminate via
+        // std::terminate without the destructor of amdmasync stopping the DMA
+        // engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {

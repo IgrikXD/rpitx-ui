@@ -173,11 +173,11 @@ namespace pinfm {
         const float peakDeviation{peakDeviationFor(params.mode)};
 
         // Wrap resource construction and the streaming loop in a try / catch:
-        // AudioPipeline (libsoxr handle creation), NfmProcessor (Biquad design),
-        // checkCarrierPll and checkCarrierBand all surface fatal failures as
-        // exceptions. A stray throw escaping main would terminate via
-        // std::terminate without the destructor of ngfmdmasync stopping the DMA
-        // engine and the clock generator.
+        // AudioPipeline (libsoxr handle creation), NfmProcessor (AGC
+        // configuration check), checkCarrierPll and checkCarrierBand all
+        // surface fatal failures as exceptions. A stray throw escaping main
+        // would terminate via std::terminate without the destructor of
+        // ngfmdmasync stopping the DMA engine and the clock generator.
         try {
             AudioPipeline audio{*source,
                                 {
