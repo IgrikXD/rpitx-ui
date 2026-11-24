@@ -281,7 +281,7 @@ namespace pifmrds {
                       << " Hz, audio_rate=" << audioFormat.sampleRate << " Hz, channels=" << audioFormat.channels
                       << ", mpx_rate=" << MPX_SAMPLE_RATE << " Hz, format=" << source->description()
                       << ", loop=" << (params.loop ? "yes" : "no") << std::endl
-                      << "         PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
+                      << "pifmrds: PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
                       << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
             FmRdsProcessor proc{{

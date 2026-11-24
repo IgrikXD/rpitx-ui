@@ -118,7 +118,7 @@ namespace pimorse {
                 return 1;
         }
 
-        std::cout << "Message: " << params.message << std::endl;
+        std::cout << "pimorse: message=\"" << params.message << "\"" << std::endl;
 
         const auto encodedMessage{encodeMessage(params.message)};
         const auto symbolRate{params.wpm / WPM_TO_SYMBOL_RATE_DIVISOR};

@@ -218,6 +218,11 @@ namespace pipocsag {
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
+        // A tone-only call carries no message.
+        if (params.type != MessageType::ToneOnly) {
+            std::cout << "pipocsag: message=\"" << params.message << "\"" << std::endl;
+        }
+
         // Wrap the encoding, DMA construction and the transmission loop in a try / catch:
         // checkCarrierPll refuses the PLL settings the board cannot run and
         // checkCarrierBand a carrier whose tones cross an integer step of the
