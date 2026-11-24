@@ -280,8 +280,8 @@ namespace pifmrds {
             std::cout << "pifmrds: carrier=" << params.transmissionFrequency
                       << " Hz, audio_rate=" << audioFormat.sampleRate << " Hz, channels=" << audioFormat.channels
                       << ", mpx_rate=" << MPX_SAMPLE_RATE << " Hz, format=" << source->description()
-                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl
-                      << "pifmrds: PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
+                      << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
+            std::cout << "pifmrds: PI=0x" << std::hex << params.pi << std::dec << ", PS=\"" << params.ps << "\", RT=\""
                       << params.rt << "\", pre-emph=" << preEmphasisName(params.preEmph) << " us" << std::endl;
 
             FmRdsProcessor proc{{
