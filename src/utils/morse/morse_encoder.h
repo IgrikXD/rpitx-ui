@@ -97,6 +97,15 @@ inline constexpr std::array<MorseEntry, 52> MORSE_TABLE{{
 static_assert(std::ranges::is_sorted(MORSE_TABLE, {}, &MorseEntry::ch),
               "MORSE_TABLE must be sorted by 'ch' in ascending ASCII order for lower_bound lookup");
 
+static_assert(std::ranges::all_of(MORSE_TABLE,
+                                  [](const MorseEntry& entry) {
+                                      const auto elements{entry.dits.substr(0, entry.dits.find_first_not_of(".-"))};
+                                      return elements.empty() == (entry.ch == ' ') &&
+                                             entry.dits.substr(elements.size()) == (entry.ch == ' ' ? "    " : "  ");
+                                  }),
+              "every MORSE_TABLE pattern must be dits and dahs followed by the 2 spaces of the character gap, the "
+              "space only the 4 spaces of the word gap");
+
 /**
  * @brief Look up the Morse pattern for a given ASCII character.
  * @param ch Input character (case-insensitive for letters).
