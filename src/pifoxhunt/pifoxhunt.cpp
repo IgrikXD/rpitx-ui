@@ -84,12 +84,12 @@ namespace pifoxhunt {
             std::size_t elementSamples{0};
             for (const char character: std::string{text} + ' ') {
                 for (const char symbol: morseToCw(charToMorse(character).value())) {
+                    if (symbol == '0') {
+                        elementSamples = 0;
+                        samples.insert(samples.end(), symbolSamples, CARRIER_OFF_SAMPLE);
+                        continue;
+                    }
                     for (std::size_t n{0}; n < symbolSamples; ++n) {
-                        if (symbol == '0') {
-                            elementSamples = 0;
-                            samples.push_back(CARRIER_OFF_SAMPLE);
-                            continue;
-                        }
                         const bool firstHalf{elementSamples / TONE_HALF_PERIOD % 2 == 0};
                         samples.emplace_back(
                             0.0F, static_cast<float>(firstHalf ? mode.firstHalfLevel : mode.secondHalfLevel));
