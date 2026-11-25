@@ -6,16 +6,16 @@
  * in Morse code: the finish beacon sends MO continuously, transmitters 1 - 5 send MOE,
  * MOI, MOS, MOH or MO5 in their minute of every five minutes of the system clock, so
  * transmitters with synchronised clocks take turns. The code is keyed at 8 - 15 WPM as a
- * keyed carrier (A1A) or as a keyed carrier switched on and off by a 1000 Hz tone (A2A)
- * and repeated until SIGTERM / SIGINT, which end the transmission after the character
- * in progress. With a callsign, DE and the callsign follow the last code of every minute
- * the transmitter operates in, every minute of the system clock for the finish beacon.
+ * keyed carrier (A1A) or as a keyed carrier modulated by a 1000 Hz tone (A2A) and
+ * repeated until SIGTERM / SIGINT. With a callsign, DE and the callsign follow the last
+ * code of every minute the transmitter operates in, every minute of the system clock for
+ * the finish beacon.
  *
  * @note Usage: pifoxhunt --freq <Hz> [--code <code>] [--mode <mode>] [--wpm <value>] [--callsign <callsign>]
  *               [-h | --help]
  *   - --freq      Carrier frequency in Hz
  *   - --code      Transmitter code: MO (finish beacon, default) | MOE | MOI | MOS | MOH | MO5 (transmitters 1 - 5)
- *   - --mode      Emission mode: A1A (keyed carrier, default) | A2A (keyed carrier switched by a 1000 Hz tone)
+ *   - --mode      Emission mode: A1A (keyed carrier, default) | A2A (keyed carrier modulated by a 1000 Hz tone)
  *   - --wpm       Keying speed in words per minute (8 - 15, 8 by default)
  *   - --callsign  Callsign sent as DE <callsign> at the end of every minute of operation (1 - 15 letters, digits or /)
  *   - -h, --help  Print this help message and exit
@@ -37,13 +37,14 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <complex>
 #include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "carrier_pll.h"
@@ -55,9 +56,6 @@
 
 namespace pifoxhunt {
     namespace {
-        static_assert(CHAIN_START_SAMPLES <= samplesPerSymbol(MAX_WPM),
-                      "the trimmed samples must lie in the silent last symbol of a character");
-
         /**
          * @brief Atomic shutdown flag accessed from a signal handler.
          *
@@ -70,43 +68,44 @@ namespace pifoxhunt {
         static_assert(std::atomic<int>::is_always_lock_free,
                       "std::atomic<int> must be lock-free for signal-handler access");
 
+        static_assert(
+            DMA_FIFO_SIZE / 4 + DMA_BLOCK_SAMPLES <= 7 * samplesPerSymbol(MAX_WPM),
+            "the samples queued ahead of a code may delay it by no more than the 7 silent symbols that end it");
+
         /**
-         * @brief Render the characters of text and the word space behind them, one DMA chain of samples each.
+         * @brief Render the characters of text and the word space behind them as iqdmasync MODE_FREQ_A samples.
          *
-         * A key-down symbol keys the carrier on for all its samples (A1A) or for every other half period of the
-         * AF tone (A2A). The chain of the next character starts late, so the gap behind each one is shortened by
-         * as much.
+         * A key-down symbol drives the carrier at the level of the half period of the AF tone, which restarts
+         * with the first half period at every element; a key-up symbol keys the carrier off.
          */
-        [[nodiscard]] std::vector<std::vector<unsigned char>> renderCode(std::string_view text,
-                                                                         const EmissionMode& mode,
-                                                                         std::size_t symbolSamples) {
-            std::vector<std::vector<unsigned char>> chains;
+        [[nodiscard]] std::vector<std::complex<float>> renderCode(std::string_view text, const EmissionMode& mode,
+                                                                  std::size_t symbolSamples) {
+            std::vector<std::complex<float>> samples;
+            std::size_t elementSamples{0};
             for (const char character: std::string{text} + ' ') {
-                std::vector<unsigned char> samples;
                 for (const char symbol: morseToCw(charToMorse(character).value())) {
                     for (std::size_t n{0}; n < symbolSamples; ++n) {
-                        const bool toneOn{mode.toneHalfPeriod == 0 || samples.size() / mode.toneHalfPeriod % 2 == 0};
-                        samples.push_back(static_cast<unsigned char>(symbol != '0' && toneOn));
+                        if (symbol == '0') {
+                            elementSamples = 0;
+                            samples.push_back(CARRIER_OFF_SAMPLE);
+                            continue;
+                        }
+                        const bool firstHalf{elementSamples / TONE_HALF_PERIOD % 2 == 0};
+                        samples.emplace_back(
+                            0.0F, static_cast<float>(firstHalf ? mode.firstHalfLevel : mode.secondHalfLevel));
+                        ++elementSamples;
                     }
                 }
-                samples.resize(samples.size() - CHAIN_START_SAMPLES);
-                chains.push_back(std::move(samples));
             }
-            return chains;
+            return samples;
         }
 
         /**
-         * @brief Time ookburst takes to send chains one after the other, each one starting late by the samples cut
-         *        from the one before.
+         * @brief Time the DMA engine takes to transmit samples.
          */
-        [[nodiscard]] std::chrono::system_clock::duration sendingTime(
-            const std::vector<std::vector<unsigned char>>& chains) {
-            std::size_t samples{0};
-            for (const auto& chain: chains) {
-                samples += chain.size() + CHAIN_START_SAMPLES;
-            }
+        [[nodiscard]] std::chrono::system_clock::duration sendingTime(const std::vector<std::complex<float>>& samples) {
             return std::chrono::duration_cast<std::chrono::system_clock::duration>(
-                std::chrono::duration<double>{static_cast<double>(samples) / SAMPLE_RATE});
+                std::chrono::duration<double>{static_cast<double>(samples.size()) / SAMPLE_RATE});
         }
 
         /**
@@ -139,7 +138,7 @@ namespace pifoxhunt {
     }
 
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FoxhuntParameters& params) {
-        CLI::App app{"Amateur radio direction finding (fox hunting) transmitter (Morse code -> librpitx ookburst)"};
+        CLI::App app{"Amateur radio direction finding (fox hunting) transmitter (Morse code -> librpitx iqdmasync)"};
 
         std::string transmissionFrequencyText;
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")
@@ -171,10 +170,10 @@ namespace pifoxhunt {
         std::string modeList;
         for (const EmissionMode& mode: EMISSION_MODES) {
             modeNames.emplace_back(mode.name);
-            modeList += (modeList.empty() ? "" : " | ") + modeNames.back() +
-                        (mode.toneHalfPeriod == 0
-                             ? " (keyed carrier)"
-                             : " (keyed carrier switched by a " + std::to_string(AF_TONE_HZ) + " Hz tone)");
+            modeList +=
+                (modeList.empty() ? "" : " | ") + modeNames.back() +
+                (isToneModulated(mode) ? " (keyed carrier modulated by a " + std::to_string(AF_TONE_HZ) + " Hz tone)"
+                                       : " (keyed carrier)");
         }
         std::string modeName{params.mode->name};
         app.add_option("--mode", modeName, "Emission mode, " + modeName + " by default: " + modeList)
@@ -232,17 +231,17 @@ namespace pifoxhunt {
         // SIGINT: stop cleanly on Ctrl+C during manual runs.
         std::signal(SIGINT, handleSignal);
 
-        // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.
+        // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
-        // Wrap the OOK setup and the transmission loop in a try / catch: checkCarrierPll
-        // refuses the PLL settings the board cannot run with an exception. A stray throw
-        // escaping main would terminate via std::terminate without the destructor of
-        // ookburst stopping the clock generator.
+        // Wrap the rendering, DMA construction and the transmission loop in a try / catch:
+        // checkCarrierPll refuses the PLL settings the board cannot run with an exception.
+        // A stray throw escaping main would terminate via std::terminate without the
+        // destructor of iqdmasync stopping the DMA engine and the clock generator.
         try {
-            const std::string modeText{mode.toneHalfPeriod == 0
-                                           ? std::string{mode.name}
-                                           : std::string{mode.name} + " (" + std::to_string(AF_TONE_HZ) + " Hz tone)"};
+            const std::string modeText{isToneModulated(mode)
+                                           ? std::string{mode.name} + " (" + std::to_string(AF_TONE_HZ) + " Hz tone)"
+                                           : std::string{mode.name}};
             const std::string schedule{transmitter.minute == 0 ? "continuous"
                                                                : "minute " + std::to_string(transmitter.minute) +
                                                                      " of " + std::to_string(CYCLE.count())};
@@ -251,57 +250,68 @@ namespace pifoxhunt {
                       << (params.callsign.empty() ? "" : ", callsign=" + params.callsign) << std::endl;
 
             const std::size_t symbolSamples{samplesPerSymbol(params.wpm)};
-            auto codeChains{renderCode(transmitter.code, mode, symbolSamples)};
-            auto idChains{params.callsign.empty() ? std::vector<std::vector<unsigned char>>{}
-                                                  : renderCode("DE " + params.callsign, mode, symbolSamples)};
-            const auto codeDuration{sendingTime(codeChains)};
-            const auto idDuration{sendingTime(idChains)};
-            std::size_t longestChainSamples{0};
-            for (const auto& chain: codeChains) {
-                longestChainSamples = std::max(longestChainSamples, chain.size());
-            }
-            for (const auto& chain: idChains) {
-                longestChainSamples = std::max(longestChainSamples, chain.size());
-            }
+            auto codeSamples{renderCode(transmitter.code, mode, symbolSamples)};
+            auto idSamples{params.callsign.empty() ? std::vector<std::complex<float>>{}
+                                                   : renderCode("DE " + params.callsign, mode, symbolSamples)};
+            const auto codeDuration{sendingTime(codeSamples)};
+            const auto idDuration{sendingTime(idSamples)};
+            // The finish beacon without identification transmits without a break, the others in their periods.
+            const bool scheduled{transmitter.minute != 0 || idSamples.empty() == false};
 
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, 0);
-            ookburst ook{params.transmissionFrequency,
-                         static_cast<float>(SAMPLE_RATE),
-                         DMA_CHANNEL,
-                         static_cast<uint32_t>(longestChainSamples)};
+            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            // Constructed with the first code, so the carrier its constructor switches on falls into the period.
+            std::optional<iqdmasync> dma;
 
-            // SetSymbols returns once a chain is sent, so a stop request ends the transmission there.
-            const auto send{[&ook](std::vector<std::vector<unsigned char>>& chains) {
-                for (auto& chain: chains) {
-                    if (running.load(std::memory_order_relaxed) == 0) {
-                        break;
-                    }
-                    ook.SetSymbols(chain.data(), static_cast<uint32_t>(chain.size()));
+            // Queue samples in the DMA engine block by block, until a stop is requested.
+            const auto send{[&dma](std::vector<std::complex<float>>& samples) {
+                for (std::size_t first{0}; first < samples.size() && running.load(std::memory_order_relaxed);
+                     first += DMA_BLOCK_SAMPLES) {
+                    // SetIQSamples blocks until the block is in the DMA FIFO (see
+                    // iqdmasync.cpp upstream), so no manual pacing is needed here.
+                    dma->SetIQSamples(
+                        samples.data() + first, std::min(DMA_BLOCK_SAMPLES, samples.size() - first), DEFAULT_HARMONIC);
                 }
             }};
+            std::vector<std::complex<float>> idleBlock(DMA_BLOCK_SAMPLES, CARRIER_OFF_SAMPLE);
 
             // Send the code over and over: continuously, or while it and the identification fit into the period.
             while (running.load(std::memory_order_relaxed)) {
                 bool lastCode{false};
-                if (transmitter.minute != 0 || idChains.empty() == false) {
+                if (scheduled) {
                     const auto now{std::chrono::system_clock::now()};
                     const auto periodStart{operatingPeriodStart(transmitter, now)};
                     const auto periodEnd{periodStart + OPERATING_PERIOD};
                     if (now < periodStart || now + codeDuration + idDuration > periodEnd) {
-                        const auto wakeUp{now < periodStart ? periodStart
-                                                            : operatingPeriodStart(transmitter, periodEnd)};
-                        std::this_thread::sleep_for(
-                            std::min<std::chrono::system_clock::duration>(wakeUp - now, STOP_CHECK_INTERVAL));
+                        if (dma.has_value()) {
+                            // The engine keeps the carrier off between the operating periods.
+                            send(idleBlock);
+                        } else {
+                            const auto wakeUp{now < periodStart ? periodStart
+                                                                : operatingPeriodStart(transmitter, periodEnd)};
+                            std::this_thread::sleep_for(
+                                std::min<std::chrono::system_clock::duration>(wakeUp - now, STOP_CHECK_INTERVAL));
+                        }
                         continue;
                     }
                     // The identification follows the last code of the period.
-                    lastCode = now + 2 * codeDuration + idDuration > periodEnd;
+                    lastCode = now + 2 * codeDuration + idDuration + NEXT_CODE_TOLERANCE > periodEnd;
                 }
-                send(codeChains);
+                if (dma.has_value() == false) {
+                    dma.emplace(params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A);
+                    // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first symbol
+                    // reaches the air.
+                    startTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
+                }
+                send(codeSamples);
                 if (lastCode) {
-                    send(idChains);
+                    send(idSamples);
                 }
+            }
+
+            // The transmission ends only on a stop request, so the queued samples are discarded.
+            if (dma.has_value()) {
+                stopTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, false);
             }
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pifoxhunt: " << e.what() << std::endl;

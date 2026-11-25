@@ -13,6 +13,7 @@
 
 #include <array>
 #include <chrono>
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -23,19 +24,49 @@
 
 namespace pifoxhunt {
     /**
+     * @brief DMA sample buffer depth.
+     */
+    inline constexpr uint32_t DMA_FIFO_SIZE{1024};
+
+    /**
      * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
      */
     inline constexpr int DMA_CHANNEL{14};
 
     /**
-     * @brief Rate in Hz at which ookburst keys the carrier on or off, one sample at a time.
+     * @brief DMA sample rate in Hz.
      */
     inline constexpr uint32_t SAMPLE_RATE{2'000};
+
+    /**
+     * @brief Number of samples queued per librpitx::SetIQSamples call (16 ms at the sample rate).
+     *
+     * Small enough for prompt SIGTERM/SIGINT response, large enough to
+     * amortise per-call overhead inside librpitx.
+     */
+    inline constexpr std::size_t DMA_BLOCK_SAMPLES{32};
+
+    /**
+     * @brief Default harmonic passed to iqdmasync.
+     */
+    inline constexpr int DEFAULT_HARMONIC{1};
+
+    /**
+     * @brief Sample of iqdmasync MODE_FREQ_A that keys the carrier off.
+     */
+    inline constexpr std::complex<float> CARRIER_OFF_SAMPLE{0.0F, 0.0F};
 
     /**
      * @brief Frequency of the AF tone of the A2A mode in Hz.
      */
     inline constexpr uint32_t AF_TONE_HZ{1'000};
+
+    /**
+     * @brief Samples of half a period of the AF tone.
+     */
+    inline constexpr std::size_t TONE_HALF_PERIOD{SAMPLE_RATE / (2 * AF_TONE_HZ)};
+    static_assert(SAMPLE_RATE % (2 * AF_TONE_HZ) == 0,
+                  "every half period of the AF tone must be a whole number of samples");
 
     /**
      * @brief Minimum keying speed in words per minute, the lowest one of the IARU ARDF rules.
@@ -65,8 +96,16 @@ namespace pifoxhunt {
     inline constexpr std::chrono::minutes OPERATING_PERIOD{1};
 
     /**
+     * @brief Time by which the clock may be read for the next code later than one code length after this one.
+     *
+     * A block behind carrier-off blocks, and as much again for the jitter of the reading; the identification
+     * follows a code unless the next code and the identification fit with this to spare.
+     */
+    inline constexpr std::chrono::microseconds NEXT_CODE_TOLERANCE{2 * DMA_BLOCK_SAMPLES * 1'000'000 / SAMPLE_RATE};
+
+    /**
      * @brief Interval between two checks of the stop flag and the system clock while a transmitter waits for its
-     *        operating period.
+     *        first operating period.
      */
     inline constexpr std::chrono::milliseconds STOP_CHECK_INTERVAL{100};
 
@@ -91,23 +130,30 @@ namespace pifoxhunt {
     }};
 
     /**
-     * @brief Emission mode of the IARU ARDF rules: how a key-down symbol keys the carrier.
+     * @brief Emission mode of the IARU ARDF rules: the pad drive of a key-down symbol in the two half periods of the
+     *        AF tone, as an iqdmasync MODE_FREQ_A amplitude (0 keys the carrier off, 1 - 8 drive 2 - 16 mA).
      */
     struct EmissionMode {
-        std::string_view name;       ///< --mode value.
-        std::size_t toneHalfPeriod;  ///< Samples of half a period of the AF tone switching the carrier, 0 for none.
+        std::string_view name;  ///< --mode value.
+        int firstHalfLevel;     ///< Pad drive level in the first half period of the AF tone.
+        int secondHalfLevel;    ///< Pad drive level in the second half period, the first one's for no tone.
     };
 
     /**
-     * @brief Keyed carrier (A1A) of the 3.5 MHz band and keyed carrier switched on and off by the AF tone (A2A) of
-     *        the 144 MHz band.
+     * @brief Keyed carrier (A1A) of the 3.5 MHz band at 16 mA, and keyed carrier modulated by the AF tone (A2A) of
+     *        the 144 MHz band at 14 mA and 2 mA: a modulation depth of about 77 % at 144 MHz.
      */
     inline constexpr std::array<EmissionMode, 2> EMISSION_MODES{{
-        {"A1A", 0},
-        {"A2A", SAMPLE_RATE / (2 * AF_TONE_HZ)},
+        {"A1A", 8, 8},
+        {"A2A", 7, 1},
     }};
-    static_assert(SAMPLE_RATE % (2 * AF_TONE_HZ) == 0,
-                  "every half period of the AF tone must be a whole number of samples");
+
+    /**
+     * @brief Whether the AF tone modulates the carrier of mode.
+     */
+    [[nodiscard]] constexpr bool isToneModulated(const EmissionMode& mode) noexcept {
+        return mode.firstHalfLevel != mode.secondHalfLevel;
+    }
 
     /**
      * @brief Longest callsign: DE and the callsign fit into a minute behind the longest code even at the lowest speed.

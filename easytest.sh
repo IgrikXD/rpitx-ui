@@ -475,7 +475,7 @@ fi
 # Emission mode
 if ! FOX_MODE=$(whiptail --default-item "$DEFAULT_FOX_MODE" --title "Foxhunt emission mode" --menu "Select emission mode:" 15 78 2 \
 	"A1A" "Keyed carrier (3.5 MHz band)" \
-	"A2A" "Keyed carrier switched by a 1000 Hz tone (144 MHz band)" \
+	"A2A" "Keyed carrier modulated by a 1000 Hz tone (144 MHz band)" \
 	3>&1 1>&2 2>&3); then
 	abort_action=1
 	return

@@ -58,7 +58,7 @@ target_link_libraries(pifmrds
         librpitx::librpitx
 )
 
-# --- pifoxhunt (transmitter code -> librpitx ookburst, self-contained) ---
+# --- pifoxhunt (transmitter code -> librpitx iqdmasync, self-contained) ---
 add_executable(pifoxhunt pifoxhunt/pifoxhunt.cpp)
 target_link_libraries(pifoxhunt
     PRIVATE

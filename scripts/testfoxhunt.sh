@@ -8,7 +8,7 @@
 
 # Invokes: pifoxhunt --freq <Hz> --code <code> --mode <mode> --wpm <value> [--callsign <callsign>]
 #   --code     : MO (finish beacon, default) | MOE | MOI | MOS | MOH | MO5 - transmitters 1 - 5.
-#   --mode     : A1A (keyed carrier, default) | A2A (keyed carrier switched by a 1000 Hz tone).
+#   --mode     : A1A (keyed carrier, default) | A2A (keyed carrier modulated by a 1000 Hz tone).
 #   --wpm      : keying speed in words per minute, 8 (default) - 15.
 #   --callsign : passed when a callsign is given; DE and the callsign end every minute of operation.
 FREQ="$1"
