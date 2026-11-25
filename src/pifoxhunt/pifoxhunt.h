@@ -64,7 +64,8 @@ namespace pifoxhunt {
     inline constexpr std::chrono::minutes OPERATING_PERIOD{1};
 
     /**
-     * @brief Interval between two checks of the stop flag while a transmitter waits for its operating period.
+     * @brief Interval between two checks of the stop flag and the system clock while a transmitter waits for its
+     *        operating period.
      */
     inline constexpr std::chrono::milliseconds STOP_CHECK_INTERVAL{100};
 

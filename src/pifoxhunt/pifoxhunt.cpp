@@ -99,22 +99,6 @@ namespace pifoxhunt {
             const auto periodStart{cycleStart + (transmitter.minute - 1) * OPERATING_PERIOD};
             return now < periodStart + OPERATING_PERIOD ? periodStart : periodStart + CYCLE;
         }
-
-        /**
-         * @brief Sleep until time, checking the stop flag every STOP_CHECK_INTERVAL.
-         * @return false when a stop is requested first.
-         */
-        bool sleepUntil(std::chrono::system_clock::time_point time) {
-            while (running.load(std::memory_order_relaxed)) {
-                const auto now{std::chrono::system_clock::now()};
-                if (now >= time) {
-                    return true;
-                }
-                std::this_thread::sleep_for(
-                    std::min<std::chrono::system_clock::duration>(time - now, STOP_CHECK_INTERVAL));
-            }
-            return false;
-        }
     }  // namespace
 
     void handleSignal([[maybe_unused]] int sig) {
@@ -234,29 +218,25 @@ namespace pifoxhunt {
                          DMA_CHANNEL,
                          static_cast<uint32_t>(longestChainSamples)};
 
-            // Send the code over and over: continuously, or while it fits into the operating periods of the cycle.
+            // Send the code over and over: continuously, or whenever a whole code fits into the operating period
+            // the system clock is in; the clock is read again for every code, so a clock that is set takes effect.
             while (running.load(std::memory_order_relaxed)) {
-                auto periodEnd{std::chrono::system_clock::time_point::max()};
                 if (transmitter.minute != 0) {
-                    const auto periodStart{operatingPeriodStart(transmitter, std::chrono::system_clock::now())};
-                    periodEnd = periodStart + OPERATING_PERIOD;
-                    if (sleepUntil(periodStart) == false) {
+                    const auto now{std::chrono::system_clock::now()};
+                    const auto periodStart{operatingPeriodStart(transmitter, now)};
+                    if (now < periodStart || now + codeDuration > periodStart + OPERATING_PERIOD) {
+                        const auto wakeUp{now < periodStart ? periodStart : periodStart + CYCLE};
+                        std::this_thread::sleep_for(
+                            std::min<std::chrono::system_clock::duration>(wakeUp - now, STOP_CHECK_INTERVAL));
+                        continue;
+                    }
+                }
+                for (auto& chain: chains) {
+                    if (running.load(std::memory_order_relaxed) == 0) {
                         break;
                     }
-                }
-                while (running.load(std::memory_order_relaxed) &&
-                       (transmitter.minute == 0 || std::chrono::system_clock::now() + codeDuration <= periodEnd)) {
-                    for (auto& chain: chains) {
-                        if (running.load(std::memory_order_relaxed) == 0) {
-                            break;
-                        }
-                        // SetSymbols returns once the chain is sent, so a stop request ends the code there.
-                        ook.SetSymbols(chain.data(), static_cast<uint32_t>(chain.size()));
-                    }
-                }
-                // The code no longer fits: the next operating period begins after this one.
-                if (transmitter.minute != 0 && sleepUntil(periodEnd) == false) {
-                    break;
+                    // SetSymbols returns once the chain is sent, so a stop request ends the code there.
+                    ook.SetSymbols(chain.data(), static_cast<uint32_t>(chain.size()));
                 }
             }
         } catch (const std::exception& e) {

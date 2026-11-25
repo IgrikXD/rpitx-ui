@@ -8,8 +8,9 @@
 # Shared Morse code utility library
 # ----------------------------------------------------------
 # Provides the Morse code of the Morse-keying binaries: the ITU table of the
-# characters (letters, digits, space and punctuation) and the conversion of
-# a character into the on-off keying symbols of its dits, dahs and gaps.
+# characters (letters, digits, space and punctuation), the conversion of a
+# character into the on-off keying symbols of its dits, dahs and gaps, and the
+# length of a symbol at a speed in words per minute.
 # ----------------------------------------------------------
 add_library(rpitx_morse_utils STATIC
     morse_encoder.cpp
