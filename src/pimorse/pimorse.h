@@ -11,17 +11,22 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "cli_parse_result.h"
 
 namespace pimorse {
     /**
-     * @brief OOK upsample factor: DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
+     * @brief DMA samples per symbol (symbol duration = 1 / symbolRate seconds).
+     *
+     * Few enough that up to MAX_WPM the gaps behind the characters stay within 0.05 dits on BCM2711, and enough
+     * that MIN_WPM keeps the pacing rate within the range of the PCM clock divider.
      */
-    inline constexpr float OOK_UPSAMPLE{125.0F};
+    inline constexpr std::size_t OOK_UPSAMPLE{500};
 
     /**
      * @brief Requested DMA channel; librpitx overrides it (channel 7 on BCM2711, 14 on the earlier SoCs).
@@ -34,6 +39,16 @@ namespace pimorse {
     inline constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2F};
 
     /**
+     * @brief Minimum accepted speed in words per minute.
+     */
+    inline constexpr float MIN_WPM{1.0F};
+
+    /**
+     * @brief Maximum accepted speed in words per minute.
+     */
+    inline constexpr float MAX_WPM{200.0F};
+
+    /**
      * @brief Morse transmitter parameters extracted from argv.
      */
     struct PimorseParameters {
@@ -43,19 +58,26 @@ namespace pimorse {
     };
 
     /**
+     * @brief Signal handler for SIGTERM and SIGINT.
+     * @param sig Signal number.
+     */
+    void handleSignal(int sig);
+
+    /**
      * @brief Parse and validate command-line arguments via CLI11.
      */
     [[nodiscard]] rpitx::cli::ParseResult parseArgs(int argc, char* argv[], PimorseParameters& params);
 
     /**
-     * @brief Convert a text message into a contiguous CW OOK binary stream.
+     * @brief Convert a text message into the CW OOK binary stream of each supported character.
      */
-    [[nodiscard]] std::string encodeMessage(std::string_view message);
+    [[nodiscard]] std::vector<std::string> encodeMessage(std::string_view message);
 
     /**
-     * @brief Transmit a CW OOK binary string at the given frequency and symbol rate.
+     * @brief Transmit the CW OOK binary streams of the characters at the given frequency and symbol rate,
+     *        one character after the other, until all are sent or a stop is requested.
      */
-    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, std::string_view cw);
+    void sendCwOok(uint64_t transmissionFrequency, float symbolRate, const std::vector<std::string>& characters);
 
     /**
      * @brief Run the Morse code CW OOK transmitter.
