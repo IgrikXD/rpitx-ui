@@ -8,13 +8,16 @@
  * transmitters with synchronised clocks take turns. The code is keyed at 8 - 15 WPM as a
  * keyed carrier (A1A) or as a keyed carrier switched on and off by a 1000 Hz tone (A2A)
  * and repeated until SIGTERM / SIGINT, which end the transmission after the character
- * in progress.
+ * in progress. With a callsign, DE and the callsign follow the last code of every minute
+ * the transmitter operates in, every minute of the system clock for the finish beacon.
  *
- * @note Usage: pifoxhunt --freq <Hz> [--code <code>] [--mode <mode>] [--wpm <value>] [-h | --help]
+ * @note Usage: pifoxhunt --freq <Hz> [--code <code>] [--mode <mode>] [--wpm <value>] [--callsign <callsign>]
+ *               [-h | --help]
  *   - --freq      Carrier frequency in Hz
  *   - --code      Transmitter code: MO (finish beacon, default) | MOE | MOI | MOS | MOH | MO5 (transmitters 1 - 5)
  *   - --mode      Emission mode: A1A (keyed carrier, default) | A2A (keyed carrier switched by a 1000 Hz tone)
  *   - --wpm       Keying speed in words per minute (8 - 15, 8 by default)
+ *   - --callsign  Callsign sent as DE <callsign> at the end of every minute of operation (1 - 15 letters, digits or /)
  *   - -h, --help  Print this help message and exit
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -31,6 +34,7 @@
 #include <CLI/CLI.hpp>
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -67,17 +71,17 @@ namespace pifoxhunt {
                       "std::atomic<int> must be lock-free for signal-handler access");
 
         /**
-         * @brief Render the characters of code and the word space behind them, one DMA chain of samples each.
+         * @brief Render the characters of text and the word space behind them, one DMA chain of samples each.
          *
          * A key-down symbol keys the carrier on for all its samples (A1A) or for every other half period of the
          * AF tone (A2A). The chain of the next character starts late, so the gap behind each one is shortened by
          * as much.
          */
-        [[nodiscard]] std::vector<std::vector<unsigned char>> renderCode(std::string_view code,
+        [[nodiscard]] std::vector<std::vector<unsigned char>> renderCode(std::string_view text,
                                                                          const EmissionMode& mode,
                                                                          std::size_t symbolSamples) {
             std::vector<std::vector<unsigned char>> chains;
-            for (const char character: std::string{code} + ' ') {
+            for (const char character: std::string{text} + ' ') {
                 std::vector<unsigned char> samples;
                 for (const char symbol: morseToCw(charToMorse(character).value())) {
                     for (std::size_t n{0}; n < symbolSamples; ++n) {
@@ -92,13 +96,41 @@ namespace pifoxhunt {
         }
 
         /**
-         * @brief Start of the operating period of transmitter that the system clock is in, or of the next one.
+         * @brief Time ookburst takes to send chains one after the other, each one starting late by the samples cut
+         *        from the one before.
+         */
+        [[nodiscard]] std::chrono::system_clock::duration sendingTime(
+            const std::vector<std::vector<unsigned char>>& chains) {
+            std::size_t samples{0};
+            for (const auto& chain: chains) {
+                samples += chain.size() + CHAIN_START_SAMPLES;
+            }
+            return std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                std::chrono::duration<double>{static_cast<double>(samples) / SAMPLE_RATE});
+        }
+
+        /**
+         * @brief Start of the operating period of transmitter that the system clock is in, or of the next one: the
+         *        minute of the cycle of transmitters 1 - 5, every minute for the finish beacon.
          */
         [[nodiscard]] std::chrono::system_clock::time_point operatingPeriodStart(
             const FoxTransmitter& transmitter, std::chrono::system_clock::time_point now) {
+            if (transmitter.minute == 0) {
+                return now - now.time_since_epoch() % OPERATING_PERIOD;
+            }
             const auto cycleStart{now - now.time_since_epoch() % CYCLE};
             const auto periodStart{cycleStart + (transmitter.minute - 1) * OPERATING_PERIOD};
             return now < periodStart + OPERATING_PERIOD ? periodStart : periodStart + CYCLE;
+        }
+
+        /**
+         * @brief Whether callsign is 1 - MAX_CALLSIGN_LENGTH letters, digits or /.
+         */
+        [[nodiscard]] bool isCallsign(std::string_view callsign) {
+            return callsign.empty() == false && callsign.size() <= MAX_CALLSIGN_LENGTH &&
+                   std::ranges::all_of(callsign, [](char ch) {
+                       return std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '/';
+                   });
         }
     }  // namespace
 
@@ -154,9 +186,26 @@ namespace pifoxhunt {
             ->check(rpitx::cli::validators::PositiveFiniteFloat)
             ->check(CLI::Range(MIN_WPM, MAX_WPM));
 
+        const auto* callsignOption{app.add_option(
+            "--callsign",
+            params.callsign,
+            "Callsign sent as DE <callsign> behind the last code of every minute the transmitter operates in, every "
+            "minute for the finish beacon: 1 - " +
+                std::to_string(MAX_CALLSIGN_LENGTH) +
+                " letters, digits or /, letters are sent in upper case; no identification by default")};
+
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
+
+        if (callsignOption->count() > 0 && isCallsign(params.callsign) == false) {
+            std::cerr << "[ERROR] --callsign must be 1 - " << MAX_CALLSIGN_LENGTH << " letters, digits or /!"
+                      << std::endl;
+            return rpitx::cli::ParseResult::Error;
+        }
+        std::ranges::transform(params.callsign, params.callsign.begin(), [](char ch) {
+            return static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        });
 
         params.transmitter = &*std::ranges::find(FOX_TRANSMITTERS, code, &FoxTransmitter::code);
         params.mode        = &*std::ranges::find(EMISSION_MODES, modeName, &EmissionMode::name);
@@ -198,19 +247,22 @@ namespace pifoxhunt {
                                                                : "minute " + std::to_string(transmitter.minute) +
                                                                      " of " + std::to_string(CYCLE.count())};
             std::cout << "pifoxhunt: carrier=" << params.transmissionFrequency << " Hz, code=" << transmitter.code
-                      << ", mode=" << modeText << ", wpm=" << params.wpm << ", schedule=" << schedule << std::endl;
+                      << ", mode=" << modeText << ", wpm=" << params.wpm << ", schedule=" << schedule
+                      << (params.callsign.empty() ? "" : ", callsign=" + params.callsign) << std::endl;
 
             const std::size_t symbolSamples{samplesPerSymbol(params.wpm)};
-            auto chains{renderCode(transmitter.code, mode, symbolSamples)};
-            // The next chain starts late by the samples cut from each one, so the code lasts all its symbols.
-            std::size_t codeSamples{0};
+            auto codeChains{renderCode(transmitter.code, mode, symbolSamples)};
+            auto idChains{params.callsign.empty() ? std::vector<std::vector<unsigned char>>{}
+                                                  : renderCode("DE " + params.callsign, mode, symbolSamples)};
+            const auto codeDuration{sendingTime(codeChains)};
+            const auto idDuration{sendingTime(idChains)};
             std::size_t longestChainSamples{0};
-            for (const auto& chain: chains) {
-                codeSamples += chain.size() + CHAIN_START_SAMPLES;
+            for (const auto& chain: codeChains) {
                 longestChainSamples = std::max(longestChainSamples, chain.size());
             }
-            const auto codeDuration{std::chrono::duration_cast<std::chrono::system_clock::duration>(
-                std::chrono::duration<double>{static_cast<double>(codeSamples) / SAMPLE_RATE})};
+            for (const auto& chain: idChains) {
+                longestChainSamples = std::max(longestChainSamples, chain.size());
+            }
 
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, 0);
@@ -219,24 +271,36 @@ namespace pifoxhunt {
                          DMA_CHANNEL,
                          static_cast<uint32_t>(longestChainSamples)};
 
-            // Send the code over and over: continuously, or whenever a whole code fits into the period the clock is in.
-            while (running.load(std::memory_order_relaxed)) {
-                if (transmitter.minute != 0) {
-                    const auto now{std::chrono::system_clock::now()};
-                    const auto periodStart{operatingPeriodStart(transmitter, now)};
-                    if (now < periodStart || now + codeDuration > periodStart + OPERATING_PERIOD) {
-                        const auto wakeUp{now < periodStart ? periodStart : periodStart + CYCLE};
-                        std::this_thread::sleep_for(
-                            std::min<std::chrono::system_clock::duration>(wakeUp - now, STOP_CHECK_INTERVAL));
-                        continue;
-                    }
-                }
+            // SetSymbols returns once a chain is sent, so a stop request ends the transmission there.
+            const auto send{[&ook](std::vector<std::vector<unsigned char>>& chains) {
                 for (auto& chain: chains) {
                     if (running.load(std::memory_order_relaxed) == 0) {
                         break;
                     }
-                    // SetSymbols returns once the chain is sent, so a stop request ends the code there.
                     ook.SetSymbols(chain.data(), static_cast<uint32_t>(chain.size()));
+                }
+            }};
+
+            // Send the code over and over: continuously, or while it and the identification fit into the period.
+            while (running.load(std::memory_order_relaxed)) {
+                bool lastCode{false};
+                if (transmitter.minute != 0 || idChains.empty() == false) {
+                    const auto now{std::chrono::system_clock::now()};
+                    const auto periodStart{operatingPeriodStart(transmitter, now)};
+                    const auto periodEnd{periodStart + OPERATING_PERIOD};
+                    if (now < periodStart || now + codeDuration + idDuration > periodEnd) {
+                        const auto wakeUp{now < periodStart ? periodStart
+                                                            : operatingPeriodStart(transmitter, periodEnd)};
+                        std::this_thread::sleep_for(
+                            std::min<std::chrono::system_clock::duration>(wakeUp - now, STOP_CHECK_INTERVAL));
+                        continue;
+                    }
+                    // The identification follows the last code of the period.
+                    lastCode = now + 2 * codeDuration + idDuration > periodEnd;
+                }
+                send(codeChains);
+                if (lastCode) {
+                    send(idChains);
                 }
             }
         } catch (const std::exception& e) {

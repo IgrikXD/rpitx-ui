@@ -17,6 +17,7 @@ DEFAULT_CW_WPM=5
 DEFAULT_FOX_CODE="MO"
 DEFAULT_FOX_MODE="A1A"
 DEFAULT_FOX_WPM=8
+DEFAULT_FOX_CALLSIGN=""
 DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
@@ -492,6 +493,18 @@ else
 	return
 fi
 
+# Optional callsign: DE and the callsign end every minute of operation
+if FOX_CALLSIGN=$(whiptail --inputbox "Enter callsign to identify the transmitter (empty for none):" 8 78 "$DEFAULT_FOX_CALLSIGN" --title "Foxhunt callsign" 3>&1 1>&2 2>&3); then
+	if [ -n "$FOX_CALLSIGN" ] && ! printf '%s' "$FOX_CALLSIGN" | LC_ALL=C grep -Eq '^[A-Za-z0-9/]{1,15}$'; then
+		whiptail --title "Error!" --msgbox "Callsign must be 1-15 letters, digits or / (empty for none)!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
 abort_action=0
 
 }
@@ -711,7 +724,7 @@ do_freq_setup
 
 			14\ *) do_enter_fox_params
 			if [ $abort_action -eq 0 ]; then
-				testfoxhunt.sh "$OUTPUT_FREQ""e6" "$FOX_CODE" "$FOX_MODE" "$FOX_WPM" >/dev/null 2>/dev/null &
+				testfoxhunt.sh "$OUTPUT_FREQ""e6" "$FOX_CODE" "$FOX_MODE" "$FOX_WPM" "$FOX_CALLSIGN" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;

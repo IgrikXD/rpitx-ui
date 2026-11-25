@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "cli_parse_result.h"
@@ -59,7 +60,7 @@ namespace pifoxhunt {
     inline constexpr std::chrono::minutes CYCLE{5};
 
     /**
-     * @brief Operating period of each of transmitters 1 - 5 in the cycle.
+     * @brief Operating period: a minute of the cycle for transmitters 1 - 5, every minute for the finish beacon.
      */
     inline constexpr std::chrono::minutes OPERATING_PERIOD{1};
 
@@ -109,6 +110,11 @@ namespace pifoxhunt {
                   "every half period of the AF tone must be a whole number of samples");
 
     /**
+     * @brief Longest callsign: DE and the callsign fit into a minute behind the longest code even at the lowest speed.
+     */
+    inline constexpr std::size_t MAX_CALLSIGN_LENGTH{15};
+
+    /**
      * @brief Fox hunting transmitter parameters extracted from argv.
      */
     struct FoxhuntParameters {
@@ -116,6 +122,7 @@ namespace pifoxhunt {
         const FoxTransmitter* transmitter{&FOX_TRANSMITTERS.front()};  ///< Default to the finish beacon.
         const EmissionMode* mode{&EMISSION_MODES.front()};             ///< Default to A1A.
         float wpm{MIN_WPM};                                            ///< Default to the lowest speed of the rules.
+        std::string callsign;                                          ///< Empty for no identification.
     };
 
     /**
