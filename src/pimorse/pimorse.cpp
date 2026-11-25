@@ -47,13 +47,6 @@
 
 namespace pimorse {
     namespace {
-        /**
-         * @brief Samples by which every DMA chain of ookburst after the first starts late.
-         *
-         * The pacing FIFO still holds PCM_FIFO_DEPTH samples of the previous chain, and the
-         * fill block of the new one adds one.
-         */
-        constexpr std::size_t CHAIN_START_SAMPLES{PCM_FIFO_DEPTH + 1};
         static_assert(CHAIN_START_SAMPLES <= OOK_UPSAMPLE,
                       "the trimmed samples must lie in the silent last symbol of a character");
 

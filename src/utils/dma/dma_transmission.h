@@ -27,6 +27,14 @@
 inline constexpr std::size_t PCM_FIFO_DEPTH{64};
 
 /**
+ * @brief Samples by which a DMA chain of ookburst that follows the previous one at once starts late.
+ *
+ * The pacing FIFO still holds PCM_FIFO_DEPTH samples of the previous chain, and the
+ * fill block of the new one adds one.
+ */
+inline constexpr std::size_t CHAIN_START_SAMPLES{PCM_FIFO_DEPTH + 1};
+
+/**
  * @brief GPIO that carries the carrier (GPCLK0), the one librpitx enables.
  */
 inline constexpr int CARRIER_GPIO{4};

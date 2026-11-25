@@ -121,3 +121,11 @@ static_assert(std::ranges::is_sorted(MORSE_TABLE, {}, &MorseEntry::ch),
  * @return Binary CW string (e.g., "10111000" for 'A').
  */
 [[nodiscard]] std::string morseToCw(std::string_view morse);
+
+/**
+ * @brief Divisor to convert words-per-minute to OOK symbol rate.
+ *
+ * The reference word PARIS with its word space is 50 symbols long and is sent N times a minute at N WPM,
+ * so a symbol lasts 1.2 / N seconds.
+ */
+inline constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2F};

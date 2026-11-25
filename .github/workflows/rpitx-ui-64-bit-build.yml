@@ -149,7 +149,7 @@ jobs:
             # ==============================================================
             echo "::group::Verify installed binaries"
             REQUIRED_BINARIES=(
-              foxhunt piam pichirp pifmrds pifsq pift8
+              piam pichirp pifmrds pifoxhunt pifsq pift8
               pimorse pinfm piopera pipocsag pirfgen pirtty
               pispectrumpaint pissb pisstv pitune sendiq sendook
             )
@@ -234,7 +234,7 @@ jobs:
             # ==============================================================
             echo "::group::Verify binaries removed"
             ALL_BINARIES=(
-              dvbrf foxhunt piam pichirp pifmrds pifsq pift8
+              dvbrf piam pichirp pifmrds pifoxhunt pifsq pift8
               pimorse pinfm piopera pipocsag pirfgen pirtty
               pispectrumpaint pissb pisstv pitune rpitx sendiq sendook
             )

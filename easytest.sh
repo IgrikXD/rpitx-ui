@@ -14,6 +14,9 @@ DEFAULT_RTTY_MESSAGE="HELLO WORLD FROM RPITX"
 DEFAULT_RTTY_MODE="RTTY-45"
 DEFAULT_CW_MESSAGE="CQ CQ DE RPITX"
 DEFAULT_CW_WPM=5
+DEFAULT_FOX_CODE="MO"
+DEFAULT_FOX_MODE="A1A"
+DEFAULT_FOX_WPM=8
 DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
@@ -450,12 +453,56 @@ fi
 
 }
 
+do_enter_fox_params()
+{
+
+LAST_ITEM="$menuchoice"
+
+# Transmitter of the classic ARDF competition: the code it sends and its operating period
+if ! FOX_CODE=$(whiptail --default-item "$DEFAULT_FOX_CODE" --title "Foxhunt transmitter" --menu "Select transmitter code:" 15 78 6 \
+	"MO" "Finish beacon, continuously" \
+	"MOE" "Transmitter 1, first minute of every 5 minutes" \
+	"MOI" "Transmitter 2, second minute of every 5 minutes" \
+	"MOS" "Transmitter 3, third minute of every 5 minutes" \
+	"MOH" "Transmitter 4, fourth minute of every 5 minutes" \
+	"MO5" "Transmitter 5, fifth minute of every 5 minutes" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# Emission mode
+if ! FOX_MODE=$(whiptail --default-item "$DEFAULT_FOX_MODE" --title "Foxhunt emission mode" --menu "Select emission mode:" 15 78 2 \
+	"A1A" "Keyed carrier (3.5 MHz band)" \
+	"A2A" "Keyed carrier switched by a 1000 Hz tone (144 MHz band)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# Keying speed: the range of the IARU ARDF rules
+if FOX_WPM=$(whiptail --inputbox "Enter keying speed (WPM, 8-15):" 8 78 "$DEFAULT_FOX_WPM" --title "Foxhunt keying speed" 3>&1 1>&2 2>&3); then
+	if ! printf '%s' "$FOX_WPM" | LC_ALL=C grep -Eq '^0*([89]|1[0-5])$'; then
+		whiptail --title "Error!" --msgbox "WPM must be an integer in [8, 15]!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+abort_action=0
+
+}
+
 do_stop_transmit()
 {
 	sudo killall csdr 2>/dev/null
 	sudo killall piam 2>/dev/null
 	sudo killall pichirp 2>/dev/null
 	sudo killall pifmrds 2>/dev/null
+	sudo killall pifoxhunt 2>/dev/null
 	sudo killall pimorse 2>/dev/null
 	sudo killall pinfm 2>/dev/null
 	sudo killall piopera 2>/dev/null
@@ -485,6 +532,7 @@ do_stop_transmit()
 			11\ *) sudo killall testrtty.sh >/dev/null 2>/dev/null ;;
 			12\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
 			13\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
+			14\ *) sudo killall testfoxhunt.sh >/dev/null 2>/dev/null ;;
 
 	esac
 }
@@ -521,6 +569,7 @@ do_freq_setup
     "11 RTTY" "Radioteletype" \
     "12 CW" "Continuous Wave (Morse code)" \
     "13 RFgen" "Wideband RF generator" \
+    "14 Foxhunt" "Fox hunting transmitter (ARDF)" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -656,6 +705,13 @@ do_freq_setup
 			13\ *) do_enter_rfgen_params
 			if [ $abort_action -eq 0 ]; then
 				testrfgen.sh "$OUTPUT_FREQ""e6" "$RFGEN_BW" "$DEFAULT_RFGEN_SAMPLE_RATE" "${RFGEN_MODE,,}" "$MULTITONE_TONES" >/dev/null 2>/dev/null &
+				do_status
+			fi
+			;;
+
+			14\ *) do_enter_fox_params
+			if [ $abort_action -eq 0 ]; then
+				testfoxhunt.sh "$OUTPUT_FREQ""e6" "$FOX_CODE" "$FOX_MODE" "$FOX_WPM" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
