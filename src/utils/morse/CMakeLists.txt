@@ -7,7 +7,7 @@
 # ----------------------------------------------------------
 # Shared Morse code utility library
 # ----------------------------------------------------------
-# Provides the Morse code of the Morse-keying binaries: the ITU table of the
+# Provides the Morse code of the Morse-keying binaries: the table of the
 # characters (letters, digits, space and punctuation), the conversion of a
 # character into the on-off keying symbols of its dits, dahs and gaps, and the
 # length of a symbol at a speed in words per minute.

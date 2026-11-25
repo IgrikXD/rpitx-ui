@@ -54,7 +54,7 @@ namespace {
 class MorseLookupTest : public ::testing::TestWithParam<MorseLookupTestCase> {};
 
 /**
- * @brief charToMorse returns the ITU pattern of a character of the table, in either case of a letter,
+ * @brief charToMorse returns the pattern of a character of the table, in either case of a letter,
  *        and nothing for a character outside the table.
  */
 TEST_P(MorseLookupTest, ReturnsThePatternOfTheTable) {
@@ -110,7 +110,7 @@ TEST_P(MorseToCwTest, KeysTheElementsAndTheGaps) {
     EXPECT_EQ(morseToCw(testCase.morse), testCase.expectedCw);
 }
 
-INSTANTIATE_TEST_SUITE_P(MorsePatterns, MorseToCwTest, ::testing::ValuesIn(makeMorseToCwTestCases()),
+INSTANTIATE_TEST_SUITE_P(PatternKinds, MorseToCwTest, ::testing::ValuesIn(makeMorseToCwTestCases()),
                          [](const ::testing::TestParamInfo<MorseToCwTestCase>& info) {
                              return std::string{info.param.name};
                          });
@@ -118,17 +118,19 @@ INSTANTIATE_TEST_SUITE_P(MorsePatterns, MorseToCwTest, ::testing::ValuesIn(makeM
 /**
  * @brief The word PARIS followed by a word space is 50 symbols long, the reference word of a speed in WPM.
  *
- * A speed of N words per minute sends this word N times a minute, so a symbol lasts 1.2 / N seconds; the
- * Morse transmitters derive their symbol rate from that relation. The word holds dits, dahs and the
- * element, character and word gaps, so a wrong length of any of them changes the symbols.
+ * A speed of N words per minute sends this word N times a minute, so a symbol lasts a minute divided by its
+ * 50 symbols, WPM_TO_SYMBOL_RATE_DIVISOR = 1.2 s, divided by N; the Morse transmitters derive their symbol
+ * rate from that divisor. The word holds dits, dahs and the element, character and word gaps, so a wrong
+ * length of any of them changes the symbols, and a divisor that is not a minute over these 50 symbols fails
+ * the second comparison.
  */
 TEST(MorseEncoderTest, ParisWithWordSpaceIsFiftySymbols) {
+    constexpr float secondsPerMinute{60.0F};
     std::string cw;
     for (const char character: std::string_view{"PARIS "}) {
         cw += morseToCw(charToMorse(character).value());
     }
 
-    EXPECT_EQ(cw.size(), 50U);
     EXPECT_EQ(cw,
               "10111011101000"
               "10111000"
@@ -136,4 +138,5 @@ TEST(MorseEncoderTest, ParisWithWordSpaceIsFiftySymbols) {
               "101000"
               "10101000"
               "0000");
+    EXPECT_FLOAT_EQ(WPM_TO_SYMBOL_RATE_DIVISOR, secondsPerMinute / static_cast<float>(cw.size()));
 }

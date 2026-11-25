@@ -2,9 +2,9 @@
  * @file morse_encoder.h
  * @brief Morse code lookup and CW OOK binary conversion.
  *
- * Provides a constexpr ITU Morse code table (A-Z, 0-9, space, and standard
- * punctuation) and functions to convert text characters into on-off keying
- * (OOK) binary strings suitable for RF transmission.
+ * Provides a constexpr Morse code table (A-Z, 0-9, space, and punctuation)
+ * and functions to convert text characters into on-off keying (OOK) binary
+ * strings suitable for RF transmission.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 04.04.2026
@@ -26,12 +26,12 @@
  * @brief Morse code entry mapping an ASCII character to its dit/dah pattern.
  */
 struct MorseEntry {
-    char ch;                ///< ASCII character (uppercase letter, digit, or space).
-    std::string_view dits;  ///< Morse pattern: '.' = dit, '-' = dah, ' ' = inter-element gap.
+    char ch;                ///< ASCII character (uppercase letter, digit, punctuation, or space).
+    std::string_view dits;  ///< Morse pattern: '.' = dit, '-' = dah, ' ' = one more silent symbol.
 };
 
 /**
- * @brief ITU Morse code table (A-Z, 0-9, space, and standard punctuation).
+ * @brief Morse code table: A-Z, 0-9, space, and the punctuation of ITU-R M.1677-1 plus '!' and ';'.
  *
  * Each entry's dits field uses trailing spaces as inter-character gap (2 units).
  * Space character uses 4 dits of silence for inter-word gap.
@@ -100,7 +100,7 @@ static_assert(std::ranges::is_sorted(MORSE_TABLE, {}, &MorseEntry::ch),
 /**
  * @brief Look up the Morse pattern for a given ASCII character.
  * @param ch Input character (case-insensitive for letters).
- * @return Morse dit/dah pattern, or std::nullopt if the character is not in the ITU table.
+ * @return Morse dit/dah pattern, or std::nullopt if the character is not in the table.
  */
 [[nodiscard]] inline std::optional<std::string_view> charToMorse(char ch) {
     const auto upper{static_cast<char>(std::toupper(static_cast<unsigned char>(ch)))};

@@ -73,8 +73,9 @@ namespace pifoxhunt {
          * AF tone (A2A). The chain of the next character starts late, so the gap behind each one is shortened by
          * as much.
          */
-        std::vector<std::vector<unsigned char>> renderCode(std::string_view code, const EmissionMode& mode,
-                                                           std::size_t symbolSamples) {
+        [[nodiscard]] std::vector<std::vector<unsigned char>> renderCode(std::string_view code,
+                                                                         const EmissionMode& mode,
+                                                                         std::size_t symbolSamples) {
             std::vector<std::vector<unsigned char>> chains;
             for (const char character: std::string{code} + ' ') {
                 std::vector<unsigned char> samples;
@@ -93,8 +94,8 @@ namespace pifoxhunt {
         /**
          * @brief Start of the operating period of transmitter that the system clock is in, or of the next one.
          */
-        std::chrono::system_clock::time_point operatingPeriodStart(const FoxTransmitter& transmitter,
-                                                                   std::chrono::system_clock::time_point now) {
+        [[nodiscard]] std::chrono::system_clock::time_point operatingPeriodStart(
+            const FoxTransmitter& transmitter, std::chrono::system_clock::time_point now) {
             const auto cycleStart{now - now.time_since_epoch() % CYCLE};
             const auto periodStart{cycleStart + (transmitter.minute - 1) * OPERATING_PERIOD};
             return now < periodStart + OPERATING_PERIOD ? periodStart : periodStart + CYCLE;
