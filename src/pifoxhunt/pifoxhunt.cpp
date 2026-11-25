@@ -218,8 +218,7 @@ namespace pifoxhunt {
                          DMA_CHANNEL,
                          static_cast<uint32_t>(longestChainSamples)};
 
-            // Send the code over and over: continuously, or whenever a whole code fits into the operating period
-            // the system clock is in; the clock is read again for every code, so a clock that is set takes effect.
+            // Send the code over and over: continuously, or whenever a whole code fits into the period the clock is in.
             while (running.load(std::memory_order_relaxed)) {
                 if (transmitter.minute != 0) {
                     const auto now{std::chrono::system_clock::now()};
