@@ -66,8 +66,8 @@ namespace {
      *        failure messages.
      */
     void PrintTo(const StopSignalTestCase& testCase, std::ostream* os) {
-        *os << testCase.name << " {signal=" << testCase.signal << ", ignoredAtStart=" << testCase.ignoredAtStart
-            << ", caught=" << testCase.caught << "}";
+        *os << std::boolalpha << testCase.name << " {signal=" << testCase.signal
+            << ", ignoredAtStart=" << testCase.ignoredAtStart << ", caught=" << testCase.caught << "}";
     }
 
     /**
@@ -119,10 +119,12 @@ private:
  *
  * The test starts the signal of the case at its default action or ignored and the other stop signals at their
  * default action, installs the handlers, and checks every disposition before it raises the signal: a caught
- * signal must reach the test handler, an ignored hangup must leave the record empty and the process running. An
+ * signal must reach the test handler and leave it installed for the next one, as a closed terminal may send
+ * SIGHUP more than once; an ignored hangup must leave the record empty and the process running. An
  * implementation that misses a signal fails on its disposition before the raise could end the test process; one
  * that catches an ignored SIGHUP fails the IgnoredHangup case, one that keeps every ignored signal fails the other
- * ignored cases, and one that skips the other signals once it finds SIGHUP ignored fails on their dispositions.
+ * ignored cases, one that skips the other signals once it finds SIGHUP ignored fails on their dispositions, and
+ * one that resets a handler after its first signal fails after the raise.
  */
 TEST_P(InstallStopSignalHandlersTest, CatchesTheSignalUnlessNohupIgnoresTheHangup) {
     const auto& testCase{GetParam()};
@@ -138,6 +140,7 @@ TEST_P(InstallStopSignalHandlersTest, CatchesTheSignalUnlessNohupIgnoresTheHangu
     const int received{receivedSignal};
 
     EXPECT_EQ(received, testCase.caught ? testCase.signal : 0);
+    EXPECT_EQ(currentHandler(testCase.signal), testCase.caught ? recordSignal : SIG_IGN);
 }
 
 INSTANTIATE_TEST_SUITE_P(DispositionsAtStart, InstallStopSignalHandlersTest,

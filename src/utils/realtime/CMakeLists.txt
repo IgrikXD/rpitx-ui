@@ -10,9 +10,10 @@
 # Provides what keeps the thread that feeds the DMA buffer in step with real
 # time: the flush-to-zero floating-point mode, which keeps decaying filter
 # states out of slow subnormal arithmetic, and real-time scheduling, which
-# runs the thread ahead of every normally scheduled process. Its stop signal
-# handlers let a transmitter stop the DMA engine and the clock generator
-# before it exits on SIGTERM, SIGINT, SIGPIPE or SIGHUP.
+# runs the thread ahead of every normally scheduled process. It also installs
+# the stop signal handler of a transmitter, so that the transmitter stops the
+# DMA engine and the clock generator before it exits on SIGTERM, SIGINT,
+# SIGPIPE or SIGHUP.
 # ----------------------------------------------------------
 add_library(rpitx_realtime_utils STATIC
     realtime_scheduling.cpp

@@ -121,7 +121,7 @@ namespace pichirp {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        // Stop signals: end the transmission cleanly, also when the terminal closes.
         installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.

@@ -145,7 +145,7 @@ namespace pinfm {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        // Stop signals: end the transmission cleanly, also when the terminal closes.
         installStopSignalHandlers(handleSignal);
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.

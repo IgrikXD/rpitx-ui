@@ -171,7 +171,7 @@ namespace pimorse {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        // Stop signals: end the transmission cleanly, also when the terminal closes.
         installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.

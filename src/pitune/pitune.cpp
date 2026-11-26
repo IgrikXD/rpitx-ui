@@ -82,7 +82,7 @@ namespace pitune {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        // Stop signals: end the transmission cleanly, also when the terminal closes.
         installStopSignalHandlers(handleSignal);
 
         // Wrap the carrier setup in a try / catch: programCarrierPll refuses the
