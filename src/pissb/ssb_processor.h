@@ -94,11 +94,11 @@ private:
         .maxGain         = 10.0f,
         .gate            = 0.003f,
     };
-    rpitx::dsp::Biquad hpf_{rpitx::dsp::Biquad::highPass(
-        HPF_CUTOFF, SAMPLE_RATE)};  ///< High-pass filter (removes DC and sub-voice frequencies).
-    rpitx::dsp::Biquad lpf_{
-        rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, SAMPLE_RATE)};  ///< Low-pass filter (limits voice bandwidth).
-    rpitx::dsp::Hilbert hilbert_;                               ///< Hilbert transformer for analytic signal generation.
-    rpitx::dsp::Agc agc_{SSB_AGC_CONFIG};                       ///< Automatic gain control.
-    SsbMode mode_;                                              ///< Sideband selection mode.
+    /// High-pass filter (removes DC and sub-voice frequencies).
+    rpitx::dsp::Biquad hpf_{rpitx::dsp::Biquad::highPass(HPF_CUTOFF, SAMPLE_RATE)};
+    /// Low-pass filter (limits voice bandwidth).
+    rpitx::dsp::Biquad lpf_{rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, SAMPLE_RATE)};
+    rpitx::dsp::Hilbert hilbert_;          ///< Hilbert transformer for analytic signal generation.
+    rpitx::dsp::Agc agc_{SSB_AGC_CONFIG};  ///< Automatic gain control.
+    SsbMode mode_;                         ///< Sideband selection mode.
 };

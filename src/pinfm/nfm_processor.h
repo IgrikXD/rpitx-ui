@@ -137,8 +137,8 @@ private:
     };
 
     rpitx::dsp::Biquad hpf_;  ///< DC block.
-    std::array<rpitx::dsp::Biquad, LPF_ORDER / 2>
-        lpfChain_;                         ///< Butterworth LPF realised as LPF_ORDER / 2 cascaded biquads.
+    /// Butterworth LPF realised as LPF_ORDER / 2 cascaded biquads.
+    std::array<rpitx::dsp::Biquad, LPF_ORDER / 2> lpfChain_;
     rpitx::dsp::Agc agc_{NFM_AGC_CONFIG};  ///< Scalar automatic gain control.
     float peakDeviation_;                  ///< Output clamp bound and post-AGC scale factor, in Hz.
 };

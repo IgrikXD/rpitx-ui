@@ -22,8 +22,8 @@
 
 namespace rpitx::clock {
     /**
-     * @brief Largest clock correction librpitx takes from NTP (clkgpio::SetppmFromNTP), as a part of the crystal
-     * frequency.
+     * @brief Largest clock correction librpitx takes from NTP (clkgpio::SetppmFromNTP), as a part of the
+     *        crystal frequency.
      */
     inline constexpr double MAX_CLOCK_CORRECTION{200e-6};
 
