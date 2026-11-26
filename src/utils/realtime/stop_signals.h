@@ -18,6 +18,7 @@
  *
  * The default action of each of them ends the process without the destructors that stop the DMA engine and the
  * clock generator. A SIGHUP ignored from the start, as nohup leaves it, stays ignored, so the transmitter outlives
- * the session.
+ * the session. Transmitters call it right before their first librpitx object: a stop signal during the start-up
+ * then still ends the process at once, before anything is switched on.
  */
 void installStopSignalHandlers(void (*handler)(int)) noexcept;
