@@ -53,7 +53,7 @@ namespace pimorse {
     };
 
     /**
-     * @brief Handler of the stop signals installed by installStopSignalHandlers.
+     * @brief Stop signal handler, installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);
