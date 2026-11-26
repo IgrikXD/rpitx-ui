@@ -8,7 +8,7 @@
  * subcarrier when stereo + 57 kHz RDS subcarrier with EN 50067 PI / PS / RT /
  * CT data), and drives librpitx::ngfmdmasync at 228 kHz to produce the on-air
  * signal. Transmission runs until the audio ends (or forever when --loop is
- * set), or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
+ * set), or until a stop signal (the rpitx-ui launcher stops the process
  * centrally via killall when the user dismisses the dialog).
  *
  * @note Usage: pifmrds --freq <Hz> (--audio <path> | --stdin) [--loop]
@@ -38,7 +38,6 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <charconv>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
@@ -57,6 +56,7 @@
 #include "libsndfile_audio_source.h"
 #include "rds_encoder.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pifmrds {
     namespace {
@@ -237,12 +237,8 @@ namespace pifmrds {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
-        std::signal(SIGPIPE, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();

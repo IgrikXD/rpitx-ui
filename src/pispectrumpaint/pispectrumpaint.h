@@ -70,7 +70,7 @@ namespace pispectrumpaint {
     };
 
     /**
-     * @brief Signal handler for SIGTERM, SIGINT, and SIGPIPE.
+     * @brief Handler of the stop signals installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

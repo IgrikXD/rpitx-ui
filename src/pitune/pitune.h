@@ -40,7 +40,7 @@ namespace pitune {
     };
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Handler of the stop signals installed by installStopSignalHandlers.
      */
     void handleSignal(int sig);
 

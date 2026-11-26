@@ -203,7 +203,7 @@ target_link_libraries(pisstv
 
 # --- pitune (unmodulated carrier -> librpitx clkgpio, self-contained) ---
 add_executable(pitune pitune/pitune.cpp)
-target_link_libraries(pitune PRIVATE rpitx_cli_utils rpitx_clock_utils librpitx::librpitx)
+target_link_libraries(pitune PRIVATE rpitx_cli_utils rpitx_clock_utils rpitx_realtime_utils librpitx::librpitx)
 
 # --- sendiq ---
 add_executable(sendiq sendiq.cpp)

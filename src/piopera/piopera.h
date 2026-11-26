@@ -40,7 +40,7 @@ namespace piopera {
     /**
      * @brief Number of samples queued per librpitx::SetIQSamples call (16 ms at the sample rate).
      *
-     * Small enough for prompt SIGTERM/SIGINT response, large enough to
+     * Small enough for a prompt response to a stop signal, large enough to
      * amortise per-call overhead inside librpitx.
      */
     inline constexpr std::size_t DMA_BLOCK_SAMPLES{16};
@@ -105,7 +105,7 @@ namespace piopera {
     };
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Handler of the stop signals installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

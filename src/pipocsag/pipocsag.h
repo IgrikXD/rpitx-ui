@@ -97,7 +97,7 @@ namespace pipocsag {
     }
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Handler of the stop signals installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

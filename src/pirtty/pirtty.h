@@ -38,7 +38,7 @@ namespace pirtty {
     /**
      * @brief Largest number of message samples queued per librpitx::SetFrequencySamples call (~21 ms at 48 kHz).
      *
-     * Small enough for prompt SIGTERM/SIGINT response, large enough to
+     * Small enough for a prompt response to a stop signal, large enough to
      * amortise per-call overhead inside librpitx.
      */
     inline constexpr std::size_t DMA_BLOCK_SAMPLES{1024};
@@ -97,7 +97,7 @@ namespace pirtty {
     };
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Handler of the stop signals installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

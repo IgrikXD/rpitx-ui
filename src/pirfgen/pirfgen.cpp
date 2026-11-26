@@ -5,7 +5,7 @@
  * Emits an RF waveform centered on the requested carrier frequency,
  * spread across the specified bandwidth. The waveform can be uniform
  * pseudo-random noise, a fast sawtooth sweep, or random multi-tone hopping.
- * Transmission runs until SIGTERM / SIGINT (the rpitx-ui launcher stops
+ * Transmission runs until a stop signal (the rpitx-ui launcher stops
  * the process centrally via killall when the user dismisses the dialog).
  *
  * @note Usage: pirfgen --freq <Hz> --bandwidth <Hz> [--sample-rate <Hz>]
@@ -30,7 +30,6 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
-#include <csignal>
 #include <exception>
 #include <iostream>
 #include <map>
@@ -42,6 +41,7 @@
 #include "cli_validators.h"
 #include "dma_transmission.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pirfgen {
     namespace {
@@ -165,10 +165,8 @@ namespace pirfgen {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();

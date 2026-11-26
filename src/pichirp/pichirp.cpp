@@ -4,7 +4,7 @@
  *
  * Emits a sinusoidal frequency sweep centered on the requested carrier,
  * with a peak deviation of bandwidth / 2 and one full cycle every
- * sweep_time seconds. Transmission runs until SIGTERM / SIGINT (the
+ * sweep_time seconds. Transmission runs until a stop signal (the
  * rpitx-ui launcher stops the process centrally via killall when the
  * user dismisses the dialog).
  *
@@ -28,7 +28,6 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <cmath>
-#include <csignal>
 #include <exception>
 #include <iostream>
 #include <numbers>
@@ -40,6 +39,7 @@
 #include "cli_validators.h"
 #include "dma_transmission.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pichirp {
     namespace {
@@ -121,10 +121,8 @@ namespace pichirp {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();

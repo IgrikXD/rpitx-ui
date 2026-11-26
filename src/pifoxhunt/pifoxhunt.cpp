@@ -7,7 +7,7 @@
  * MOI, MOS, MOH or MO5 in their minute of every five minutes of the system clock, so
  * transmitters with synchronised clocks take turns. The code is keyed at 8 - 15 WPM as a
  * keyed carrier (A1A) or as a keyed carrier modulated by a 1000 Hz tone (A2A) and
- * repeated until SIGTERM / SIGINT. With a callsign, DE and the callsign follow the last
+ * repeated until a stop signal. With a callsign, DE and the callsign follow the last
  * code of every minute the transmitter operates in, every minute of the system clock for
  * the finish beacon.
  *
@@ -38,7 +38,6 @@
 #include <chrono>
 #include <cmath>
 #include <complex>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
@@ -53,6 +52,7 @@
 #include "dma_transmission.h"
 #include "morse_encoder.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pifoxhunt {
     namespace {
@@ -227,10 +227,8 @@ namespace pifoxhunt {
         const FoxTransmitter& transmitter{*params.transmitter};
         const EmissionMode& mode{*params.mode};
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();

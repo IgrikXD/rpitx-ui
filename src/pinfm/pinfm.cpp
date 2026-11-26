@@ -9,7 +9,7 @@
  * Replaces the legacy csdr-based testnfm.sh pipeline, which routed audio
  * through an IQ pipe and gave no bandwidth containment or level control.
  * Transmission runs until the audio ends (or forever when --loop is set),
- * or until SIGTERM / SIGINT (the rpitx-ui launcher stops the process
+ * or until a stop signal (the rpitx-ui launcher stops the process
  * centrally via killall when the user dismisses the dialog).
  *
  * @note Usage: pinfm --freq <Hz> (--audio <path> | --stdin) [--loop] [--mode narrow|wide] [-h | --help]
@@ -33,7 +33,6 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
-#include <csignal>
 #include <exception>
 #include <iostream>
 #include <map>
@@ -49,6 +48,7 @@
 #include "libsndfile_audio_source.h"
 #include "nfm_processor.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pinfm {
     namespace {
@@ -145,12 +145,8 @@ namespace pinfm {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
-        std::signal(SIGPIPE, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();

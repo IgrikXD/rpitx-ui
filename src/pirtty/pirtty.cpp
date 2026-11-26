@@ -7,7 +7,7 @@
  * 1.5 stop bits per character. The space and mark tones are transmitted as the
  * carrier shifted above the requested frequency, so a receiver tuned to it in
  * USB mode hears them at 1000 Hz and 1170 Hz; the mark is the higher frequency,
- * as in amateur RTTY. Transmission ends with the message, or on SIGTERM / SIGINT.
+ * as in amateur RTTY. Transmission ends with the message, or on a stop signal.
  *
  * @note Usage: pirtty --freq <Hz> --message "<text>" [--mode 45|50|75] [-h | --help]
  *   - --freq      Carrier frequency in Hz, the frequency a receiver is tuned to in USB mode
@@ -30,7 +30,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -47,6 +46,7 @@
 #include "dma_transmission.h"
 #include "pll_step_feedback.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pirtty {
     namespace {
@@ -148,10 +148,8 @@ namespace pirtty {
         }
         const RttyMode& mode{*params.mode};
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
+        // Stop signals: end the transmission cleanly, also when the terminal or the output pipe closes.
+        installStopSignalHandlers(handleSignal);
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
