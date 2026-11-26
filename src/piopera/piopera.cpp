@@ -126,9 +126,6 @@ namespace piopera {
         }
         const OperaMode& mode{*params.mode};
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -143,6 +140,8 @@ namespace piopera {
                       << ", symbol=" << mode.symbolMs << " ms, callsign=" << params.callsign << ", transmission_time="
                       << std::lround(static_cast<double>(SYMBOL_COUNT * mode.symbolMs) / 1'000.0) << " s" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             iqdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A};

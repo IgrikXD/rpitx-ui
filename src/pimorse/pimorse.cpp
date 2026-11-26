@@ -171,9 +171,6 @@ namespace pimorse {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -196,6 +193,8 @@ namespace pimorse {
             std::cout << "pimorse: carrier=" << params.transmissionFrequency << " Hz, wpm=" << params.wpm
                       << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             sendCwOok(params.transmissionFrequency, symbolRate, characters);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;

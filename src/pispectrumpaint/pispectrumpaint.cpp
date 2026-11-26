@@ -149,9 +149,6 @@ namespace pispectrumpaint {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -191,6 +188,8 @@ namespace pispectrumpaint {
                       << ", line_time=" << lineTimeMs(announcedHeader.width, params.sampleRate)
                       << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,

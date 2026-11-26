@@ -237,9 +237,6 @@ namespace pifmrds {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
@@ -290,6 +287,8 @@ namespace pifmrds {
             proc.encoder().setPs(params.ps);
             proc.encoder().setRt(params.rt);
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(MPX_SAMPLE_RATE));
             ngfmdmasync dma{

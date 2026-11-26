@@ -160,9 +160,6 @@ namespace pisstv {
         }
         const SstvMode& mode{*params.mode};
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -197,6 +194,8 @@ namespace pisstv {
                       << ", picture_time=" << std::lround(pictureTimeMs(mode) / 1000.0)
                       << " s, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};

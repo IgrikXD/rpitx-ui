@@ -148,9 +148,6 @@ namespace pirtty {
         }
         const RttyMode& mode{*params.mode};
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -173,6 +170,8 @@ namespace pirtty {
                       << mode.baudRate << " baud), space=" << SPACE_TONE_HZ << " Hz, mark=" << MARK_TONE_HZ
                       << " Hz, transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};

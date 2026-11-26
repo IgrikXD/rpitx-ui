@@ -82,9 +82,6 @@ namespace pitune {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Wrap the carrier setup in a try / catch: programCarrierPll refuses the
         // PLL settings the board cannot run with an exception, and a stray throw
         // escaping main would terminate via std::terminate without the destructor
@@ -92,6 +89,8 @@ namespace pitune {
         try {
             std::cout << "pitune: carrier=" << params.transmissionFrequency << " Hz" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             clkgpio carrier;
             // The PLL multiplier is programmed directly; the core and SD card clocks leave the PLL first.
             carrier.SetAdvancedPllMode(true);

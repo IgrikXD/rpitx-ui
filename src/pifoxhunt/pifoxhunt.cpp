@@ -227,9 +227,6 @@ namespace pifoxhunt {
         const FoxTransmitter& transmitter{*params.transmitter};
         const EmissionMode& mode{*params.mode};
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -257,6 +254,8 @@ namespace pifoxhunt {
             // The finish beacon without identification transmits without a break, the others in their periods.
             const bool scheduled{transmitter.minute != 0 || idSamples.empty() == false};
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             // Constructed with the first code, so the carrier its constructor switches on falls into the period.

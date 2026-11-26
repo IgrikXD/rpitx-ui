@@ -145,9 +145,6 @@ namespace pinfm {
                 return 1;
         }
 
-        // Stop signals: end the transmission cleanly, also when the terminal closes.
-        installStopSignalHandlers(handleSignal);
-
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
@@ -189,6 +186,8 @@ namespace pinfm {
                       << peakDeviation << " Hz), loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             NfmProcessor nfm{static_cast<float>(TARGET_SAMPLE_RATE), peakDeviation};
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             ngfmdmasync dma{
