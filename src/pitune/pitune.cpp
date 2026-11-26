@@ -90,12 +90,12 @@ namespace pitune {
             std::cout << "pitune: carrier=" << params.transmissionFrequency << " Hz" << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             clkgpio carrier;
             // The PLL multiplier is programmed directly; the core and SD card clocks leave the PLL first.
             carrier.SetAdvancedPllMode(true);
             // Programs the PLL and starts the clock generator; the carrier GPIO is still an input.
-            programCarrierPll(carrier, params.transmissionFrequency, CARRIER_HALF_BANDWIDTH_HZ);
+            rpitx::clock::programCarrierPll(carrier, params.transmissionFrequency, CARRIER_HALF_BANDWIDTH_HZ);
 
             carrier.enableclk(CARRIER_GPIO);
             while (running.load(std::memory_order_relaxed)) {

@@ -24,6 +24,7 @@
 #include "biquad.h"
 
 namespace {
+    using rpitx::dsp::Biquad;
 
     /**
      * @brief Drive the biquad with a unit-amplitude sinusoid at the requested frequency

@@ -16,14 +16,16 @@
 #include <csignal>
 #include <initializer_list>
 
-void installStopSignalHandlers(void (*handler)(int)) noexcept {
-    for (const int stopSignal: {SIGTERM, SIGINT, SIGQUIT, SIGPIPE}) {
-        std::signal(stopSignal, handler);
-    }
+namespace rpitx::realtime {
+    void installStopSignalHandlers(void (*handler)(int)) noexcept {
+        for (const int stopSignal: {SIGTERM, SIGINT, SIGQUIT, SIGPIPE}) {
+            std::signal(stopSignal, handler);
+        }
 
-    // Read the disposition of SIGHUP without changing it: nohup starts the process with SIGHUP ignored.
-    struct sigaction hangup{};
-    if (sigaction(SIGHUP, nullptr, &hangup) != 0 || hangup.sa_handler != SIG_IGN) {
-        std::signal(SIGHUP, handler);
+        // Read the disposition of SIGHUP without changing it: nohup starts the process with SIGHUP ignored.
+        struct sigaction hangup{};
+        if (sigaction(SIGHUP, nullptr, &hangup) != 0 || hangup.sa_handler != SIG_IGN) {
+            std::signal(SIGHUP, handler);
+        }
     }
-}
+}  // namespace rpitx::realtime

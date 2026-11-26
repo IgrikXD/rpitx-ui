@@ -11,10 +11,12 @@
 
 #pragma once
 
-/**
- * @brief Install the handler for SIGTERM, SIGINT, SIGQUIT, SIGPIPE and SIGHUP, which ask a transmitter to stop.
- *
- * Their default action ends the process without the destructors that stop the DMA engine and the clock generator.
- * A SIGHUP ignored from the start, as nohup leaves it, stays ignored.
- */
-void installStopSignalHandlers(void (*handler)(int)) noexcept;
+namespace rpitx::realtime {
+    /**
+     * @brief Install the handler for SIGTERM, SIGINT, SIGQUIT, SIGPIPE and SIGHUP, which ask a transmitter to stop.
+     *
+     * Their default action ends the process without the destructors that stop the DMA engine and the clock generator.
+     * A SIGHUP ignored from the start, as nohup leaves it, stays ignored.
+     */
+    void installStopSignalHandlers(void (*handler)(int)) noexcept;
+}  // namespace rpitx::realtime

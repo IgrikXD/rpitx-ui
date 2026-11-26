@@ -26,6 +26,9 @@
 #include "libsndfile_audio_source.h"
 
 namespace {
+    using rpitx::audio::makeAudioSource;
+    using rpitx::audio::makeFileAudioSource;
+
     /**
      * @brief CD-audio sample rate (44.1 kHz). Paired with stereo on the open-format case.
      */

@@ -211,7 +211,7 @@ namespace pipocsag {
         }
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         // A tone-only call carries no message.
         if (params.type != MessageType::ToneOnly) {
@@ -235,18 +235,18 @@ namespace pipocsag {
                       << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
             // Refuse the carriers at which the two tones lie on different sides of an integer step of the PLL
             // multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, DEVIATION_HZ);
+            rpitx::clock::checkCarrierBand(dma, params.transmissionFrequency, DEVIATION_HZ);
             // The idle samples around the transmission are the tone of a 1: a word of ones is a message
             // codeword, a word of zeros an address codeword.
             const float oneDeviation{params.invert ? DEVIATION_HZ : -DEVIATION_HZ};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, oneDeviation);
+            rpitx::dma::startTransmission(dma, oneDeviation);
 
             // Queue the transmission in the DMA engine word by word, until a stop is requested.
             std::vector<float> samples(static_cast<std::size_t>(WORD_BITS) * (SAMPLE_RATE / params.bitRate));
@@ -262,7 +262,7 @@ namespace pipocsag {
 
             // The queued words are transmitted when the transmission ended by itself, discarded on a stop request.
             const bool transmissionEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, oneDeviation, transmissionEnded);
+            rpitx::dma::stopTransmission(dma, oneDeviation, transmissionEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pipocsag: " << e.what() << std::endl;
             return 1;

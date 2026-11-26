@@ -139,7 +139,7 @@ private:
      * of a pause is not raised to the target level; the gain is limited to
      * +20 dB.
      */
-    static constexpr AgcConfig FMRDS_AGC_CONFIG{
+    static constexpr rpitx::dsp::AgcConfig FMRDS_AGC_CONFIG{
         .target          = 0.8F,
         .attack          = 0.00063158F,
         .decay           = 0.00002105F,
@@ -238,9 +238,9 @@ private:
      * naming rule.
      */
     struct ChannelFilters {
-        Biquad hpf_;
-        Biquad preEmphasis_;
-        std::array<Biquad, LPF_ORDER / 2> lpfChain_;
+        rpitx::dsp::Biquad hpf_;
+        rpitx::dsp::Biquad preEmphasis_;
+        std::array<rpitx::dsp::Biquad, LPF_ORDER / 2> lpfChain_;
 
         /**
          * @brief Apply the full HPF -> pre-emph -> LPF chain to one sample.
@@ -310,7 +310,7 @@ private:
      * @param r Right-channel input sample (ignored when channels == 1).
      * @return Pair of post-AGC samples (.i = L, .q = R or copy of L).
      */
-    [[nodiscard]] IqSample preprocessFrame(float l, float r);
+    [[nodiscard]] rpitx::dsp::IqSample preprocessFrame(float l, float r);
 
     /**
      * @brief Build the MPX sample for one 228 kHz tick.
@@ -347,7 +347,7 @@ private:
      *     material, and the shared gain keeps the L / R amplitude
      *     relationship intact so the stereo image is preserved.
      */
-    Agc agc_{FMRDS_AGC_CONFIG};
+    rpitx::dsp::Agc agc_{FMRDS_AGC_CONFIG};
 
     RdsModulator rdsModulator_;
 

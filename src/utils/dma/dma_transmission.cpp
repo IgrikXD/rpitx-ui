@@ -11,53 +11,55 @@
 
 #include "dma_transmission.h"
 
-void startTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic) {
-    dma.disableclk(CARRIER_GPIO);
-    if (dma.ModeIQ == MODE_IQ) {
-        dma.SetIQSample(0, idleSample, harmonic);
-    } else {
-        dma.SetFreqAmplitudeSample(0, idleSample, harmonic);
+namespace rpitx::dma {
+    void startTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic) {
+        dma.disableclk(CARRIER_GPIO);
+        if (dma.ModeIQ == MODE_IQ) {
+            dma.SetIQSample(0, idleSample, harmonic);
+        } else {
+            dma.SetFreqAmplitudeSample(0, idleSample, harmonic);
+        }
+        std::vector<std::complex<float>> lead(PCM_FIFO_DEPTH, idleSample);
+        dma.SetIQSamples(lead.data(), lead.size(), harmonic);
     }
-    std::vector<std::complex<float>> lead(PCM_FIFO_DEPTH, idleSample);
-    dma.SetIQSamples(lead.data(), lead.size(), harmonic);
-}
 
-void startTransmission(ngfmdmasync& dma, float idleSample) {
-    dma.SetFrequencySample(0, idleSample);
-    std::vector<float> lead(PCM_FIFO_DEPTH, idleSample);
-    dma.SetFrequencySamples(lead.data(), lead.size());
-}
-
-void startTransmission(amdmasync& dma, float idleSample) {
-    dma.disableclk(CARRIER_GPIO);
-    dma.SetAmSample(0, idleSample);
-    std::vector<float> lead(PCM_FIFO_DEPTH, idleSample);
-    dma.SetAmSamples(lead.data(), lead.size());
-}
-
-void stopTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic, bool inputEnded) {
-    if (inputEnded) {
-        queueDrainTail(dma.buffersize, idleSample, [&dma, harmonic](std::vector<std::complex<float>>& tail) {
-            dma.SetIQSamples(tail.data(), tail.size(), harmonic);
-        });
+    void startTransmission(ngfmdmasync& dma, float idleSample) {
+        dma.SetFrequencySample(0, idleSample);
+        std::vector<float> lead(PCM_FIFO_DEPTH, idleSample);
+        dma.SetFrequencySamples(lead.data(), lead.size());
     }
-    dma.stop();
-}
 
-void stopTransmission(ngfmdmasync& dma, float idleSample, bool inputEnded) {
-    if (inputEnded) {
-        queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
-            dma.SetFrequencySamples(tail.data(), tail.size());
-        });
+    void startTransmission(amdmasync& dma, float idleSample) {
+        dma.disableclk(CARRIER_GPIO);
+        dma.SetAmSample(0, idleSample);
+        std::vector<float> lead(PCM_FIFO_DEPTH, idleSample);
+        dma.SetAmSamples(lead.data(), lead.size());
     }
-    dma.stop();
-}
 
-void stopTransmission(amdmasync& dma, float idleSample, bool inputEnded) {
-    if (inputEnded) {
-        queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
-            dma.SetAmSamples(tail.data(), tail.size());
-        });
+    void stopTransmission(iqdmasync& dma, std::complex<float> idleSample, int harmonic, bool inputEnded) {
+        if (inputEnded) {
+            queueDrainTail(dma.buffersize, idleSample, [&dma, harmonic](std::vector<std::complex<float>>& tail) {
+                dma.SetIQSamples(tail.data(), tail.size(), harmonic);
+            });
+        }
+        dma.stop();
     }
-    dma.stop();
-}
+
+    void stopTransmission(ngfmdmasync& dma, float idleSample, bool inputEnded) {
+        if (inputEnded) {
+            queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
+                dma.SetFrequencySamples(tail.data(), tail.size());
+            });
+        }
+        dma.stop();
+    }
+
+    void stopTransmission(amdmasync& dma, float idleSample, bool inputEnded) {
+        if (inputEnded) {
+            queueDrainTail(dma.buffersize, idleSample, [&dma](std::vector<float>& tail) {
+                dma.SetAmSamples(tail.data(), tail.size());
+            });
+        }
+        dma.stop();
+    }
+}  // namespace rpitx::dma

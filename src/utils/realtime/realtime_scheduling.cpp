@@ -17,18 +17,20 @@
 #include <iostream>
 #include <system_error>
 
-void enableRealtimeScheduling() {
-    // Keep a real-time policy chosen before the start (chrt, systemd CPUSchedulingPolicy=).
-    const int currentPolicy{sched_getscheduler(0) & ~SCHED_RESET_ON_FORK};
-    if (currentPolicy == SCHED_FIFO || currentPolicy == SCHED_RR) {
-        return;
-    }
+namespace rpitx::realtime {
+    void enableRealtimeScheduling() {
+        // Keep a real-time policy chosen before the start (chrt, systemd CPUSchedulingPolicy=).
+        const int currentPolicy{sched_getscheduler(0) & ~SCHED_RESET_ON_FORK};
+        if (currentPolicy == SCHED_FIFO || currentPolicy == SCHED_RR) {
+            return;
+        }
 
-    const sched_param parameters{.sched_priority = sched_get_priority_min(SCHED_FIFO)};
+        const sched_param parameters{.sched_priority = sched_get_priority_min(SCHED_FIFO)};
 
-    if (sched_setscheduler(0, SCHED_FIFO, &parameters) != 0) {
-        const std::error_code requestError{errno, std::system_category()};
-        std::cerr << "[WARNING] Real-time scheduling is unavailable (" << requestError.message()
-                  << "); the transmission may glitch while other processes load the CPU." << std::endl;
+        if (sched_setscheduler(0, SCHED_FIFO, &parameters) != 0) {
+            const std::error_code requestError{errno, std::system_category()};
+            std::cerr << "[WARNING] Real-time scheduling is unavailable (" << requestError.message()
+                      << "); the transmission may glitch while other processes load the CPU." << std::endl;
+        }
     }
-}
+}  // namespace rpitx::realtime

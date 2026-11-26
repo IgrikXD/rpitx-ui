@@ -14,7 +14,8 @@
 #include <algorithm>
 
 AmProcessor::AmProcessor(float sampleRate)
-    : hpf_{Biquad::highPass(HPF_CUTOFF, sampleRate)}, lpf_{Biquad::lowPass(LPF_CUTOFF, sampleRate)} {
+    : hpf_{rpitx::dsp::Biquad::highPass(HPF_CUTOFF, sampleRate)},
+      lpf_{rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, sampleRate)} {
 }
 
 float AmProcessor::process(float sample) {

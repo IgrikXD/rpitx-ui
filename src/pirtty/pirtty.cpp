@@ -149,7 +149,7 @@ namespace pirtty {
         const RttyMode& mode{*params.mode};
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         std::cout << "pirtty: message=\"" << params.message << "\"" << std::endl;
 
@@ -171,14 +171,14 @@ namespace pirtty {
                       << " Hz, transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
             // The engine rounds every sample to the frequency step of the PLL; the rounding is carried into the next.
-            PllStepFeedback<clkgpio> stepFeedback{dma, MARK_TONE_HZ};
+            rpitx::clock::PllStepFeedback<clkgpio> stepFeedback{dma, MARK_TONE_HZ};
             // Slot 0 and the start-up burst of the engine get the idle mark, so the first sample reaches the air.
-            startTransmission(dma, MARK_TONE_HZ);
+            rpitx::dma::startTransmission(dma, MARK_TONE_HZ);
 
             // Queue the characters in the DMA engine block by block, until a stop is requested.
             std::vector<float> samples;
@@ -201,7 +201,7 @@ namespace pirtty {
 
             // The queued characters are transmitted when the message ended, discarded on a stop request.
             const bool messageEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, MARK_TONE_HZ, messageEnded);
+            rpitx::dma::stopTransmission(dma, MARK_TONE_HZ, messageEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pirtty: " << e.what() << std::endl;
             return 1;

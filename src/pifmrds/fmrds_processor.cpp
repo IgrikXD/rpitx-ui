@@ -72,12 +72,12 @@ FmRdsProcessor::ChannelFilters FmRdsProcessor::makeChannelFilters(const FmRdsCon
     // out to per-channel construction.
     const auto fs{static_cast<float>(config.mpxSampleRate)};
     return ChannelFilters{
-        .hpf_         = Biquad::highPass(HPF_CUTOFF, fs),
-        .preEmphasis_ = Biquad::preEmphasis(config.preEmphasisTau, fs),
+        .hpf_         = rpitx::dsp::Biquad::highPass(HPF_CUTOFF, fs),
+        .preEmphasis_ = rpitx::dsp::Biquad::preEmphasis(config.preEmphasisTau, fs),
         .lpfChain_ =
             {
-                Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 1)),
-                Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 2)),
+                rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 1)),
+                rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, fs, butterworthCascadeQ(LPF_ORDER, 2)),
             },
     };
 }
@@ -134,7 +134,7 @@ RdsEncoder& FmRdsProcessor::encoder() {
     return rdsModulator_.encoder();
 }
 
-IqSample FmRdsProcessor::preprocessFrame(float l, float r) {
+rpitx::dsp::IqSample FmRdsProcessor::preprocessFrame(float l, float r) {
     const float lf{filters_[0].process(l)};
 
     // Mono path uses the scalar AGC overload directly. The hypot-based

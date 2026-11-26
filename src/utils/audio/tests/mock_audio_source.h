@@ -30,9 +30,9 @@
  * trigger the SUT's std::logic_error branch, and StrictMock-driven assertions about
  * which source methods the ctor is allowed to touch.
  */
-class MockAudioSource : public AudioSource {
+class MockAudioSource : public rpitx::audio::AudioSource {
 public:
-    MOCK_METHOD(AudioFormat, format, (), (const, override));
+    MOCK_METHOD(rpitx::audio::AudioFormat, format, (), (const, override));
     MOCK_METHOD(std::string_view, description, (), (const, override));
     MOCK_METHOD(std::size_t, read, (std::span<float> dst), (override));
     MOCK_METHOD(bool, rewind, (), (override));

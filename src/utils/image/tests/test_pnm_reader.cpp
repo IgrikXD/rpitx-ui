@@ -30,6 +30,13 @@
 #include "pnm_reader.h"
 
 namespace {
+    using rpitx::image::makeFilePnmReader;
+    using rpitx::image::makePnmReader;
+    using rpitx::image::PnmFormat;
+    using rpitx::image::PnmHeader;
+    using rpitx::image::PnmReader;
+    using rpitx::image::PnmReadStatus;
+
     /**
      * @brief Build an in-memory image: the textual header with the given magic number followed by
      *        the raw raster bytes.

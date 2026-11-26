@@ -14,7 +14,7 @@
 SsbProcessor::SsbProcessor(SsbMode mode) : mode_{mode} {
 }
 
-IqSample SsbProcessor::process(float sample) {
+rpitx::dsp::IqSample SsbProcessor::process(float sample) {
     // Bandpass 300-3000 Hz
     const float filtered{lpf_.process(hpf_.process(sample))};
 

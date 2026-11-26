@@ -127,7 +127,7 @@ private:
      * of a pause is not raised to the target level; the gain is limited to
      * +20 dB.
      */
-    static constexpr AgcConfig NFM_AGC_CONFIG{
+    static constexpr rpitx::dsp::AgcConfig NFM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
@@ -136,8 +136,9 @@ private:
         .gate            = 0.003f,
     };
 
-    Biquad hpf_;                                  ///< DC block.
-    std::array<Biquad, LPF_ORDER / 2> lpfChain_;  ///< Butterworth LPF realised as LPF_ORDER / 2 cascaded biquads.
-    Agc agc_{NFM_AGC_CONFIG};                     ///< Scalar automatic gain control.
-    float peakDeviation_;                         ///< Output clamp bound and post-AGC scale factor, in Hz.
+    rpitx::dsp::Biquad hpf_;  ///< DC block.
+    /// Butterworth LPF realised as LPF_ORDER / 2 cascaded biquads.
+    std::array<rpitx::dsp::Biquad, LPF_ORDER / 2> lpfChain_;
+    rpitx::dsp::Agc agc_{NFM_AGC_CONFIG};  ///< Scalar automatic gain control.
+    float peakDeviation_;                  ///< Output clamp bound and post-AGC scale factor, in Hz.
 };

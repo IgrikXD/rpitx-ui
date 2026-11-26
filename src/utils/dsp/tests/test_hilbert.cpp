@@ -20,6 +20,11 @@
 
 #include "hilbert.h"
 
+namespace {
+    using rpitx::dsp::Hilbert;
+    using rpitx::dsp::IqSample;
+}  // namespace
+
 /**
  * @brief Default-constructed Hilbert reports DEFAULT_TAPS via taps().
  *

@@ -22,6 +22,10 @@
 #include "agc.h"
 
 namespace {
+    using rpitx::dsp::Agc;
+    using rpitx::dsp::AgcConfig;
+    using rpitx::dsp::IqSample;
+
     /**
      * @brief Gain limit that never binds - keeps the gain = target / envelope arithmetic of the
      *        basic tests free of the limit.

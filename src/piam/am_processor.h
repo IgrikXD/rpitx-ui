@@ -122,7 +122,7 @@ private:
      * of a pause is not raised to the target level; the gain is limited to
      * +20 dB.
      */
-    static constexpr AgcConfig AM_AGC_CONFIG{
+    static constexpr rpitx::dsp::AgcConfig AM_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.003f,
         .decay           = 0.0001f,
@@ -131,7 +131,7 @@ private:
         .gate            = 0.003f,
     };
 
-    Biquad hpf_;              ///< DC block.
-    Biquad lpf_;              ///< Voice-AM bandwidth guard.
-    Agc agc_{AM_AGC_CONFIG};  ///< Scalar automatic gain control.
+    rpitx::dsp::Biquad hpf_;              ///< DC block.
+    rpitx::dsp::Biquad lpf_;              ///< Voice-AM bandwidth guard.
+    rpitx::dsp::Agc agc_{AM_AGC_CONFIG};  ///< Scalar automatic gain control.
 };

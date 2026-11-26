@@ -28,6 +28,10 @@
 #include "pll_step_feedback.h"
 
 namespace {
+    using rpitx::clock::carrierStepHz;
+    using rpitx::clock::MAX_CLOCK_CORRECTION;
+    using rpitx::clock::PllStepFeedback;
+
     /**
      * @brief Carrier on an integer step of the PLL multiplier of the stand-in clock, which every test leaves
      *        on BCM2711 with the pre-divider: 16 times half the crystal.

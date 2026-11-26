@@ -33,13 +33,13 @@
  * return value is a literal in the test body rather than a slice of state-machine logic in
  * this header - which keeps the bug surface for test infrastructure at zero.
  */
-class FakeAudioSource final : public AudioSource {
+class FakeAudioSource final : public rpitx::audio::AudioSource {
 public:
-    FakeAudioSource(AudioFormat format, std::vector<float> samples, bool seekable)
+    FakeAudioSource(rpitx::audio::AudioFormat format, std::vector<float> samples, bool seekable)
         : format_{format}, samples_{std::move(samples)}, seekable_{seekable} {
     }
 
-    [[nodiscard]] AudioFormat format() const override {
+    [[nodiscard]] rpitx::audio::AudioFormat format() const override {
         return format_;
     }
 
@@ -79,7 +79,7 @@ public:
     }
 
 private:
-    AudioFormat format_;
+    rpitx::audio::AudioFormat format_;
     std::vector<float> samples_;
     bool seekable_;
     std::size_t readPos_{0};

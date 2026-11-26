@@ -150,9 +150,9 @@ namespace pispectrumpaint {
         }
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
-        auto reader{makePnmReader(PnmFormat::Graymap, params.useStdin, params.imagePath)};
+        auto reader{rpitx::image::makePnmReader(rpitx::image::PnmFormat::Graymap, params.useStdin, params.imagePath)};
         if (reader == nullptr) {
             return 1;
         }
@@ -163,17 +163,17 @@ namespace pispectrumpaint {
 
         // The first header is read before the DMA is set up, so a bad picture never reaches the hardware.
         switch (reader->readHeader()) {
-            case PnmReadStatus::Ok:
+            case rpitx::image::PnmReadStatus::Ok:
                 break;
-            case PnmReadStatus::End:
+            case rpitx::image::PnmReadStatus::End:
                 std::cerr << "[ERROR] pispectrumpaint: no PGM image found in the input." << std::endl;
                 return 1;
-            case PnmReadStatus::Error:
+            case rpitx::image::PnmReadStatus::Error:
                 std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                 return 1;
         }
 
-        PnmHeader announcedHeader{reader->header()};
+        rpitx::image::PnmHeader announcedHeader{reader->header()};
 
         // Wrap DMA construction and the painting loop in a try / catch:
         // programCarrierPll refuses the PLL settings the board cannot run and
@@ -189,28 +189,28 @@ namespace pispectrumpaint {
                       << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(params.sampleRate),
                           DMA_CHANNEL,
                           DMA_FIFO_SIZE,
                           MODE_FREQ_A};
             // The constructor switched the carrier on; keep it off while the PLL setup is checked.
-            dma.disableclk(CARRIER_GPIO);
+            dma.disableclk(rpitx::dma::CARRIER_GPIO);
             // The constructor chose the PLL divider for the sample rate; the painted band is far wider.
-            programCarrierPll(dma, params.transmissionFrequency, params.bandwidth / 2.0);
+            rpitx::clock::programCarrierPll(dma, params.transmissionFrequency, params.bandwidth / 2.0);
 
             // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first pixel reaches the air.
-            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
+            rpitx::dma::startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             std::vector<std::uint8_t> row;
             std::vector<std::complex<float>> rowSamples;
-            auto status{PnmReadStatus::Ok};
+            auto status{rpitx::image::PnmReadStatus::Ok};
 
             while (running.load(std::memory_order_relaxed)) {
-                if (status == PnmReadStatus::End) {
+                if (status == rpitx::image::PnmReadStatus::End) {
                     if (params.loop == false) {
                         break;
                     }
@@ -220,7 +220,7 @@ namespace pispectrumpaint {
                         return 1;
                     }
                     status = reader->readHeader();
-                    if (status == PnmReadStatus::End) {
+                    if (status == rpitx::image::PnmReadStatus::End) {
                         std::cerr << "[ERROR] pispectrumpaint: no PGM image found after rewinding the input."
                                   << std::endl;
                         dma.stop();
@@ -228,13 +228,13 @@ namespace pispectrumpaint {
                     }
                     continue;
                 }
-                if (status == PnmReadStatus::Error) {
+                if (status == rpitx::image::PnmReadStatus::Error) {
                     std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                     dma.stop();
                     return 1;
                 }
 
-                const PnmHeader& header{reader->header()};
+                const rpitx::image::PnmHeader& header{reader->header()};
                 if (header.width != announcedHeader.width || header.height != announcedHeader.height) {
                     announcedHeader = header;
                     std::cout << "pispectrumpaint: format=" << reader->description()
@@ -246,7 +246,7 @@ namespace pispectrumpaint {
                 // SetIQSamples blocks until the row is in the DMA FIFO (see
                 // iqdmasync.cpp upstream), so no manual pacing is needed here.
                 while (reader->rowsRemaining() > 0 && running.load(std::memory_order_relaxed)) {
-                    if (reader->readRow(row) != PnmReadStatus::Ok) {
+                    if (reader->readRow(row) != rpitx::image::PnmReadStatus::Ok) {
                         std::cerr << "[ERROR] pispectrumpaint: " << reader->lastError() << std::endl;
                         dma.stop();
                         return 1;
@@ -263,7 +263,7 @@ namespace pispectrumpaint {
 
             // The queued rows are transmitted when the picture ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
+            rpitx::dma::stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pispectrumpaint: " << e.what() << std::endl;
             return 1;

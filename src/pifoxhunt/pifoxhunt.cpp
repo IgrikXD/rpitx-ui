@@ -83,7 +83,7 @@ namespace pifoxhunt {
             std::vector<std::complex<float>> samples;
             std::size_t elementSamples{0};
             for (const char character: std::string{text} + ' ') {
-                for (const char symbol: morseToCw(charToMorse(character).value())) {
+                for (const char symbol: rpitx::morse::morseToCw(rpitx::morse::charToMorse(character).value())) {
                     if (symbol == '0') {
                         elementSamples = 0;
                         samples.insert(samples.end(), symbolSamples, CARRIER_OFF_SAMPLE);
@@ -228,7 +228,7 @@ namespace pifoxhunt {
         const EmissionMode& mode{*params.mode};
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         // Wrap the rendering, DMA construction and the transmission loop in a try / catch:
         // checkCarrierPll refuses the PLL settings the board cannot run with an exception.
@@ -255,9 +255,9 @@ namespace pifoxhunt {
             const bool scheduled{transmitter.minute != 0 || idSamples.empty() == false};
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             // Constructed with the first code, so the carrier its constructor switches on falls into the period.
             std::optional<iqdmasync> dma;
 
@@ -299,7 +299,7 @@ namespace pifoxhunt {
                     dma.emplace(params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A);
                     // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first symbol
                     // reaches the air.
-                    startTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
+                    rpitx::dma::startTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
                 }
                 send(codeSamples);
                 if (lastCode) {
@@ -309,7 +309,7 @@ namespace pifoxhunt {
 
             // The transmission ends only on a stop request, so the queued samples are discarded.
             if (dma.has_value()) {
-                stopTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, false);
+                rpitx::dma::stopTransmission(*dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, false);
             }
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pifoxhunt: " << e.what() << std::endl;
