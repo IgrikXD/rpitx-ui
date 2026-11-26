@@ -6,7 +6,7 @@
  * keying of the carrier, 128 ms each in the Op05 mode and twice as long in every
  * following mode up to Op32. Opera decoders receive the carrier in USB mode as a
  * 1500 Hz tone, with the receiver tuned 1500 Hz below the carrier. Transmission
- * ends with the last symbol, or on SIGTERM / SIGINT.
+ * ends with the last symbol, or on a stop signal.
  *
  * @note Usage: piopera --freq <Hz> --callsign <callsign> [--mode <name>] [-h | --help]
  *   - --freq      Carrier frequency in Hz, 1500 Hz above the dial frequency of a USB receiver
@@ -31,7 +31,6 @@
 #include <cctype>
 #include <cmath>
 #include <complex>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
@@ -44,6 +43,7 @@
 #include "dma_transmission.h"
 #include "opera_encoder.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace piopera {
     namespace {
@@ -126,11 +126,6 @@ namespace piopera {
         }
         const OperaMode& mode{*params.mode};
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -145,6 +140,8 @@ namespace piopera {
                       << ", symbol=" << mode.symbolMs << " ms, callsign=" << params.callsign << ", transmission_time="
                       << std::lround(static_cast<double>(SYMBOL_COUNT * mode.symbolMs) / 1'000.0) << " s" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             iqdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A};

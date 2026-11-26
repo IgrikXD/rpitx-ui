@@ -6,7 +6,7 @@
  * downmixes to mono, resamples to 48 kHz if needed, forms the canonical
  * DSB-FC AM envelope, and drives librpitx::amdmasync directly at the
  * requested carrier frequency. Transmission runs until the audio ends (or
- * forever when --loop is set), or until SIGTERM / SIGINT (the rpitx-ui
+ * forever when --loop is set), or until a stop signal (the rpitx-ui
  * launcher stops the process centrally via killall when the user dismisses
  * the dialog).
  *
@@ -30,7 +30,6 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
-#include <csignal>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -45,6 +44,7 @@
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace piam {
     namespace {
@@ -110,13 +110,6 @@ namespace piam {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: stop cleanly when the stdout consumer closes the pipe.
-        std::signal(SIGPIPE, handleSignal);
-
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
@@ -155,6 +148,8 @@ namespace piam {
                       << ", format=" << source->description() << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             AmProcessor am{static_cast<float>(TARGET_SAMPLE_RATE)};
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             amdmasync dma{

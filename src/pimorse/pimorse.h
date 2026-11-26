@@ -53,7 +53,7 @@ namespace pimorse {
     };
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Stop signal handler, installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

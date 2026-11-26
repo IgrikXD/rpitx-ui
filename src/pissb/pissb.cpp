@@ -6,7 +6,7 @@
  * downmixes to mono, resamples to 48 kHz if needed, applies SSB modulation
  * (USB or LSB), and drives librpitx::iqdmasync directly at the requested
  * carrier frequency. Transmission runs until the audio ends (or forever when
- * --loop is set), or until SIGTERM / SIGINT.
+ * --loop is set), or until a stop signal.
  *
  * @note Usage: pissb --freq <Hz> (--audio <path> | --stdin) [--loop] [--sideband usb|lsb] [-h | --help]
  *   - --freq      Carrier frequency in Hz
@@ -30,7 +30,6 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <complex>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
@@ -46,6 +45,7 @@
 #include "flush_to_zero.h"
 #include "libsndfile_audio_source.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pissb {
     namespace {
@@ -130,13 +130,6 @@ namespace pissb {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: keep shutdown behavior explicit when launched from shell wrappers.
-        std::signal(SIGPIPE, handleSignal);
-
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
         enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
@@ -176,6 +169,8 @@ namespace pissb {
                       << ", loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             SsbProcessor ssb{params.mode};
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             iqdmasync dma{params.transmissionFrequency,

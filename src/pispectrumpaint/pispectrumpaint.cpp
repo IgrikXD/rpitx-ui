@@ -8,7 +8,7 @@
  * amplitude. The picture is read as a binary PGM (P5) image from a file or
  * from stdin and drives librpitx::iqdmasync in MODE_FREQ_A directly.
  * Transmission ends with the picture (or runs forever when --loop is set), or
- * on SIGTERM / SIGINT.
+ * on a stop signal.
  *
  * @note Usage: pispectrumpaint --freq <Hz> --bandwidth <Hz> [--sample-rate <Hz>] (--image <path> | --stdin)
  *               [--loop] [-h | --help]
@@ -34,7 +34,6 @@
 #include <CLI/CLI.hpp>
 #include <atomic>
 #include <complex>
-#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -49,6 +48,7 @@
 #include "pnm_reader.h"
 #include "realtime_scheduling.h"
 #include "spectrum_painter.h"
+#include "stop_signals.h"
 
 namespace pispectrumpaint {
     namespace {
@@ -149,13 +149,6 @@ namespace pispectrumpaint {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: keep shutdown behavior explicit when launched from shell wrappers.
-        std::signal(SIGPIPE, handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -195,6 +188,8 @@ namespace pispectrumpaint {
                       << ", line_time=" << lineTimeMs(announcedHeader.width, params.sampleRate)
                       << " ms, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             iqdmasync dma{params.transmissionFrequency,

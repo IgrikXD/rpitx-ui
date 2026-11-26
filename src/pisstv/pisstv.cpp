@@ -10,7 +10,7 @@
  * frequency of the tone: the tones drive librpitx::ngfmdmasync directly, and
  * a receiver tuned to the requested frequency in USB mode gets them back.
  * Transmission ends with the picture (or runs forever when --loop is set), or
- * on SIGTERM / SIGINT.
+ * on a stop signal.
  *
  * @note Usage: pisstv --freq <Hz> (--image <path> | --stdin) [--mode <name>] [--loop] [-h | --help]
  *   - --freq      Carrier frequency in Hz, the frequency a receiver is tuned to in USB mode
@@ -36,7 +36,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -53,6 +52,7 @@
 #include "pnm_reader.h"
 #include "realtime_scheduling.h"
 #include "sstv_encoder.h"
+#include "stop_signals.h"
 #include "tone_sampler.h"
 
 namespace pisstv {
@@ -160,13 +160,6 @@ namespace pisstv {
         }
         const SstvMode& mode{*params.mode};
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-        // SIGPIPE: keep shutdown behavior explicit when launched from shell wrappers.
-        std::signal(SIGPIPE, handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -201,6 +194,8 @@ namespace pisstv {
                       << ", picture_time=" << std::lround(pictureTimeMs(mode) / 1000.0)
                       << " s, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};

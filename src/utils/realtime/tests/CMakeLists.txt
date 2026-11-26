@@ -10,6 +10,7 @@
 add_executable(rpitx_realtime_utils_tests
     test_flush_to_zero.cpp
     test_realtime_scheduling.cpp
+    test_stop_signals.cpp
 )
 
 target_link_libraries(rpitx_realtime_utils_tests

@@ -8,7 +8,7 @@
  * are sent as frequency shift keying at 512, 1200 or 2400 bit/s with the two
  * tones 4.5 kHz to either side of the requested frequency: a 0 above it and a
  * 1 below it, or the other way round with --invert. Transmission ends with the
- * last batch, or on SIGTERM / SIGINT.
+ * last batch, or on a stop signal.
  *
  * @note Usage: pipocsag --freq <Hz> --address <address> [--message "<text>"] [--mode 512|1200|2400]
  *               [--type alphanumeric|numeric|tone-only] [--function a|b|c|d] [--invert] [-h | --help]
@@ -36,7 +36,6 @@
 #include <algorithm>
 #include <atomic>
 #include <charconv>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iostream>
@@ -52,6 +51,7 @@
 #include "cli_validators.h"
 #include "dma_transmission.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pipocsag {
     namespace {
@@ -210,11 +210,6 @@ namespace pipocsag {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -239,6 +234,8 @@ namespace pipocsag {
                       << ", transmission_time=" << words.size() * WORD_BITS * 1000 / params.bitRate << " ms"
                       << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
             checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};

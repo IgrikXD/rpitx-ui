@@ -107,7 +107,7 @@ namespace pifmrds {
     [[nodiscard]] const char* preEmphasisName(PreEmphasisMode mode);
 
     /**
-     * @brief Signal handler for SIGTERM, SIGINT, and SIGPIPE.
+     * @brief Stop signal handler, installed by installStopSignalHandlers.
      * @param sig Signal number.
      */
     void handleSignal(int sig);

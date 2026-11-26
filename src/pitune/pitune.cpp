@@ -5,7 +5,7 @@
  * Switches on a continuous unmodulated carrier at the requested frequency.
  * librpitx::clkgpio programs the carrier straight into the PLL that feeds
  * the clock generator of the carrier GPIO, so no DMA engine is involved.
- * The carrier stays on until SIGTERM / SIGINT (the rpitx-ui launcher stops
+ * The carrier stays on until a stop signal (the rpitx-ui launcher stops
  * the process centrally via killall when the user dismisses the dialog).
  *
  * @note Usage: pitune --freq <Hz> [-h | --help]
@@ -25,7 +25,6 @@
 
 #include <CLI/CLI.hpp>
 #include <atomic>
-#include <csignal>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -34,6 +33,7 @@
 #include "carrier_pll.h"
 #include "cli_common.h"
 #include "cli_validators.h"
+#include "stop_signals.h"
 
 namespace pitune {
     namespace {
@@ -82,11 +82,6 @@ namespace pitune {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-
         // Wrap the carrier setup in a try / catch: programCarrierPll refuses the
         // PLL settings the board cannot run with an exception, and a stray throw
         // escaping main would terminate via std::terminate without the destructor
@@ -94,6 +89,8 @@ namespace pitune {
         try {
             std::cout << "pitune: carrier=" << params.transmissionFrequency << " Hz" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             clkgpio carrier;
             // The PLL multiplier is programmed directly; the core and SD card clocks leave the PLL first.
             carrier.SetAdvancedPllMode(true);

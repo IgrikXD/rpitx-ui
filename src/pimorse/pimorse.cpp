@@ -4,7 +4,7 @@
  *
  * Converts a text message to Morse code and transmits it as on-off keying (OOK)
  * at the specified RF frequency and words-per-minute rate. Transmission ends with
- * the message, or after the character in progress on SIGTERM / SIGINT.
+ * the message, or after the character in progress on a stop signal.
  *
  * @note Usage: pimorse --freq <Hz> --wpm <value> --message "<text>" [-h | --help]
  *   - --freq      Carrier frequency in Hz
@@ -28,7 +28,6 @@
 #include <atomic>
 #include <cctype>
 #include <cmath>
-#include <csignal>
 #include <cstddef>
 #include <exception>
 #include <iomanip>
@@ -44,6 +43,7 @@
 #include "dma_transmission.h"
 #include "morse_encoder.h"
 #include "realtime_scheduling.h"
+#include "stop_signals.h"
 
 namespace pimorse {
     namespace {
@@ -171,11 +171,6 @@ namespace pimorse {
                 return 1;
         }
 
-        // SIGTERM: stop cleanly when rpitx-ui or a service manager terminates us.
-        std::signal(SIGTERM, handleSignal);
-        // SIGINT: stop cleanly on Ctrl+C during manual runs.
-        std::signal(SIGINT, handleSignal);
-
         // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.
         enableRealtimeScheduling();
 
@@ -198,6 +193,8 @@ namespace pimorse {
             std::cout << "pimorse: carrier=" << params.transmissionFrequency << " Hz, wpm=" << params.wpm
                       << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
+            // Stop signals: end the transmission cleanly, also when the terminal closes.
+            installStopSignalHandlers(handleSignal);
             sendCwOok(params.transmissionFrequency, symbolRate, characters);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;

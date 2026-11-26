@@ -25,7 +25,7 @@ namespace pichirp {
     /**
      * @brief Number of samples produced per librpitx::SetFrequencySamples call.
      *
-     * Half the FIFO: small enough for prompt SIGTERM/SIGINT response,
+     * Half the FIFO: small enough for a prompt response to a stop signal,
      * large enough to amortise per-call overhead inside librpitx.
      */
     inline constexpr std::size_t DMA_BLOCK_SAMPLES{DMA_FIFO_SIZE / 2};
@@ -66,7 +66,7 @@ namespace pichirp {
     };
 
     /**
-     * @brief Signal handler for SIGTERM and SIGINT.
+     * @brief Stop signal handler, installed by installStopSignalHandlers.
      */
     void handleSignal(int sig);
 
