@@ -17,7 +17,7 @@
 #include <initializer_list>
 
 void installStopSignalHandlers(void (*handler)(int)) noexcept {
-    for (const int stopSignal: {SIGTERM, SIGINT, SIGPIPE}) {
+    for (const int stopSignal: {SIGTERM, SIGINT, SIGQUIT, SIGPIPE}) {
         std::signal(stopSignal, handler);
     }
 

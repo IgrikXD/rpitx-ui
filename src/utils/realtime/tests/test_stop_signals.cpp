@@ -31,7 +31,7 @@ namespace {
     /**
      * @brief Signals installStopSignalHandlers handles.
      */
-    constexpr std::array<int, 4> STOP_SIGNALS{SIGTERM, SIGINT, SIGPIPE, SIGHUP};
+    constexpr std::array<int, 5> STOP_SIGNALS{SIGTERM, SIGINT, SIGQUIT, SIGPIPE, SIGHUP};
 
     /**
      * @brief Last signal the test handler received, 0 for none.
@@ -71,17 +71,19 @@ namespace {
     }
 
     /**
-     * @brief Every stop signal at its default action and ignored from the start: a background job of a
-     *        non-interactive shell starts with SIGINT ignored, a program started by nohup with SIGHUP ignored.
+     * @brief Every stop signal at its default action and ignored from the start: a background job of a non-interactive
+     *        shell starts with SIGINT and SIGQUIT ignored, a program started by nohup with SIGHUP ignored.
      */
     std::vector<StopSignalTestCase> makeStopSignalTestCases() {
         return {
             StopSignalTestCase{"Terminate", SIGTERM, false, true},
             StopSignalTestCase{"Interrupt", SIGINT, false, true},
+            StopSignalTestCase{"Quit", SIGQUIT, false, true},
             StopSignalTestCase{"BrokenPipe", SIGPIPE, false, true},
             StopSignalTestCase{"Hangup", SIGHUP, false, true},
             StopSignalTestCase{"IgnoredTerminate", SIGTERM, true, true},
             StopSignalTestCase{"IgnoredInterrupt", SIGINT, true, true},
+            StopSignalTestCase{"IgnoredQuit", SIGQUIT, true, true},
             StopSignalTestCase{"IgnoredBrokenPipe", SIGPIPE, true, true},
             StopSignalTestCase{"IgnoredHangup", SIGHUP, true, false},
         };
@@ -89,9 +91,9 @@ namespace {
 }  // namespace
 
 /**
- * @brief Saves the dispositions of the stop signals, starts every test with them at their default action and
- *        an empty record of the test handler, and restores the saved dispositions afterwards, so a handler
- *        installed by one test does not leak into the next one.
+ * @brief Saves the dispositions of the stop signals and of SIGWINCH, starts every test with them at their default
+ *        action and an empty record of the test handler, and restores the saved dispositions afterwards, so a
+ *        handler installed by one test does not leak into the next one.
  */
 class InstallStopSignalHandlersTest : public ::testing::TestWithParam<StopSignalTestCase> {
 protected:
@@ -100,6 +102,8 @@ protected:
             ASSERT_EQ(sigaction(STOP_SIGNALS[index], nullptr, &savedDispositions_[index]), 0);
             std::signal(STOP_SIGNALS[index], SIG_DFL);
         }
+        ASSERT_EQ(sigaction(SIGWINCH, nullptr, &savedResizeDisposition_), 0);
+        std::signal(SIGWINCH, SIG_DFL);
         receivedSignal = 0;
     }
 
@@ -107,24 +111,27 @@ protected:
         for (std::size_t index{0}; index < STOP_SIGNALS.size(); ++index) {
             EXPECT_EQ(sigaction(STOP_SIGNALS[index], &savedDispositions_[index], nullptr), 0);
         }
+        EXPECT_EQ(sigaction(SIGWINCH, &savedResizeDisposition_, nullptr), 0);
     }
 
 private:
     std::array<struct sigaction, STOP_SIGNALS.size()> savedDispositions_{};
+    struct sigaction savedResizeDisposition_{};
 };
 
 /**
  * @brief installStopSignalHandlers catches every stop signal, also one ignored from the start, except a SIGHUP
  *        ignored from the start, which stays ignored as nohup left it.
  *
- * The test starts the signal of the case at its default action or ignored and the other stop signals at their
- * default action, installs the handlers, and checks every disposition before it raises the signal: a caught
- * signal must reach the test handler and leave it installed for the next one, as a closed terminal may send
+ * The test starts the signal of the case at its default action or ignored and the other stop signals and SIGWINCH
+ * at their default action, installs the handlers, and checks every disposition before it raises the signal: a
+ * caught signal must reach the test handler and leave it installed for the next one, as a closed terminal may send
  * SIGHUP more than once; an ignored hangup must leave the record empty and the process running. An
  * implementation that misses a signal fails on its disposition before the raise could end the test process; one
  * that catches an ignored SIGHUP fails the IgnoredHangup case, one that keeps every ignored signal fails the other
- * ignored cases, one that skips the other signals once it finds SIGHUP ignored fails on their dispositions, and
- * one that resets a handler after its first signal fails after the raise.
+ * ignored cases, one that skips the other signals once it finds SIGHUP ignored fails on their dispositions, one
+ * that catches every signal fails on SIGWINCH, which a resized terminal sends, and one that resets a handler after
+ * its first signal fails after the raise.
  */
 TEST_P(InstallStopSignalHandlersTest, CatchesTheSignalUnlessNohupIgnoresTheHangup) {
     const auto& testCase{GetParam()};
@@ -136,6 +143,7 @@ TEST_P(InstallStopSignalHandlersTest, CatchesTheSignalUnlessNohupIgnoresTheHangu
         const bool keptIgnored{stopSignal == testCase.signal && testCase.caught == false};
         ASSERT_EQ(currentHandler(stopSignal), keptIgnored ? SIG_IGN : recordSignal) << "signal " << stopSignal;
     }
+    EXPECT_EQ(currentHandler(SIGWINCH), SIG_DFL) << "signal " << SIGWINCH;
     ASSERT_EQ(std::raise(testCase.signal), 0);
     const int received{receivedSignal};
 
