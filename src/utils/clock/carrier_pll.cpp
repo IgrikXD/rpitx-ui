@@ -32,8 +32,7 @@ namespace rpitx::clock {
     }  // namespace
 
     void checkCarrierPll(uint64_t frequency, uint32_t sampleRate) {
-        // A clock of its own: ComputeBestLO writes no register, SetPllNumber sets the source its destructor
-        // writes back.
+        // A separate clock: ComputeBestLO writes no register, SetPllNumber sets the source its destructor writes back.
         clkgpio clock;
         clock.SetPllNumber(clk_pllc, 0);
         std::string subject{"generates a " + std::to_string(frequency) + " Hz carrier"};
