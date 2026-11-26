@@ -18,6 +18,11 @@ DEFAULT_FOX_CODE="MO"
 DEFAULT_FOX_MODE="A1A"
 DEFAULT_FOX_WPM=8
 DEFAULT_FOX_CALLSIGN=""
+DEFAULT_FSQ_CALLSIGN="q0cal"
+DEFAULT_FSQ_TYPE="Directed"
+DEFAULT_FSQ_DESTINATION="allcall"
+DEFAULT_FSQ_MESSAGE="hello world from rpitx-ui"
+DEFAULT_FSQ_MODE="FSQ-2"
 DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
@@ -509,6 +514,72 @@ abort_action=0
 
 }
 
+do_enter_fsq_params()
+{
+
+LAST_ITEM="$menuchoice"
+MESSAGE=""
+
+# Callsign of the sender, sent as it is written
+if FSQ_CALLSIGN=$(whiptail --inputbox "Enter your callsign (FSQ stations write theirs in lower case):" 8 78 "$DEFAULT_FSQ_CALLSIGN" --title "FSQ callsign" 3>&1 1>&2 2>&3); then
+	if ! printf '%s' "$FSQ_CALLSIGN" | LC_ALL=C grep -Eq '^[A-Za-z0-9/]{1,19}$'; then
+		whiptail --title "Error!" --msgbox "Callsign must be 1-19 letters, digits or /!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# Message type
+if ! FSQ_TYPE=$(whiptail --default-item "$DEFAULT_FSQ_TYPE" --title "FSQ message type" --menu "Select FSQ message type:" 15 78 2 \
+	"Directed" "Message for a station or for all stations (FSQCall)" \
+	"Undirected" "Message for every station (FSQ chat)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# Destination of a directed message: a callsign as its station writes it, or allcall
+FSQ_DESTINATION=""
+if [ "$FSQ_TYPE" = "Directed" ]; then
+	if FSQ_DESTINATION=$(whiptail --inputbox "Enter callsign of the destination (allcall for all stations):" 8 78 "$DEFAULT_FSQ_DESTINATION" --title "FSQ destination" 3>&1 1>&2 2>&3); then
+		if ! printf '%s' "$FSQ_DESTINATION" | LC_ALL=C grep -Eq '^[A-Za-z0-9/]{1,19}$'; then
+			whiptail --title "Error!" --msgbox "Destination must be 1-19 letters, digits or /!" 8 78
+			abort_action=1
+			return
+		fi
+	else
+		abort_action=1
+		return
+	fi
+fi
+
+# Message
+do_enter_message "FSQ" "$DEFAULT_FSQ_MESSAGE"
+if [ $abort_action -ne 0 ]; then
+	return
+elif printf '%s' "$MESSAGE" | LC_ALL=C grep -q '[^ -~]'; then
+	whiptail --title "Error!" --msgbox "Message must contain only printable ASCII (0x20-0x7E)!" 8 78
+	abort_action=1
+	return
+fi
+
+# FSQ mode: the nominal baud rate
+if FSQ_MODE=$(whiptail --default-item "$DEFAULT_FSQ_MODE" --title "FSQ mode" --menu "Select FSQ mode:" 15 78 4 \
+	"FSQ-2" "2 baud (about 20 WPM)" \
+	"FSQ-3" "3 baud (about 30 WPM)" \
+	"FSQ-4.5" "4.5 baud (about 40 WPM)" \
+	"FSQ-6" "6 baud (about 60 WPM)" \
+	3>&1 1>&2 2>&3); then
+	abort_action=0
+else
+	abort_action=1
+fi
+
+}
+
 do_stop_transmit()
 {
 	sudo killall csdr 2>/dev/null
@@ -516,6 +587,7 @@ do_stop_transmit()
 	sudo killall pichirp 2>/dev/null
 	sudo killall pifmrds 2>/dev/null
 	sudo killall pifoxhunt 2>/dev/null
+	sudo killall pifsq 2>/dev/null
 	sudo killall pimorse 2>/dev/null
 	sudo killall pinfm 2>/dev/null
 	sudo killall piopera 2>/dev/null
@@ -546,6 +618,7 @@ do_stop_transmit()
 			12\ *) sudo killall testmorse.sh >/dev/null 2>/dev/null ;;
 			13\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
 			14\ *) sudo killall testfoxhunt.sh >/dev/null 2>/dev/null ;;
+			15\ *) sudo killall testfsq.sh >/dev/null 2>/dev/null ;;
 
 	esac
 }
@@ -583,6 +656,7 @@ do_freq_setup
     "12 CW" "Continuous Wave (Morse code)" \
     "13 RFgen" "Wideband RF generator" \
     "14 Foxhunt" "Fox hunting transmitter (ARDF)" \
+    "15 FSQ" "Fast Simple QSO" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -725,6 +799,13 @@ do_freq_setup
 			14\ *) do_enter_fox_params
 			if [ $abort_action -eq 0 ]; then
 				testfoxhunt.sh "$OUTPUT_FREQ""e6" "$FOX_CODE" "$FOX_MODE" "$FOX_WPM" "$FOX_CALLSIGN" >/dev/null 2>/dev/null &
+				do_status
+			fi
+			;;
+
+			15\ *) do_enter_fsq_params
+			if [ $abort_action -eq 0 ]; then
+				testfsq.sh "$OUTPUT_FREQ""e6" "$FSQ_CALLSIGN" "$MESSAGE" "${FSQ_MODE#FSQ-}" "${FSQ_TYPE,,}" "$FSQ_DESTINATION" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;
