@@ -34,11 +34,6 @@ namespace pimorse {
     inline constexpr int DMA_CHANNEL{14};
 
     /**
-     * @brief Divisor to convert words-per-minute to OOK symbol rate.
-     */
-    inline constexpr float WPM_TO_SYMBOL_RATE_DIVISOR{1.2F};
-
-    /**
      * @brief Minimum accepted speed in words per minute.
      */
     inline constexpr float MIN_WPM{1.0F};

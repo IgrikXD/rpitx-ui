@@ -58,16 +58,26 @@ target_link_libraries(pifmrds
         librpitx::librpitx
 )
 
-# --- pimorse ---
-add_executable(pimorse
-    pimorse/morse_encoder.cpp
-    pimorse/pimorse.cpp
+# --- pifoxhunt (transmitter code -> librpitx iqdmasync, self-contained) ---
+add_executable(pifoxhunt pifoxhunt/pifoxhunt.cpp)
+target_link_libraries(pifoxhunt
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_morse_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
 )
+
+# --- pimorse ---
+add_executable(pimorse pimorse/pimorse.cpp)
 target_link_libraries(pimorse
     PRIVATE
         rpitx_cli_utils
         rpitx_clock_utils
         rpitx_dma_utils
+        rpitx_morse_utils
         rpitx_realtime_utils
         librpitx::librpitx
 )
@@ -216,10 +226,6 @@ if(BUILD_OPTIONAL_TARGETS)
         message(STATUS "Skipping dvbrf target (requires aarch32 platform, current platform: ${CMAKE_SYSTEM_PROCESSOR})")
     endif()
 
-    # --- foxhunt ---
-    add_executable(foxhunt foxhunt/foxhunt.cpp)
-    target_link_libraries(foxhunt PRIVATE librpitx::librpitx)
-
     # --- pifsq ---
     add_executable(pifsq fsq/pifsq.cpp)
     target_link_libraries(pifsq PRIVATE librpitx::librpitx)
@@ -247,12 +253,12 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    piam pichirp pifmrds pimorse pinfm piopera pipocsag
+    piam pichirp pifmrds pifoxhunt pimorse pinfm piopera pipocsag
     pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf foxhunt pifsq pift8 rpitx sendook)
+foreach(OPTIONAL_TARGET dvbrf pifsq pift8 rpitx sendook)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
@@ -282,7 +288,7 @@ endif()
 
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
-    fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh
+    fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
     testmorse.sh testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
     testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )
@@ -291,15 +297,10 @@ foreach(SCRIPT ${SCRIPTS_DIR_SCRIPTS})
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/${SCRIPT} DESTINATION bin)
 endforeach()
 
-# Helper scripts that depend on optional binaries (foxhunt, pifsq)
+# Helper script that depends on an optional binary (pifsq)
 if(BUILD_OPTIONAL_TARGETS)
-    install(PROGRAMS
-        ${CMAKE_SOURCE_DIR}/scripts/testfoxhunt.sh
-        ${CMAKE_SOURCE_DIR}/scripts/testfsq.sh
-        DESTINATION bin
-    )
+    install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/testfsq.sh DESTINATION bin)
 else()
-    message(STATUS "Skipping testfoxhunt.sh installation (requires foxhunt from optional targets)")
     message(STATUS "Skipping testfsq.sh installation (requires pifsq from optional targets)")
 endif()
 
