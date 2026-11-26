@@ -71,8 +71,7 @@ namespace {
     }
 
     /**
-     * @brief Every stop signal at its default action and ignored from the start: a background job of a non-interactive
-     *        shell starts with SIGINT and SIGQUIT ignored, a program started by nohup with SIGHUP ignored.
+     * @brief Every stop signal at its default action and ignored from the start.
      */
     std::vector<StopSignalTestCase> makeStopSignalTestCases() {
         return {
@@ -91,9 +90,7 @@ namespace {
 }  // namespace
 
 /**
- * @brief Saves the dispositions of the stop signals and of SIGWINCH, starts every test with them at their default
- *        action and an empty record of the test handler, and restores the saved dispositions afterwards, so a
- *        handler installed by one test does not leak into the next one.
+ * @brief Starts every test with the stop signals and SIGWINCH at their default action and restores them afterwards.
  */
 class InstallStopSignalHandlersTest : public ::testing::TestWithParam<StopSignalTestCase> {
 protected:
@@ -123,15 +120,8 @@ private:
  * @brief installStopSignalHandlers catches every stop signal, also one ignored from the start, except a SIGHUP
  *        ignored from the start, which stays ignored as nohup left it.
  *
- * The test starts the signal of the case at its default action or ignored and the other stop signals and SIGWINCH
- * at their default action, installs the handlers, and checks every disposition before it raises the signal: a
- * caught signal must reach the test handler and leave it installed for the next one, as a closed terminal may send
- * SIGHUP more than once; an ignored hangup must leave the record empty and the process running. An
- * implementation that misses a signal fails on its disposition before the raise could end the test process; one
- * that catches an ignored SIGHUP fails the IgnoredHangup case, one that keeps every ignored signal fails the other
- * ignored cases, one that skips the other signals once it finds SIGHUP ignored fails on their dispositions, one
- * that catches every signal fails on SIGWINCH, which a resized terminal sends, and one that resets a handler after
- * its first signal fails after the raise.
+ * Every disposition, SIGWINCH at its default action included, is checked before the raise, so a missed signal fails the
+ * test instead of ending the test process; a caught signal must reach the test handler and keep it installed.
  */
 TEST_P(InstallStopSignalHandlersTest, CatchesTheSignalUnlessNohupIgnoresTheHangup) {
     const auto& testCase{GetParam()};
