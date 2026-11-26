@@ -39,7 +39,7 @@ namespace pifoxhunt {
     inline constexpr uint32_t SAMPLE_RATE{2'000};
 
     /**
-     * @brief Number of samples queued per librpitx::SetIQSamples call (16 ms at the sample rate).
+     * @brief Largest number of Morse code samples queued per librpitx::SetIQSamples call (16 ms at the sample rate).
      *
      * Small enough for prompt SIGTERM/SIGINT response, large enough to
      * amortise per-call overhead inside librpitx.

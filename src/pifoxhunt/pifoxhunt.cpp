@@ -109,8 +109,8 @@ namespace pifoxhunt {
         }
 
         /**
-         * @brief Start of the operating period of transmitter that the system clock is in, or of the next one: the
-         *        minute of the cycle of transmitters 1 - 5, every minute for the finish beacon.
+         * @brief Start of the operating period of transmitter that contains now, or of the next one: the minute of
+         *        the cycle of transmitters 1 - 5, every minute for the finish beacon.
          */
         [[nodiscard]] std::chrono::system_clock::time_point operatingPeriodStart(
             const FoxTransmitter& transmitter, std::chrono::system_clock::time_point now) {
@@ -138,7 +138,8 @@ namespace pifoxhunt {
     }
 
     rpitx::cli::ParseResult parseArgs(int argc, char* argv[], FoxhuntParameters& params) {
-        CLI::App app{"Amateur radio direction finding (fox hunting) transmitter (Morse code -> librpitx iqdmasync)"};
+        CLI::App app{
+            "Amateur radio direction finding (fox hunting) transmitter (transmitter code -> librpitx iqdmasync)"};
 
         std::string transmissionFrequencyText;
         app.add_option("--freq", transmissionFrequencyText, "Carrier frequency in Hz")

@@ -2,9 +2,10 @@
  * @file morse_encoder.h
  * @brief Morse code lookup and CW OOK binary conversion.
  *
- * Provides a constexpr Morse code table (A-Z, 0-9, space, and punctuation)
- * and functions to convert text characters into on-off keying (OOK) binary
- * strings suitable for RF transmission.
+ * Provides a constexpr Morse code table (A-Z, 0-9, space, and punctuation),
+ * functions to convert text characters into on-off keying (OOK) binary
+ * strings suitable for RF transmission, and the divisor that gives the length
+ * of a symbol at a speed in words per minute.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 04.04.2026

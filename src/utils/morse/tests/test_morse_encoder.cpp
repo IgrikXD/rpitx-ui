@@ -1,6 +1,7 @@
 /**
  * @file test_morse_encoder.cpp
- * @brief Unit tests for the Morse code table lookup and the conversion of Morse patterns into OOK symbols.
+ * @brief Unit tests for the Morse code table lookup, the conversion of Morse patterns into OOK symbols and the
+ *        words-per-minute divisor.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
  * @date 25.11.2026
@@ -102,7 +103,7 @@ class MorseToCwTest : public ::testing::TestWithParam<MorseToCwTestCase> {};
 
 /**
  * @brief morseToCw keys a dit for one symbol and a dah for three, each followed by one silent symbol,
- *        and turns every gap of the pattern into one more silent symbol.
+ *        turns every gap of the pattern into one more silent symbol and skips any other symbol.
  */
 TEST_P(MorseToCwTest, KeysTheElementsAndTheGaps) {
     const auto& testCase{GetParam()};
