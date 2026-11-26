@@ -14,6 +14,7 @@
 #include <signal.h>
 
 #include <csignal>
+#include <initializer_list>
 
 void installStopSignalHandlers(void (*handler)(int)) noexcept {
     for (const int stopSignal: {SIGTERM, SIGINT, SIGPIPE}) {
