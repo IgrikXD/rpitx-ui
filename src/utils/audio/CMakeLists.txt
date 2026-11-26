@@ -7,12 +7,12 @@
 # ----------------------------------------------------------
 # Shared audio utility library
 # ----------------------------------------------------------
-# Provides the audio front-end shared by every transmitter binary:
-# a libsndfile-backed file source (AudioSource / LibsndfileAudioSource),
-# a libsoxr-backed streaming rate converter (SoxrResampler /
-# AudioRateConverter), and an AudioPipeline that wires source -> loop-aware
-# block reader -> channel adapter -> per-channel rate conversion to deliver
-# fixed-size interleaved float blocks at the caller's target sample rate.
+# Provides an audio front-end: a libsndfile-backed file source (AudioSource /
+# LibsndfileAudioSource), a libsoxr-backed streaming rate converter
+# (SoxrResampler / AudioRateConverter), and an AudioPipeline that wires
+# source -> loop-aware block reader -> channel adapter -> per-channel rate
+# conversion to deliver fixed-size interleaved float blocks at the caller's
+# target sample rate.
 # ----------------------------------------------------------
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
