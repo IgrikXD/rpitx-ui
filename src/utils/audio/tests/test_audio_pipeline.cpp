@@ -28,6 +28,14 @@
 #include "signal_continuity.h"
 
 namespace {
+    using rpitx::audio::AudioChannelMode;
+    using rpitx::audio::AudioFormat;
+    using rpitx::audio::AudioPipeline;
+    using rpitx::audio::AudioPipelineConfig;
+    using rpitx::audio::AudioPipelineStatus;
+    using rpitx::audio::validateAudioFormat;
+    using rpitx::audio::validateLoopSupport;
+
     /**
      * @brief Inclusive lower bound on the audio sample rate accepted by validateAudioFormat -
      *        matches the lower end of the (8 kHz - 192 kHz) window declared by the project's

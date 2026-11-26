@@ -74,19 +74,21 @@ namespace pisstv {
          * @return Ok when a picture of the picture size of mode follows, End at the end of the
          *         input, Error after a diagnostic has been printed.
          */
-        [[nodiscard]] PnmReadStatus readPictureHeader(PnmReader& reader, const SstvMode& mode) {
+        [[nodiscard]] rpitx::image::PnmReadStatus readPictureHeader(rpitx::image::PnmReader& reader,
+                                                                    const SstvMode& mode) {
             const auto status{reader.readHeader()};
-            if (status == PnmReadStatus::Error) {
+            if (status == rpitx::image::PnmReadStatus::Error) {
                 std::cerr << "[ERROR] pisstv: " << reader.lastError() << std::endl;
                 return status;
             }
 
-            const PnmHeader& header{reader.header()};
-            if (status == PnmReadStatus::Ok && (header.width != mode.width || header.height != mode.height)) {
+            const rpitx::image::PnmHeader& header{reader.header()};
+            if (status == rpitx::image::PnmReadStatus::Ok &&
+                (header.width != mode.width || header.height != mode.height)) {
                 std::cerr << "[ERROR] pisstv: the picture is " << header.width << "x" << header.height << ", --mode "
                           << mode.name << " transmits " << mode.width << "x" << mode.height << " pictures."
                           << std::endl;
-                return PnmReadStatus::Error;
+                return rpitx::image::PnmReadStatus::Error;
             }
             return status;
         }
@@ -161,9 +163,9 @@ namespace pisstv {
         const SstvMode& mode{*params.mode};
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
-        auto reader{makePnmReader(PnmFormat::Pixmap, params.useStdin, params.imagePath)};
+        auto reader{rpitx::image::makePnmReader(rpitx::image::PnmFormat::Pixmap, params.useStdin, params.imagePath)};
         if (reader == nullptr) {
             return 1;
         }
@@ -174,10 +176,10 @@ namespace pisstv {
 
         // The first header is read before the DMA is set up, so a bad picture never reaches the hardware.
         auto status{readPictureHeader(*reader, mode)};
-        if (status == PnmReadStatus::End) {
+        if (status == rpitx::image::PnmReadStatus::End) {
             std::cerr << "[ERROR] pisstv: no PPM image found in the input." << std::endl;
         }
-        if (status != PnmReadStatus::Ok) {
+        if (status != rpitx::image::PnmReadStatus::Ok) {
             return 1;
         }
 
@@ -195,14 +197,14 @@ namespace pisstv {
                       << " s, loop=" << (params.loop ? "yes" : "no") << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             ngfmdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE};
             // The engine rounds every sample to the frequency step of the PLL; the rounding is carried into the next.
-            PllStepFeedback<clkgpio> stepFeedback{dma, WHITE_HZ};
+            rpitx::clock::PllStepFeedback<clkgpio> stepFeedback{dma, WHITE_HZ};
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, IDLE_DEVIATION_HZ);
+            rpitx::dma::startTransmission(dma, IDLE_DEVIATION_HZ);
 
             ToneSampler sampler{SAMPLE_RATE};
             std::vector<Tone> tones;
@@ -226,13 +228,14 @@ namespace pisstv {
                 }
             }};
 
-            while (status == PnmReadStatus::Ok && running.load(std::memory_order_relaxed)) {
+            while (status == rpitx::image::PnmReadStatus::Ok && running.load(std::memory_order_relaxed)) {
                 appendCalibrationHeader(mode, tones);
                 transmit();
 
                 while (reader->rowsRemaining() > 0 && running.load(std::memory_order_relaxed)) {
                     for (std::size_t offset{0}; offset < rows.size(); offset += rowSize) {
-                        if (reader->readRow(std::span{rows}.subspan(offset, rowSize)) != PnmReadStatus::Ok) {
+                        if (reader->readRow(std::span{rows}.subspan(offset, rowSize)) !=
+                            rpitx::image::PnmReadStatus::Ok) {
                             std::cerr << "[ERROR] pisstv: " << reader->lastError() << std::endl;
                             dma.stop();
                             return 1;
@@ -251,7 +254,7 @@ namespace pisstv {
                     break;
                 }
                 status = readPictureHeader(*reader, mode);
-                if (status == PnmReadStatus::End && params.loop) {
+                if (status == rpitx::image::PnmReadStatus::End && params.loop) {
                     if (reader->rewind() == false) {
                         std::cerr << "[ERROR] pisstv: " << reader->lastError() << std::endl;
                         dma.stop();
@@ -260,14 +263,14 @@ namespace pisstv {
                     status = readPictureHeader(*reader, mode);
                 }
             }
-            if (status == PnmReadStatus::Error) {
+            if (status == rpitx::image::PnmReadStatus::Error) {
                 dma.stop();
                 return 1;
             }
 
             // The queued tones are transmitted when the input ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
+            rpitx::dma::stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pisstv: " << e.what() << std::endl;
             return 1;

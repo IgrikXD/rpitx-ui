@@ -127,7 +127,7 @@ namespace piopera {
         const OperaMode& mode{*params.mode};
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         // Wrap the encoding, DMA construction and the transmission loop in a try / catch:
         // checkCarrierPll refuses the PLL settings the board cannot run with an exception.
@@ -141,12 +141,12 @@ namespace piopera {
                       << std::lround(static_cast<double>(SYMBOL_COUNT * mode.symbolMs) / 1'000.0) << " s" << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, SAMPLE_RATE);
             iqdmasync dma{params.transmissionFrequency, SAMPLE_RATE, DMA_CHANNEL, DMA_FIFO_SIZE, MODE_FREQ_A};
             // Slot 0 and the start-up burst of the engine get carrier-off samples, so the first symbol reaches the air.
-            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
+            rpitx::dma::startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             // Queue the symbols in the DMA engine block by block, until a stop is requested.
             const std::size_t symbolSamples{samplesPerSymbol(mode)};
@@ -166,7 +166,7 @@ namespace piopera {
 
             // The queued symbols are transmitted when the transmission ended by itself, discarded on a stop request.
             const bool transmissionEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, transmissionEnded);
+            rpitx::dma::stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, transmissionEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] piopera: " << e.what() << std::endl;
             return 1;

@@ -62,7 +62,7 @@ public:
      * @param sample Input sample in [-1.0, 1.0] range.
      * @return IQ sample pair with AGC applied.
      */
-    [[nodiscard]] IqSample process(float sample);
+    [[nodiscard]] rpitx::dsp::IqSample process(float sample);
 
 private:
     /**
@@ -86,7 +86,7 @@ private:
      * of a pause is not raised to the target level; the gain is limited to
      * +20 dB.
      */
-    static constexpr AgcConfig SSB_AGC_CONFIG{
+    static constexpr rpitx::dsp::AgcConfig SSB_AGC_CONFIG{
         .target          = 0.8f,
         .attack          = 0.1f,
         .decay           = 0.001f,
@@ -94,10 +94,11 @@ private:
         .maxGain         = 10.0f,
         .gate            = 0.003f,
     };
-    Biquad hpf_{
-        Biquad::highPass(HPF_CUTOFF, SAMPLE_RATE)};  ///< High-pass filter (removes DC and sub-voice frequencies).
-    Biquad lpf_{Biquad::lowPass(LPF_CUTOFF, SAMPLE_RATE)};  ///< Low-pass filter (limits voice bandwidth).
-    Hilbert hilbert_;                                       ///< Hilbert transformer for analytic signal generation.
-    Agc agc_{SSB_AGC_CONFIG};                               ///< Automatic gain control.
-    SsbMode mode_;                                          ///< Sideband selection mode.
+    rpitx::dsp::Biquad hpf_{rpitx::dsp::Biquad::highPass(
+        HPF_CUTOFF, SAMPLE_RATE)};  ///< High-pass filter (removes DC and sub-voice frequencies).
+    rpitx::dsp::Biquad lpf_{
+        rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, SAMPLE_RATE)};  ///< Low-pass filter (limits voice bandwidth).
+    rpitx::dsp::Hilbert hilbert_;                               ///< Hilbert transformer for analytic signal generation.
+    rpitx::dsp::Agc agc_{SSB_AGC_CONFIG};                       ///< Automatic gain control.
+    SsbMode mode_;                                              ///< Sideband selection mode.
 };

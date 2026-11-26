@@ -82,7 +82,8 @@ namespace pifoxhunt {
      * @brief Number of samples of one Morse symbol (a dit) at wpm words per minute, rounded to a whole sample.
      */
     [[nodiscard]] constexpr std::size_t samplesPerSymbol(float wpm) noexcept {
-        return static_cast<std::size_t>(static_cast<float>(SAMPLE_RATE) * WPM_TO_SYMBOL_RATE_DIVISOR / wpm + 0.5F);
+        return static_cast<std::size_t>(
+            static_cast<float>(SAMPLE_RATE) * rpitx::morse::WPM_TO_SYMBOL_RATE_DIVISOR / wpm + 0.5F);
     }
 
     /**

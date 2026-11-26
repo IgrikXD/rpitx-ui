@@ -53,7 +53,7 @@ namespace pimorse {
          * The pacing FIFO still holds PCM_FIFO_DEPTH samples of the previous chain, and the
          * fill block of the new one adds one.
          */
-        constexpr std::size_t CHAIN_START_SAMPLES{PCM_FIFO_DEPTH + 1};
+        constexpr std::size_t CHAIN_START_SAMPLES{rpitx::dma::PCM_FIFO_DEPTH + 1};
         static_assert(CHAIN_START_SAMPLES <= OOK_UPSAMPLE,
                       "the trimmed samples must lie in the silent last symbol of a character");
 
@@ -105,14 +105,14 @@ namespace pimorse {
     std::vector<std::string> encodeMessage(std::string_view message) {
         std::vector<std::string> characters;
         for (std::size_t i{0}; i < message.size(); ++i) {
-            const auto morse{charToMorse(message[i])};
+            const auto morse{rpitx::morse::charToMorse(message[i])};
             if (morse == std::nullopt) {
                 std::cout << "pimorse: message[" << std::setw(2) << std::setfill('0') << i << "]=\"" << message[i]
                           << "\", skipped (unsupported character)" << std::endl;
                 continue;
             }
 
-            auto cw{morseToCw(morse.value())};
+            auto cw{rpitx::morse::morseToCw(morse.value())};
             std::cout << "pimorse: message[" << std::setw(2) << std::setfill('0') << i << "]=\""
                       << static_cast<char>(std::toupper(static_cast<unsigned char>(message[i]))) << "\", morse=\""
                       << morse.value() << "\", cw=" << cw << std::endl;
@@ -132,7 +132,7 @@ namespace pimorse {
         }
 
         // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-        checkCarrierPll(transmissionFrequency, 0);
+        rpitx::clock::checkCarrierPll(transmissionFrequency, 0);
         // ookburst keys every value for one sample (upsample 1); the samples of every character are rendered below.
         const std::size_t maxSamples{longestCharacterSymbols * OOK_UPSAMPLE};
         // librpitx truncates the pacing rate to whole Hz, so it is rounded to the nearest whole Hz first.
@@ -172,12 +172,12 @@ namespace pimorse {
         }
 
         // Real-time scheduling: start the DMA chain of every character in time while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         std::cout << "pimorse: message=\"" << params.message << "\"" << std::endl;
 
         const auto characters{encodeMessage(params.message)};
-        const auto symbolRate{params.wpm / WPM_TO_SYMBOL_RATE_DIVISOR};
+        const auto symbolRate{params.wpm / rpitx::morse::WPM_TO_SYMBOL_RATE_DIVISOR};
         // sendCwOok keys every symbol of every character, each for 1 / symbolRate seconds.
         std::size_t symbolCount{0};
         for (const auto& cw: characters) {
@@ -194,7 +194,7 @@ namespace pimorse {
                       << ", transmission_time=" << std::lround(transmissionSeconds) << " s" << std::endl;
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             sendCwOok(params.transmissionFrequency, symbolRate, characters);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pimorse: " << e.what() << std::endl;

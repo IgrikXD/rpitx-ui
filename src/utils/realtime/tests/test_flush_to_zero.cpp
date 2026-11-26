@@ -20,6 +20,9 @@
 #include "flush_to_zero.h"
 
 namespace {
+    using rpitx::dsp::Biquad;
+    using rpitx::realtime::enableFlushToZero;
+
     /**
      * @brief Smallest normal float (2^-126) - any smaller non-zero magnitude is subnormal.
      */

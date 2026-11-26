@@ -23,6 +23,12 @@
 #include "fake_clock.h"
 
 namespace {
+    using rpitx::clock::carrierStepHz;
+    using rpitx::clock::choosePllDivider;
+    using rpitx::clock::crossesIntegerStep;
+    using rpitx::clock::MAX_CARRIER_FREQUENCY_HZ;
+    using rpitx::clock::pllRateHz;
+
     struct PllDividerChoiceTestCase {
         std::string_view name;
         bool pi4;

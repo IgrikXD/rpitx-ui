@@ -11,23 +11,25 @@
 
 #include "morse_encoder.h"
 
-std::string morseToCw(std::string_view morse) {
-    std::string cw;
-    cw.reserve(morse.size() * 4);
-    for (const char c: morse) {
-        switch (c) {
-            case '.':
-                cw += "10";
-                break;
-            case '-':
-                cw += "1110";
-                break;
-            case ' ':
-                cw += '0';
-                break;
-            default:
-                break;
+namespace rpitx::morse {
+    std::string morseToCw(std::string_view morse) {
+        std::string cw;
+        cw.reserve(morse.size() * 4);
+        for (const char c: morse) {
+            switch (c) {
+                case '.':
+                    cw += "10";
+                    break;
+                case '-':
+                    cw += "1110";
+                    break;
+                case ' ':
+                    cw += '0';
+                    break;
+                default:
+                    break;
+            }
         }
+        return cw;
     }
-    return cw;
-}
+}  // namespace rpitx::morse

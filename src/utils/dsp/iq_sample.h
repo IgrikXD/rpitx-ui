@@ -11,10 +11,12 @@
 
 #pragma once
 
-/**
- * @brief In-phase / quadrature sample pair.
- */
-struct IqSample {
-    float i{};  ///< In-phase component.
-    float q{};  ///< Quadrature component.
-};
+namespace rpitx::dsp {
+    /**
+     * @brief In-phase / quadrature sample pair.
+     */
+    struct IqSample {
+        float i{};  ///< In-phase component.
+        float q{};  ///< Quadrature component.
+    };
+}  // namespace rpitx::dsp

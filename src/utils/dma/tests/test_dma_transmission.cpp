@@ -23,6 +23,8 @@
 #include "dma_transmission.h"
 
 namespace {
+    using rpitx::dma::queueDrainTail;
+
     /**
      * @brief Frequency deviation that keeps an FM carrier unmodulated.
      */

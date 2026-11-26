@@ -22,6 +22,8 @@
 #include "soxr_resampler.h"
 
 namespace {
+    using rpitx::audio::SoxrResampler;
+
     /**
      * @brief CD-audio source rate (44.1 kHz). Default upsampling source for the
      *        process()/clear()/move tests and several acceptance cases.

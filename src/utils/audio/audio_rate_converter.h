@@ -18,158 +18,160 @@
 
 #include "soxr_resampler.h"
 
-/**
- * @brief Outcome of feeding one input block to an AudioRateConverter.
- */
-enum class AudioRateConverterStatus {
-    Ok,          ///< A full output block was written.
-    NeedsInput,  ///< The input was consumed; the output block needs a further input block.
-    Error,       ///< Invalid buffer geometry or a libsoxr processing error.
-};
-
-/**
- * @brief Single-channel streaming rate converter with a fixed output block contract.
- *
- * Wraps SoxrResampler so callers see a uniform fixed-size output block
- * regardless of the source / target rate ratio. The input block size varies
- * between calls via a Bresenham accumulator that tracks the rate ratio
- * exactly - the backend halts on either input exhaustion or output cap, so a
- * constant ceil()-rounded input with a tight output buffer
- * would drop samples or grow an internal queue unbounded. With Bresenham
- * sizing and an oversized staging buffer, libsoxr always consumes the full
- * input span.
- *
- * libsoxr delivers its output in bursts, so the converted samples are queued
- * and an output block is handed out only when the queue can fill it
- * completely. Until then process() asks for a further input block. The extra
- * blocks stay queued as a reserve; for the supported rates the requests end
- * within the first seconds, after which every input block yields one output
- * block.
- *
- * When sourceRateHz == targetRateHz no soxr instance is created and process()
- * degrades to a memory copy.
- *
- * Non-copyable; movable so the converter can be deferred-constructed inside
- * std::optional members (e.g. processors that learn the source rate at run
- * time).
- */
-class AudioRateConverter {
-public:
+namespace rpitx::audio {
     /**
-     * @brief Construct an AudioRateConverter for the given rate pair.
-     *
-     * @param sourceRateHz       Input sample rate in Hz (> 0).
-     * @param targetRateHz       Output sample rate in Hz (> 0).
-     * @param targetOutputFrames Frames in every output block (> 0).
-     *
-     * @throws std::invalid_argument when any parameter is non-positive or when
-     *         the derived per-call input frame count overflows std::size_t.
-     * @throws std::runtime_error    when the underlying soxr handle cannot be created.
+     * @brief Outcome of feeding one input block to an AudioRateConverter.
      */
-    AudioRateConverter(int sourceRateHz, int targetRateHz, std::size_t targetOutputFrames);
-
-    AudioRateConverter(const AudioRateConverter&)            = delete;
-    AudioRateConverter& operator=(const AudioRateConverter&) = delete;
-    AudioRateConverter(AudioRateConverter&&)                 = default;
-    AudioRateConverter& operator=(AudioRateConverter&&)      = default;
+    enum class AudioRateConverterStatus {
+        Ok,          ///< A full output block was written.
+        NeedsInput,  ///< The input was consumed; the output block needs a further input block.
+        Error,       ///< Invalid buffer geometry or a libsoxr processing error.
+    };
 
     /**
-     * @brief Frames in every output block (constant).
+     * @brief Single-channel streaming rate converter with a fixed output block contract.
+     *
+     * Wraps SoxrResampler so callers see a uniform fixed-size output block
+     * regardless of the source / target rate ratio. The input block size varies
+     * between calls via a Bresenham accumulator that tracks the rate ratio
+     * exactly - the backend halts on either input exhaustion or output cap, so a
+     * constant ceil()-rounded input with a tight output buffer
+     * would drop samples or grow an internal queue unbounded. With Bresenham
+     * sizing and an oversized staging buffer, libsoxr always consumes the full
+     * input span.
+     *
+     * libsoxr delivers its output in bursts, so the converted samples are queued
+     * and an output block is handed out only when the queue can fill it
+     * completely. Until then process() asks for a further input block. The extra
+     * blocks stay queued as a reserve; for the supported rates the requests end
+     * within the first seconds, after which every input block yields one output
+     * block.
+     *
+     * When sourceRateHz == targetRateHz no soxr instance is created and process()
+     * degrades to a memory copy.
+     *
+     * Non-copyable; movable so the converter can be deferred-constructed inside
+     * std::optional members (e.g. processors that learn the source rate at run
+     * time).
      */
-    [[nodiscard]] std::size_t outputFrames() const noexcept {
-        return outputFrames_;
-    }
+    class AudioRateConverter {
+    public:
+        /**
+         * @brief Construct an AudioRateConverter for the given rate pair.
+         *
+         * @param sourceRateHz       Input sample rate in Hz (> 0).
+         * @param targetRateHz       Output sample rate in Hz (> 0).
+         * @param targetOutputFrames Frames in every output block (> 0).
+         *
+         * @throws std::invalid_argument when any parameter is non-positive or when
+         *         the derived per-call input frame count overflows std::size_t.
+         * @throws std::runtime_error    when the underlying soxr handle cannot be created.
+         */
+        AudioRateConverter(int sourceRateHz, int targetRateHz, std::size_t targetOutputFrames);
 
-    /**
-     * @brief Maximum input frames any single process() call may demand.
-     *
-     * Used by the pipeline to size source-read buffers conservatively.
-     * Bresenham accumulator alternates between this value and one less.
-     */
-    [[nodiscard]] std::size_t maxInputFrames() const noexcept {
-        return maxInputFrames_;
-    }
+        AudioRateConverter(const AudioRateConverter&)            = delete;
+        AudioRateConverter& operator=(const AudioRateConverter&) = delete;
+        AudioRateConverter(AudioRateConverter&&)                 = default;
+        AudioRateConverter& operator=(AudioRateConverter&&)      = default;
 
-    /**
-     * @brief Input frames the next process() call expects.
-     *
-     * Pure: does not advance the Bresenham accumulator. Caller must read
-     * exactly this many input frames from the source and pass them to the
-     * matching process() call. After process(), the accumulator advances
-     * and a fresh peek may return a different value.
-     *
-     * The value is by construction in [0, maxInputFrames()].
-     */
-    [[nodiscard]] std::size_t peekNextInputFrames() const noexcept {
-        if (resampler_ == std::nullopt) {
+        /**
+         * @brief Frames in every output block (constant).
+         */
+        [[nodiscard]] std::size_t outputFrames() const noexcept {
             return outputFrames_;
         }
-        // Bresenham invariant: inputAccumulator_ stays in [0, targetRate_)
-        // and the cumulative input across K calls equals
-        // K * outputFrames * sourceRate / targetRate, rounded to the
-        // nearest integer at each step.
-        const long long total{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_};
-        return static_cast<std::size_t>(total / targetRate_);
-    }
 
-    /**
-     * @brief Process one block of audio.
-     *
-     * @param in  Input frames; size must equal peekNextInputFrames().
-     * @param out Output frames; size must equal outputFrames(). Written only
-     *            when Ok is returned.
-     * @return Ok when out holds a full block, NeedsInput when the caller has
-     *         to pass the next input block to complete it, Error when the
-     *         buffer geometry is invalid or soxr reports a processing error.
-     */
-    [[nodiscard]] AudioRateConverterStatus process(std::span<const float> in, std::span<float> out);
+        /**
+         * @brief Maximum input frames any single process() call may demand.
+         *
+         * Used by the pipeline to size source-read buffers conservatively.
+         * Bresenham accumulator alternates between this value and one less.
+         */
+        [[nodiscard]] std::size_t maxInputFrames() const noexcept {
+            return maxInputFrames_;
+        }
 
-    /**
-     * @brief Pull the converter's tail into out at end-of-stream.
-     *
-     * Drains queued output samples first, then feeds soxr the documented
-     * end-of-stream flush form (empty input span) to recover any samples
-     * still buffered in the filter delay line.
-     *
-     * Once drain() has been called, the soxr instance is in libsoxr's
-     * post-flush state and takes no further process() calls.
-     *
-     * @param out Output buffer; size must not exceed outputFrames().
-     * @return Number of frames written (0 .. out.size()) on success; 0 means
-     *         the converter is fully drained. std::nullopt when libsoxr
-     *         reports an error during the flush call - the caller should
-     *         treat this as a hard pipeline failure rather than a clean end.
-     */
-    [[nodiscard]] std::optional<std::size_t> drain(std::span<float> out);
+        /**
+         * @brief Input frames the next process() call expects.
+         *
+         * Pure: does not advance the Bresenham accumulator. Caller must read
+         * exactly this many input frames from the source and pass them to the
+         * matching process() call. After process(), the accumulator advances
+         * and a fresh peek may return a different value.
+         *
+         * The value is by construction in [0, maxInputFrames()].
+         */
+        [[nodiscard]] std::size_t peekNextInputFrames() const noexcept {
+            if (resampler_ == std::nullopt) {
+                return outputFrames_;
+            }
+            // Bresenham invariant: inputAccumulator_ stays in [0, targetRate_)
+            // and the cumulative input across K calls equals
+            // K * outputFrames * sourceRate / targetRate, rounded to the
+            // nearest integer at each step.
+            const long long total{inputAccumulator_ + static_cast<long long>(outputFrames_) * sourceRate_};
+            return static_cast<std::size_t>(total / targetRate_);
+        }
 
-private:
-    std::size_t outputFrames_;
-    int sourceRate_;
-    int targetRate_;
-    std::size_t maxInputFrames_;
-    long long inputAccumulator_;  ///< Bresenham state in [0, targetRate).
+        /**
+         * @brief Process one block of audio.
+         *
+         * @param in  Input frames; size must equal peekNextInputFrames().
+         * @param out Output frames; size must equal outputFrames(). Written only
+         *            when Ok is returned.
+         * @return Ok when out holds a full block, NeedsInput when the caller has
+         *         to pass the next input block to complete it, Error when the
+         *         buffer geometry is invalid or soxr reports a processing error.
+         */
+        [[nodiscard]] AudioRateConverterStatus process(std::span<const float> in, std::span<float> out);
 
-    std::optional<SoxrResampler> resampler_;  ///< nullopt = passthrough.
+        /**
+         * @brief Pull the converter's tail into out at end-of-stream.
+         *
+         * Drains queued output samples first, then feeds soxr the documented
+         * end-of-stream flush form (empty input span) to recover any samples
+         * still buffered in the filter delay line.
+         *
+         * Once drain() has been called, the soxr instance is in libsoxr's
+         * post-flush state and takes no further process() calls.
+         *
+         * @param out Output buffer; size must not exceed outputFrames().
+         * @return Number of frames written (0 .. out.size()) on success; 0 means
+         *         the converter is fully drained. std::nullopt when libsoxr
+         *         reports an error during the flush call - the caller should
+         *         treat this as a hard pipeline failure rather than a clean end.
+         */
+        [[nodiscard]] std::optional<std::size_t> drain(std::span<float> out);
 
-    /**
-     * @brief Staging buffer for soxr's output writes.
-     *
-     * Sized for the output maxInputFrames_ inputs amount to at the rate
-     * ratio, plus a margin that keeps libsoxr's input limit above the input
-     * block, so every call consumes its whole input (idone == ilen); output
-     * that does not fit stays inside libsoxr until the next call.
-     */
-    std::vector<float> stagingBuffer_;
+    private:
+        std::size_t outputFrames_;
+        int sourceRate_;
+        int targetRate_;
+        std::size_t maxInputFrames_;
+        long long inputAccumulator_;  ///< Bresenham state in [0, targetRate).
 
-    /**
-     * @brief Converted samples not yet returned to the caller.
-     *
-     * soxr's per-call output count swings between nothing and more than a
-     * block; every converted sample is queued here and leaves in full
-     * output blocks. Stored as a flat vector with a read offset: a block is
-     * handed out by advancing the offset, and the part already handed out
-     * is dropped before the next samples are appended.
-     */
-    std::vector<float> pendingOutput_;
-    std::size_t pendingReadPos_;
-};
+        std::optional<SoxrResampler> resampler_;  ///< nullopt = passthrough.
+
+        /**
+         * @brief Staging buffer for soxr's output writes.
+         *
+         * Sized for the output maxInputFrames_ inputs amount to at the rate
+         * ratio, plus a margin that keeps libsoxr's input limit above the input
+         * block, so every call consumes its whole input (idone == ilen); output
+         * that does not fit stays inside libsoxr until the next call.
+         */
+        std::vector<float> stagingBuffer_;
+
+        /**
+         * @brief Converted samples not yet returned to the caller.
+         *
+         * soxr's per-call output count swings between nothing and more than a
+         * block; every converted sample is queued here and leaves in full
+         * output blocks. Stored as a flat vector with a read offset: a block is
+         * handed out by advancing the offset, and the part already handed out
+         * is dropped before the next samples are appended.
+         */
+        std::vector<float> pendingOutput_;
+        std::size_t pendingReadPos_;
+    };
+}  // namespace rpitx::audio

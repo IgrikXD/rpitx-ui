@@ -146,20 +146,20 @@ namespace pinfm {
         }
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
-        enableFlushToZero();
+        rpitx::realtime::enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
-        auto source{makeAudioSource(params.useStdin, params.audioPath)};
+        auto source{rpitx::audio::makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
             return 1;
         }
-        if (validateLoopSupport(*source, params.loop) == false) {
+        if (rpitx::audio::validateLoopSupport(*source, params.loop) == false) {
             return 1;
         }
 
         const auto fmt{source->format()};
-        if (validateAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
+        if (rpitx::audio::validateAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
             return 1;
         }
 
@@ -172,13 +172,13 @@ namespace pinfm {
         // would terminate via std::terminate without the destructor of
         // ngfmdmasync stopping the DMA engine and the clock generator.
         try {
-            AudioPipeline audio{*source,
-                                {
-                                    .loop               = params.loop,
-                                    .targetSampleRate   = TARGET_SAMPLE_RATE,
-                                    .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                    .channelMode        = AudioChannelMode::Mono,
-                                }};
+            rpitx::audio::AudioPipeline audio{*source,
+                                              {
+                                                  .loop               = params.loop,
+                                                  .targetSampleRate   = TARGET_SAMPLE_RATE,
+                                                  .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                                  .channelMode        = rpitx::audio::AudioChannelMode::Mono,
+                                              }};
 
             std::cout << "pinfm: carrier=" << params.transmissionFrequency << " Hz, audio_rate=" << fmt.sampleRate
                       << " Hz, dma_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
@@ -187,15 +187,15 @@ namespace pinfm {
 
             NfmProcessor nfm{static_cast<float>(TARGET_SAMPLE_RATE), peakDeviation};
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Refuse the carriers at which the modulated band crosses an integer step of the PLL multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, peakDeviation);
+            rpitx::clock::checkCarrierBand(dma, params.transmissionFrequency, peakDeviation);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, IDLE_DEVIATION_HZ);
+            rpitx::dma::startTransmission(dma, IDLE_DEVIATION_HZ);
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. outputBuf is reused
@@ -204,10 +204,10 @@ namespace pinfm {
 
             while (running.load(std::memory_order_relaxed)) {
                 const auto status{audio.read(outputBuf)};
-                if (status == AudioPipelineStatus::End) {
+                if (status == rpitx::audio::AudioPipelineStatus::End) {
                     break;
                 }
-                if (status == AudioPipelineStatus::Error) {
+                if (status == rpitx::audio::AudioPipelineStatus::Error) {
                     std::cerr << "[ERROR] pinfm: failed to read audio block; aborting." << std::endl;
                     dma.stop();
                     return 1;
@@ -221,7 +221,7 @@ namespace pinfm {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
+            rpitx::dma::stopTransmission(dma, IDLE_DEVIATION_HZ, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pinfm: " << e.what() << std::endl;
             return 1;

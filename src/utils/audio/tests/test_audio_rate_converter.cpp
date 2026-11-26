@@ -23,6 +23,9 @@
 #include "signal_continuity.h"
 
 namespace {
+    using rpitx::audio::AudioRateConverter;
+    using rpitx::audio::AudioRateConverterStatus;
+
     /**
      * @brief CD-audio source rate (44.1 kHz). Paired with kBroadcastRateHz on the
      *        rate-converting path.

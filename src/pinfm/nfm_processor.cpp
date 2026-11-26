@@ -48,10 +48,10 @@ namespace {
 }  // namespace
 
 NfmProcessor::NfmProcessor(float sampleRate, float peakDeviation)
-    : hpf_{Biquad::highPass(HPF_CUTOFF, sampleRate)},
+    : hpf_{rpitx::dsp::Biquad::highPass(HPF_CUTOFF, sampleRate)},
       lpfChain_{
-          Biquad::lowPass(LPF_CUTOFF, sampleRate, butterworthCascadeQ(LPF_ORDER, 1)),
-          Biquad::lowPass(LPF_CUTOFF, sampleRate, butterworthCascadeQ(LPF_ORDER, 2)),
+          rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, sampleRate, butterworthCascadeQ(LPF_ORDER, 1)),
+          rpitx::dsp::Biquad::lowPass(LPF_CUTOFF, sampleRate, butterworthCascadeQ(LPF_ORDER, 2)),
       },
       peakDeviation_{peakDeviation} {
     // Silent failure mode: extra slots in std::array<Biquad, LPF_ORDER / 2>

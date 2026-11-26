@@ -21,6 +21,8 @@
 #include "realtime_scheduling.h"
 
 namespace {
+    using rpitx::realtime::enableRealtimeScheduling;
+
     struct RealtimePolicyTestCase {
         std::string_view name;
         int policy;

@@ -23,6 +23,8 @@
 #include "stop_signals.h"
 
 namespace {
+    using rpitx::realtime::installStopSignalHandlers;
+
     /**
      * @brief Handler of a signal as sigaction reports it.
      */

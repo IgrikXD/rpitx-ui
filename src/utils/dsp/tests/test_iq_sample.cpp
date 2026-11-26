@@ -19,6 +19,8 @@
 #include "iq_sample.h"
 
 namespace {
+    using rpitx::dsp::IqSample;
+
     struct IqSampleTestCase {
         std::string_view name;
         IqSample createdIqSample;

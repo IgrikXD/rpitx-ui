@@ -166,7 +166,7 @@ namespace pirfgen {
         }
 
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
         // Wrap RfGenProcessor and DMA construction plus the streaming loop in
         // a try / catch: RfGenProcessor validates its config (and inner
@@ -193,15 +193,15 @@ namespace pirfgen {
             }};
 
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate));
             ngfmdmasync dma{
                 params.transmissionFrequency, static_cast<uint32_t>(params.sampleRate), DMA_CHANNEL, DMA_FIFO_SIZE};
             // Refuse the carriers at which the modulated band crosses an integer step of the PLL multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, params.bandwidth / 2.0);
+            rpitx::clock::checkCarrierBand(dma, params.transmissionFrequency, params.bandwidth / 2.0);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, IDLE_DEVIATION_HZ);
+            rpitx::dma::startTransmission(dma, IDLE_DEVIATION_HZ);
 
             // SetFrequencySamples blocks until the whole block is in the DMA FIFO
             // (see ngfmdmasync.cpp upstream), so no manual usleep / GetBufferAvailable

@@ -21,6 +21,10 @@
 #include "morse_encoder.h"
 
 namespace {
+    using rpitx::morse::charToMorse;
+    using rpitx::morse::morseToCw;
+    using rpitx::morse::WPM_TO_SYMBOL_RATE_DIVISOR;
+
     struct MorseLookupTestCase {
         std::string_view name;
         char character;

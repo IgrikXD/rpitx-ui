@@ -131,20 +131,20 @@ namespace pissb {
         }
 
         // Flush-to-zero: keep silent passages out of slow subnormal arithmetic.
-        enableFlushToZero();
+        rpitx::realtime::enableFlushToZero();
         // Real-time scheduling: keep the DMA buffer fed while other processes load the CPU.
-        enableRealtimeScheduling();
+        rpitx::realtime::enableRealtimeScheduling();
 
-        auto source{makeAudioSource(params.useStdin, params.audioPath)};
+        auto source{rpitx::audio::makeAudioSource(params.useStdin, params.audioPath)};
         if (source == nullptr) {
             return 1;
         }
-        if (validateLoopSupport(*source, params.loop) == false) {
+        if (rpitx::audio::validateLoopSupport(*source, params.loop) == false) {
             return 1;
         }
 
         const auto fmt{source->format()};
-        if (validateAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
+        if (rpitx::audio::validateAudioFormat(fmt, MIN_INPUT_RATE, MAX_INPUT_RATE) == false) {
             return 1;
         }
 
@@ -155,13 +155,13 @@ namespace pissb {
         // std::terminate without the destructor of iqdmasync stopping the DMA
         // engine and the clock generator.
         try {
-            AudioPipeline audio{*source,
-                                {
-                                    .loop               = params.loop,
-                                    .targetSampleRate   = TARGET_SAMPLE_RATE,
-                                    .targetOutputFrames = TARGET_OUTPUT_FRAMES,
-                                    .channelMode        = AudioChannelMode::Mono,
-                                }};
+            rpitx::audio::AudioPipeline audio{*source,
+                                              {
+                                                  .loop               = params.loop,
+                                                  .targetSampleRate   = TARGET_SAMPLE_RATE,
+                                                  .targetOutputFrames = TARGET_OUTPUT_FRAMES,
+                                                  .channelMode        = rpitx::audio::AudioChannelMode::Mono,
+                                              }};
 
             std::cout << "pissb: carrier=" << params.transmissionFrequency << " Hz, audio_rate=" << fmt.sampleRate
                       << " Hz, iq_rate=" << TARGET_SAMPLE_RATE << " Hz, channels=" << fmt.channels
@@ -170,19 +170,19 @@ namespace pissb {
 
             SsbProcessor ssb{params.mode};
             // Stop signals: end the transmission cleanly, also when the terminal closes.
-            installStopSignalHandlers(handleSignal);
+            rpitx::realtime::installStopSignalHandlers(handleSignal);
             // Refuse the carriers the board cannot run before the engine programs the PLL unguarded.
-            checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
+            rpitx::clock::checkCarrierPll(params.transmissionFrequency, static_cast<uint32_t>(TARGET_SAMPLE_RATE));
             iqdmasync dma{params.transmissionFrequency,
                           static_cast<uint32_t>(TARGET_SAMPLE_RATE),
                           DMA_CHANNEL,
                           DMA_FIFO_SIZE,
                           MODE_IQ};
             // Refuse the carriers at which the modulated band crosses an integer step of the PLL multiplier.
-            checkCarrierBand(dma, params.transmissionFrequency, IQ_HALF_BANDWIDTH_HZ);
+            rpitx::clock::checkCarrierBand(dma, params.transmissionFrequency, IQ_HALF_BANDWIDTH_HZ);
             dma.SetPLLMasterLoop(PLL_PROPORTIONAL_GAIN, PLL_INTEGRAL_GAIN, PLL_FRACTIONAL_DIVIDER);
             // Slot 0 and the start-up burst of the engine get idle samples, so the first sample reaches the air.
-            startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
+            rpitx::dma::startTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC);
 
             // AudioPipeline owns source-rate input buffers, downmixing, loop-aware
             // EOF handling, and source -> 48 kHz rate conversion. Each mono sample
@@ -192,10 +192,10 @@ namespace pissb {
 
             while (running.load(std::memory_order_relaxed)) {
                 const auto status{audio.read(audioBuf)};
-                if (status == AudioPipelineStatus::End) {
+                if (status == rpitx::audio::AudioPipelineStatus::End) {
                     break;
                 }
-                if (status == AudioPipelineStatus::Error) {
+                if (status == rpitx::audio::AudioPipelineStatus::Error) {
                     std::cerr << "[ERROR] pissb: failed to read audio block; aborting." << std::endl;
                     dma.stop();
                     return 1;
@@ -210,7 +210,7 @@ namespace pissb {
 
             // The queued blocks are transmitted when the audio ended by itself, discarded on a stop request.
             const bool inputEnded{running.load(std::memory_order_relaxed) != 0};
-            stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
+            rpitx::dma::stopTransmission(dma, CARRIER_OFF_SAMPLE, DEFAULT_HARMONIC, inputEnded);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] pissb: " << e.what() << std::endl;
             return 1;
