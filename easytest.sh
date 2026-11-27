@@ -23,6 +23,12 @@ DEFAULT_FSQ_TYPE="Directed"
 DEFAULT_FSQ_DESTINATION="allcall"
 DEFAULT_FSQ_MESSAGE="hello world from rpitx-ui"
 DEFAULT_FSQ_MODE="FSQ-2"
+DEFAULT_OOK_TYPE="Symbols"
+DEFAULT_OOK_SYMBOLS="1010101001010101"
+DEFAULT_OOK_SYMBOL_TIME=500
+DEFAULT_OOK_TIMINGS="500 -500 500 -500 500 -500 500 -1000 500 -500 500 -500 500 -500 500"
+DEFAULT_OOK_REPEAT=1
+DEFAULT_OOK_PAUSE=0
 DEFAULT_RFGEN_SAMPLE_RATE=500000
 DEFAULT_RFGEN_BANDWIDTH=200000
 DEFAULT_MULTITONE_TONES=8
@@ -580,6 +586,86 @@ fi
 
 }
 
+do_enter_ook_params()
+{
+
+LAST_ITEM="$menuchoice"
+MESSAGE=""
+
+# Message type: the notation of the keying sequence
+if ! OOK_TYPE=$(whiptail --default-item "$DEFAULT_OOK_TYPE" --title "OOK message type" --menu "Select OOK message type:" 15 78 2 \
+	"Symbols" "1 and 0: carrier on / off for a symbol time each" \
+	"Timings" "Durations of the pulses and gaps in microseconds" \
+	3>&1 1>&2 2>&3); then
+	abort_action=1
+	return
+fi
+
+# Keying sequence in the notation of the type; only a message of symbols has a symbol time
+OOK_SYMBOL_TIME=""
+if [ "$OOK_TYPE" = "Symbols" ]; then
+	do_enter_message "OOK" "$DEFAULT_OOK_SYMBOLS"
+	if [ $abort_action -ne 0 ]; then
+		return
+	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '^[01 ]*1[01 ]*$'; then
+		whiptail --title "Error!" --msgbox "Message must contain only 1, 0 and spaces, with at least one 1!" 8 78
+		abort_action=1
+		return
+	fi
+
+	if OOK_SYMBOL_TIME=$(whiptail --inputbox "Enter symbol time (microseconds, at least 10):" 8 78 "$DEFAULT_OOK_SYMBOL_TIME" --title "OOK symbol time" 3>&1 1>&2 2>&3); then
+		if ! printf '%s' "$OOK_SYMBOL_TIME" | LC_ALL=C grep -Eq '^0*[1-9][0-9]{1,6}(\.[0-9]+)?$'; then
+			whiptail --title "Error!" --msgbox "Symbol time must be a number of at least 10 and below 10000000!" 8 78
+			abort_action=1
+			return
+		fi
+	else
+		abort_action=1
+		return
+	fi
+else
+	do_enter_message "OOK" "$DEFAULT_OOK_TIMINGS"
+	if [ $abort_action -ne 0 ]; then
+		return
+	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '^[ ,]*-?0*[1-9][0-9]{1,6}(\.[0-9]+)?([ ,]+-?0*[1-9][0-9]{1,6}(\.[0-9]+)?)*[ ,]*$'; then
+		whiptail --title "Error!" --msgbox "Message must contain only durations of at least 10 and below 10000000 microseconds, separated by spaces or commas (negative for a gap)!" 8 78
+		abort_action=1
+		return
+	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '(^|[ ,])[0-9]'; then
+		whiptail --title "Error!" --msgbox "Message must contain at least one pulse (a positive duration)!" 8 78
+		abort_action=1
+		return
+	fi
+fi
+
+# Number of times the sequence is sent
+if OOK_REPEAT=$(whiptail --inputbox "Enter number of times the sequence is sent (1-100):" 8 78 "$DEFAULT_OOK_REPEAT" --title "OOK repeat count" 3>&1 1>&2 2>&3); then
+	if ! printf '%s' "$OOK_REPEAT" | LC_ALL=C grep -Eq '^0*([1-9][0-9]?|100)$'; then
+		whiptail --title "Error!" --msgbox "Repeat count must be an integer in [1, 100]!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+# Pause between the repetitions
+if OOK_PAUSE=$(whiptail --inputbox "Enter pause between the repetitions (microseconds, 0 for none):" 8 78 "$DEFAULT_OOK_PAUSE" --title "OOK pause" 3>&1 1>&2 2>&3); then
+	if ! printf '%s' "$OOK_PAUSE" | LC_ALL=C grep -Eq '^(0+(\.0+)?|0*[1-9][0-9]{1,6}(\.[0-9]+)?)$'; then
+		whiptail --title "Error!" --msgbox "Pause must be 0 or a number of at least 10 and below 10000000!" 8 78
+		abort_action=1
+		return
+	fi
+else
+	abort_action=1
+	return
+fi
+
+abort_action=0
+
+}
+
 do_stop_transmit()
 {
 	sudo killall csdr 2>/dev/null
@@ -590,6 +676,7 @@ do_stop_transmit()
 	sudo killall pifsq 2>/dev/null
 	sudo killall pimorse 2>/dev/null
 	sudo killall pinfm 2>/dev/null
+	sudo killall piook 2>/dev/null
 	sudo killall piopera 2>/dev/null
 	sudo killall pipocsag 2>/dev/null
 	sudo killall pirfgen 2>/dev/null
@@ -619,6 +706,7 @@ do_stop_transmit()
 			13\ *) sudo killall testrfgen.sh >/dev/null 2>/dev/null ;;
 			14\ *) sudo killall testfoxhunt.sh >/dev/null 2>/dev/null ;;
 			15\ *) sudo killall testfsq.sh >/dev/null 2>/dev/null ;;
+			16\ *) sudo killall testook.sh >/dev/null 2>/dev/null ;;
 
 	esac
 }
@@ -657,6 +745,7 @@ do_freq_setup
     "13 RFgen" "Wideband RF generator" \
     "14 Foxhunt" "Fox hunting transmitter (ARDF)" \
     "15 FSQ" "Fast Simple QSO" \
+    "16 OOK" "On-Off Keying" \
  	3>&2 2>&1 1>&3)
 		RET=$?
 		if [ $RET -eq 1 ]; then
@@ -806,6 +895,13 @@ do_freq_setup
 			15\ *) do_enter_fsq_params
 			if [ $abort_action -eq 0 ]; then
 				testfsq.sh "$OUTPUT_FREQ""e6" "$FSQ_CALLSIGN" "$MESSAGE" "${FSQ_MODE#FSQ-}" "${FSQ_TYPE,,}" "$FSQ_DESTINATION" >/dev/null 2>/dev/null &
+				do_status
+			fi
+			;;
+
+			16\ *) do_enter_ook_params
+			if [ $abort_action -eq 0 ]; then
+				testook.sh "$OUTPUT_FREQ""e6" "$MESSAGE" "${OOK_TYPE,,}" "$OOK_SYMBOL_TIME" "$OOK_REPEAT" "$OOK_PAUSE" >/dev/null 2>/dev/null &
 				do_status
 			fi
 			;;

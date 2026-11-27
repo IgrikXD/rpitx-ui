@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.38'
+PACKAGE_VERSION='1.39'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
@@ -75,11 +75,11 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_CYAN" 'Removing rpitx-ui binaries...'
 REQUIRED_BINARIES=(
-  piam pichirp pifmrds pifoxhunt pifsq pimorse pinfm piopera
+  piam pichirp pifmrds pifoxhunt pifsq pimorse pinfm piook piopera
   pipocsag pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
 )
 OPTIONAL_BINARIES=(
-  dvbrf pift8 rpitx sendook
+  dvbrf pift8 rpitx
 )
 
 for BIN in "${REQUIRED_BINARIES[@]}" "${OPTIONAL_BINARIES[@]}"; do
@@ -94,9 +94,9 @@ echo "${INFO} Binaries removed!"
 print_banner "$COLOR_CYAN" 'Removing rpitx-ui shell scripts...'
 SCRIPTS=(
   rpitx-ui
-  fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh testam.sh
-  testchirp.sh testfmrds.sh testfoxhunt.sh testfsq.sh testmorse.sh
-  testnfm.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
+  fm2ssb.sh ft8menu.sh rtlmenu.sh snap2spectrum.sh testam.sh testchirp.sh
+  testfmrds.sh testfoxhunt.sh testfsq.sh testmorse.sh testnfm.sh
+  testook.sh testopera.sh testpocsag.sh testrfgen.sh testrtty.sh
   testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )
 
