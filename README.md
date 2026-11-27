@@ -15,7 +15,7 @@ The [`install.sh`](./install.sh) script installs all system dependencies, builds
 Your support helps me continue developing open-source projects like [WSPR-beacon](https://github.com/IgrikXD/WSPR-beacon) and [Easy-SDR](https://github.com/IgrikXD/Easy-SDR), while also enabling the creation of new tools that benefit the community.
 
 ## Current development progress
-[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.38-blue.svg?longCache=true&style=for-the-badge)
+[![GitHub Actions: rpitx-ui 64-bit build status][rpitx-ui-64-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-64-bit-build.yml)&nbsp;[![GitHub Actions: rpitx-ui 32-bit build status][rpitx-ui-32-bit-build-badge]](https://github.com/IgrikXD/rpitx-ui/actions/workflows/rpitx-ui-32-bit-build.yml)&nbsp;![Package version](https://img.shields.io/badge/latest%20package%20version-1.39-blue.svg?longCache=true&style=for-the-badge)
 
 ## Supported hardware
 **rpitx-ui** works only on Raspberry Pi boards built on the SoCs supported by the `librpitx` backend:
@@ -96,7 +96,7 @@ You no longer need to run the [`./easytest.sh`](./easytest.sh) command from the 
 
 After selecting a file for transmission, you can choose the playback mode: "_loop_" (_replay continuously_) or "_once_" (_play once and stop at end of file_).
 
-Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_", "_**CW**_" and "_**FSQ**_" modes and to specify your call sign in the "_**Opera**_", "_**Foxhunt**_" and "_**FSQ**_" modes.
+Added the ability to send a custom message in the "_**Pocsag**_", "_**RTTY**_", "_**CW**_", "_**FSQ**_" and "_**OOK**_" modes and to specify your call sign in the "_**Opera**_", "_**Foxhunt**_" and "_**FSQ**_" modes.
 
 Added "_**CW**_" mode for Morse code transmission with a custom message and adjustable transmission speed in words per minute (_WPM_).  
 ![rpitx-ui-cw-mode](./doc/rpitx-ui-cw-mode.gif)
@@ -130,6 +130,9 @@ Added "_**Foxhunt**_" mode for fox hunting (_amateur radio direction finding, AR
 
 Added "_**FSQ**_" mode for Fast Simple QSO text messages. You can enter your callsign, choose a "_**Directed**_" message (_for the station of a callsign or for all stations_) or an "_**Undirected**_" one, enter the message and choose the FSQ mode - "_**FSQ-2**_", "_**FSQ-3**_", "_**FSQ-4.5**_" or "_**FSQ-6**_".  
 ![rpitx-ui-fsq-mode](./doc/rpitx-ui-fsq-mode.gif)
+
+Added "_**OOK**_" mode for on-off keying of the carrier with the pulses and gaps of any protocol. You can choose the message type - "_**Symbols**_" (_a string of 1 and 0: the carrier on or off for a symbol time each_) or "_**Timings**_" (_the durations of the pulses and gaps in microseconds_) - then enter the sequence, the symbol time of a message of symbols, the repeat count and the pause between the repetitions.  
+![rpitx-ui-ook-mode](./doc/rpitx-ui-ook-mode.gif)
 
 In custom-input modes, required values are validated before transmission starts: empty required fields are rejected, and numeric / mode-specific inputs are additionally checked for malformed or out-of-range values. If validation fails, a clear error message is shown and **the transmission is not started**.
 
@@ -184,6 +187,8 @@ Most transmit modes have been rewritten from scratch as standalone C++20 binarie
 **Foxhunt ([`pifoxhunt`](./src/pifoxhunt/)) - rewritten.** Renamed from `foxhunt` to align with the project's naming convention. The original binary, which the UI never offered, sent no Morse code: it switched an unmodulated carrier between two frequencies every second and so transmitted all the time. It crashed when its frequency shift was left out, and on BCM2711 the second frequency could go out a whole step of the PLL multiplier away. The new binary sends the signal of the IARU rules for championships in amateur radio direction finding: the code of the finish beacon, continuously, or of one of the transmitters 1 - 5 in its minute of every 5 minutes of the system clock (_`--code`_), in Morse code at 8 - 15 WPM (_`--wpm`_), as a keyed carrier (_`--mode A1A`, the 3.5 MHz band_) or as a keyed carrier modulated by a 1000 Hz tone (_`--mode A2A`, the 144 MHz band, at a modulation depth of about 77 %_). Transmitters 1 - 5 take turns only when their clocks are synchronized. With a callsign (_`--callsign`_), it ends every minute in which it operates with `DE` and the callsign.
 
 **FSQ ([`pifsq`](./src/pifsq/)) - rewritten.** The original binary, which the UI never offered, sent every message under the fixed callsign `F5OEO` at 2 baud, with its tones rounded down to the frequency step of the PLL, so on the UHF bands - on BCM2711 from 144 MHz on - a receiver read other characters. A message of more than 26 characters wrote past the end of its buffer, and a stopped process left the carrier on the air. The new binary sends a message in printable ASCII (_`--message`_) under your callsign (_`--callsign`_) in the FSQ 2, 3, 4.5 or 6 mode (_`--mode`_), as a directed message of the FSQCall protocol - for the station of a callsign or for all stations (_`--to`_) - or as an undirected one (_`--type`_), from an [encoder](./src/pifsq/fsq_encoder.h) that follows the sentences and the varicode of the FSQCall program and fldigi. A receiver decodes the signal in USB mode at the transmit frequency (_tones at 1350 - 1631 Hz, where both programs look for them by default_), and the tones keep their 8.79 Hz spacing on every band.
+
+**OOK ([`piook`](./src/piook/)) - rewritten.** Renamed from `sendook` to align with the project's naming convention. The original binary, which the UI never offered, wrote past the end of a buffer when its message had a space (_the separator its help allows_), shortened the first pulse of every message, cut every duration down to a multiple of 10 us - an error that added up along the message - and paused longer between the repetitions than requested. It took GPU memory in proportion to the duration of the message without a limit, reported success when a mistyped repeat count had made it send nothing, and a stop signal did not end the message in progress. The new binary is not tied to a protocol: on-off keying only switches the carrier, so the message states the pulses and gaps themselves - as a string of 1 and 0 with the duration of a symbol (_`--type symbols`, `--symbol-time`_), or as their durations in microseconds, the way receivers and signal analyzers list them (_`--type timings`_). It sends the sequence the requested number of times with a pause between the repetitions (_`--repeat`, `--pause`_) as one transmission that the DMA engine times on a grid of 10 us, every edge at the step nearest to its place, and a stop signal ends it at once.
 
 ## How to contact me?
 - E-mail: igor.nikolaevich.96@gmail.com
