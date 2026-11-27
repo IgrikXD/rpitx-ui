@@ -7,7 +7,7 @@
  * keying. A message therefore states the pulses and gaps themselves, in one of two notations:
  *   - symbols: a string of 1 and 0, the carrier on or off for one symbol time each (the unit a protocol
  *     counts its pulses and gaps in);
- *   - timings: the durations of the pulses and gaps in microseconds, as receivers and signal analysers
+ *   - timings: the durations of the pulses and gaps in microseconds, as receivers and signal analyzers
  *     list them.
  *
  * @author Ihar Yatsevich <igor.nikolaevich.96@gmail.com>
@@ -42,6 +42,13 @@ namespace piook {
     };
 
     /**
+     * @brief Duration in microseconds written as a decimal number, as every duration of the command line is.
+     *
+     * @return Duration, or std::nullopt if text is not one finite number in decimal or scientific notation.
+     */
+    [[nodiscard]] std::optional<double> parseDuration(std::string_view text);
+
+    /**
      * @brief Keying sequence of a message of 1 and 0; white space between the symbols is ignored.
      *
      * @param message    Message of the Symbols type.
@@ -56,7 +63,7 @@ namespace piook {
      *
      * A negative duration is a gap and a positive one a pulse, as remote control code files list them; in a
      * message without a negative duration pulses and gaps take turns, starting with a pulse, as signal
-     * analysers list them.
+     * analyzers list them.
      *
      * @param message Message of the Timings type.
      * @return Sequence with one interval per duration, or std::nullopt if message has anything but finite

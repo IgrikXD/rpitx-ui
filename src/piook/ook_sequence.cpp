@@ -20,24 +20,30 @@
 namespace piook {
     namespace {
         /**
-         * @brief Whether ch is white space: a space, a tab or a line break, as in a sequence pasted from a file.
+         * @brief White space of a message: a space, a tab or a line break, as in a sequence pasted from a file.
          */
-        [[nodiscard]] constexpr bool isWhiteSpace(char ch) noexcept {
-            return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
-        }
+        constexpr std::string_view WHITE_SPACE{" \t\n\r"};
 
         /**
-         * @brief Whether ch separates two durations of a Timings message.
+         * @brief Characters between two durations of a Timings message: white space or a comma.
          */
-        [[nodiscard]] constexpr bool isSeparator(char ch) noexcept {
-            return isWhiteSpace(ch) || ch == ',';
-        }
+        constexpr std::string_view SEPARATORS{" \t\n\r,"};
     }  // namespace
+
+    std::optional<double> parseDuration(std::string_view text) {
+        double duration{};
+        const char* const last{text.data() + text.size()};
+        if (const auto [end, error]{std::from_chars(text.data(), last, duration)};
+            error != std::errc{} || end != last || std::isfinite(duration) == false) {
+            return std::nullopt;
+        }
+        return duration;
+    }
 
     std::optional<std::vector<KeyingInterval>> parseSymbols(std::string_view message, double symbolTime) {
         std::vector<KeyingInterval> sequence;
         for (const char symbol: message) {
-            if (isWhiteSpace(symbol)) {
+            if (WHITE_SPACE.find(symbol) != std::string_view::npos) {
                 continue;
             }
             if (symbol != '0' && symbol != '1') {
@@ -54,21 +60,15 @@ namespace piook {
 
     std::optional<std::vector<KeyingInterval>> parseTimings(std::string_view message) {
         std::vector<double> durations;
-        const char* const last{message.data() + message.size()};
-        for (const char* first{message.data()}; first != last;) {
-            if (isSeparator(*first)) {
-                ++first;
-                continue;
-            }
-            double duration{};
-            const auto [end, error]{std::from_chars(first, last, duration)};
-            // A number ends at a separator or at the end of the message.
-            if (error != std::errc{} || std::isfinite(duration) == false ||
-                (end != last && isSeparator(*end) == false)) {
+        for (auto first{message.find_first_not_of(SEPARATORS)}; first != std::string_view::npos;) {
+            // A duration runs up to the next separator or to the end of the message.
+            const auto last{std::min(message.find_first_of(SEPARATORS, first), message.size())};
+            const auto duration{parseDuration(message.substr(first, last - first))};
+            if (duration == std::nullopt) {
                 return std::nullopt;
             }
-            durations.push_back(duration);
-            first = end;
+            durations.push_back(duration.value());
+            first = message.find_first_not_of(SEPARATORS, last);
         }
 
         const bool signedDurations{std::ranges::any_of(durations, [](double duration) { return duration < 0.0; })};

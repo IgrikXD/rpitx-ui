@@ -10,19 +10,19 @@
 # Invokes: piook --freq <Hz> --message <sequence> --type <type> [--symbol-time <us>] --repeat <count> --pause <us>
 #   --message     : keying sequence of the carrier, a message with anything else is refused.
 #   --type        : symbols (default) - a string of 1 and 0 | timings - durations of the pulses and gaps in microseconds.
-#   --symbol-time : passed when a symbol time is given; a message of symbols needs it, a message of timings has none.
+#   --symbol-time : 500 by default; passed for a message of symbols only (piook refuses it otherwise).
 #   --repeat      : number of times the sequence is sent, 1 by default.
 #   --pause       : pause between the repetitions in microseconds, none by default.
 FREQ="$1"
 MESSAGE="$2"
 TYPE="${3:-symbols}"
-SYMBOL_TIME="$4"
+SYMBOL_TIME="${4:-500}"
 REPEAT="${5:-1}"
 PAUSE="${6:-0}"
 
-# A bash array keeps the optional argument properly quoted and only present when it is given.
+# A bash array keeps the optional argument properly quoted and only present for a message of symbols.
 SYMBOL_TIME_FLAG=()
-if [ -n "$SYMBOL_TIME" ]; then
+if [ "$TYPE" = "symbols" ]; then
   SYMBOL_TIME_FLAG=(--symbol-time "$SYMBOL_TIME")
 fi
 

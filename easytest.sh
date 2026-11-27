@@ -614,8 +614,8 @@ if [ "$OOK_TYPE" = "Symbols" ]; then
 	fi
 
 	if OOK_SYMBOL_TIME=$(whiptail --inputbox "Enter symbol time (microseconds, at least 10):" 8 78 "$DEFAULT_OOK_SYMBOL_TIME" --title "OOK symbol time" 3>&1 1>&2 2>&3); then
-		if ! printf '%s' "$OOK_SYMBOL_TIME" | LC_ALL=C grep -Eq '^0*[1-9][0-9]{1,8}(\.[0-9]+)?$'; then
-			whiptail --title "Error!" --msgbox "Symbol time must be a number of at least 10!" 8 78
+		if ! printf '%s' "$OOK_SYMBOL_TIME" | LC_ALL=C grep -Eq '^0*[1-9][0-9]{1,6}(\.[0-9]+)?$'; then
+			whiptail --title "Error!" --msgbox "Symbol time must be a number of at least 10 and below 10000000!" 8 78
 			abort_action=1
 			return
 		fi
@@ -627,8 +627,8 @@ else
 	do_enter_message "OOK" "$DEFAULT_OOK_TIMINGS"
 	if [ $abort_action -ne 0 ]; then
 		return
-	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '^[ ,]*-?0*[1-9][0-9]{1,8}(\.[0-9]+)?([ ,]+-?0*[1-9][0-9]{1,8}(\.[0-9]+)?)*[ ,]*$'; then
-		whiptail --title "Error!" --msgbox "Message must contain only durations of at least 10 microseconds, separated by spaces or commas (negative for a gap)!" 8 78
+	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '^[ ,]*-?0*[1-9][0-9]{1,6}(\.[0-9]+)?([ ,]+-?0*[1-9][0-9]{1,6}(\.[0-9]+)?)*[ ,]*$'; then
+		whiptail --title "Error!" --msgbox "Message must contain only durations of at least 10 and below 10000000 microseconds, separated by spaces or commas (negative for a gap)!" 8 78
 		abort_action=1
 		return
 	elif ! printf '%s' "$MESSAGE" | LC_ALL=C grep -Eq '(^|[ ,])[0-9]'; then
@@ -652,8 +652,8 @@ fi
 
 # Pause between the repetitions
 if OOK_PAUSE=$(whiptail --inputbox "Enter pause between the repetitions (microseconds, 0 for none):" 8 78 "$DEFAULT_OOK_PAUSE" --title "OOK pause" 3>&1 1>&2 2>&3); then
-	if ! printf '%s' "$OOK_PAUSE" | LC_ALL=C grep -Eq '^[0-9]{1,9}(\.[0-9]+)?$'; then
-		whiptail --title "Error!" --msgbox "Pause must be a number of microseconds (0 for none)!" 8 78
+	if ! printf '%s' "$OOK_PAUSE" | LC_ALL=C grep -Eq '^(0+(\.0+)?|0*[1-9][0-9]{1,6}(\.[0-9]+)?)$'; then
+		whiptail --title "Error!" --msgbox "Pause must be 0 or a number of at least 10 and below 10000000!" 8 78
 		abort_action=1
 		return
 	fi

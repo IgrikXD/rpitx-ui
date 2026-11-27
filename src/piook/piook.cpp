@@ -76,9 +76,9 @@ namespace piook {
         constexpr uint32_t LEAD_SAMPLES{rpitx::dma::PCM_FIFO_DEPTH};
 
         /**
-         * @brief Longest transmission the DMA chain holds, in samples.
+         * @brief Longest transmission the DMA chain holds, in microseconds.
          */
-        constexpr double MAX_TRANSMISSION_SAMPLES{static_cast<double>(MAX_CHAIN_RUNS) * MAX_RUN_SAMPLES};
+        constexpr double MAX_TRANSMISSION_TIME{static_cast<double>(MAX_CHAIN_RUNS) * MAX_RUN_SAMPLES * SAMPLE_TIME_US};
 
         /**
          * @brief Position of the function of the carrier GPIO in the GPFSEL0 register: three bits per pin.
@@ -135,9 +135,18 @@ namespace piook {
             const auto refuse{[] {
                 throw std::runtime_error{"the transmission needs more than " + std::to_string(MAX_CHAIN_RUNS) +
                                          " runs of the DMA chain (one per pulse or gap, one more for every " +
-                                         std::to_string(MAX_RUN_SAMPLES * SAMPLE_TIME_US / 1'000) +
-                                         " ms of it); use fewer repetitions, a shorter pause or a shorter sequence"};
+                                         std::to_string(MAX_RUN_SAMPLES * SAMPLE_TIME_US) +
+                                         " us of it); use fewer repetitions, a shorter pause or a shorter sequence"};
             }};
+
+            // Refused before the repetitions are laid out: a count far beyond the chain would take long to walk.
+            double transmissionTime{(repeat - 1) * pause};
+            for (const KeyingInterval& interval: sequence) {
+                transmissionTime += repeat * interval.duration;
+            }
+            if (transmissionTime > MAX_TRANSMISSION_TIME) {
+                refuse();
+            }
 
             std::vector<KeyingRun> runs{{false, LEAD_SAMPLES}};
             double time{0.0};      // Microseconds from the start of the first repetition.
@@ -145,9 +154,6 @@ namespace piook {
             const auto append{[&](bool carrierOn, double duration) {
                 time += duration;
                 const double end{std::round(time / SAMPLE_TIME_US)};
-                if (end > MAX_TRANSMISSION_SAMPLES) {
-                    refuse();
-                }
                 for (uint64_t samples{static_cast<uint64_t>(end) - position}; samples > 0;) {
                     if (runs.back().carrierOn != carrierOn || runs.back().samples == MAX_RUN_SAMPLES) {
                         if (runs.size() == MAX_CHAIN_RUNS) {
@@ -195,38 +201,52 @@ namespace piook {
         // overridden because the option description already lists the values.
         const std::vector<std::string> typeNames{TYPE_NAMES.begin(), TYPE_NAMES.end()};
         std::string type{typeName(params.type)};
+        // Shortest pulse, gap, symbol or pause in microseconds, as --help and the diagnostics name it.
+        const std::string shortest{std::to_string(SAMPLE_TIME_US)};
         app.add_option("--type",
                        type,
                        "Message type: symbols (default, a string of 1 and 0 - the carrier is on or off for "
-                       "--symbol-time each, white space is ignored) | timings (durations in microseconds, separated "
-                       "by white space or commas - a pulse for a positive and a gap for a negative one, or pulses "
-                       "and gaps in turn, starting with a pulse, when none is negative)")
+                       "--symbol-time each, white space is ignored) | timings (durations of at least " +
+                           shortest +
+                           " microseconds, separated by white space or commas - a pulse for a positive and a gap "
+                           "for a negative one, or pulses and gaps in turn, starting with a pulse, when none is "
+                           "negative)")
             ->transform(CLI::IsMember(typeNames, CLI::ignore_case).description(""));
-        const auto* symbolTimeOption{
-            app.add_option("--symbol-time",
-                           params.symbolTime,
-                           "Duration of a symbol in microseconds, required with --type symbols")
-                ->check(rpitx::cli::validators::PositiveFiniteFloat)};
+        // The durations and the count are taken as text and read as decimal numbers below: the conversions of
+        // CLI11 take an empty or a hexadecimal value, and the leading zero of a count for an octal prefix.
+        std::string symbolTimeText;
+        const auto* symbolTimeOption{app.add_option(
+            "--symbol-time",
+            symbolTimeText,
+            "Duration of a symbol in microseconds, at least " + shortest + ", required with --type symbols")};
         std::string repeatText{std::to_string(params.repeat)};
         app.add_option("--repeat", repeatText, "Number of times the sequence is sent, " + repeatText + " by default");
-        app.add_option("--pause", params.pause, "Pause between the repetitions in microseconds, none by default");
+        std::string pauseText;
+        const auto* pauseOption{app.add_option(
+            "--pause",
+            pauseText,
+            "Pause between the repetitions in microseconds, none by default: 0 or at least " + shortest)};
 
         if (const auto result{rpitx::cli::parseCliApp(app, argc, argv)}; result != rpitx::cli::ParseResult::Ok) {
             return result;
         }
 
-        // The count is read as a decimal number: the integer conversion of CLI11 takes a leading zero for an
-        // octal prefix.
         const char* const repeatEnd{repeatText.data() + repeatText.size()};
         if (const auto [end, error]{std::from_chars(repeatText.data(), repeatEnd, params.repeat)};
             error != std::errc{} || end != repeatEnd || params.repeat == 0) {
             std::cerr << "[ERROR] --repeat must be a whole number of at least 1!" << std::endl;
             return rpitx::cli::ParseResult::Error;
         }
-        // Checked here: the range validators of CLI11 let a value that is not a number through.
-        if (std::isfinite(params.pause) == false || params.pause < 0.0) {
-            std::cerr << "[ERROR] --pause must be a finite number of at least 0!" << std::endl;
-            return rpitx::cli::ParseResult::Error;
+        if (pauseOption->count() > 0) {
+            const auto pause{parseDuration(pauseText)};
+            // A pause is none or lasts at least a sample, as a gap of the message does.
+            if (pause == std::nullopt || std::signbit(pause.value()) ||
+                (pause.value() > 0.0 && pause.value() < SAMPLE_TIME_US)) {
+                std::cerr << "[ERROR] --pause must be 0 or a number of at least " << shortest << " microseconds!"
+                          << std::endl;
+                return rpitx::cli::ParseResult::Error;
+            }
+            params.pause = pause.value();
         }
 
         params.type = static_cast<MessageType>(std::ranges::find(typeNames, type) - typeNames.begin());
@@ -236,6 +256,13 @@ namespace piook {
                 std::cerr << "[ERROR] --type symbols requires --symbol-time <microseconds>!" << std::endl;
                 return rpitx::cli::ParseResult::Error;
             }
+            const auto symbolTime{parseDuration(symbolTimeText)};
+            if (symbolTime == std::nullopt || symbolTime.value() < SAMPLE_TIME_US) {
+                std::cerr << "[ERROR] --symbol-time must be a number of at least " << shortest << " microseconds!"
+                          << std::endl;
+                return rpitx::cli::ParseResult::Error;
+            }
+            params.symbolTime = symbolTime.value();
         } else if (symbolTimeOption->count() > 0) {
             std::cerr << "[ERROR] --symbol-time is only valid with --type symbols!" << std::endl;
             return rpitx::cli::ParseResult::Error;
@@ -257,7 +284,7 @@ namespace piook {
         }
         if (std::ranges::any_of(sequence.value(),
                                 [](const KeyingInterval& interval) { return interval.duration < SAMPLE_TIME_US; })) {
-            std::cerr << "[ERROR] --message must have no pulse or gap shorter than " << SAMPLE_TIME_US << " us!"
+            std::cerr << "[ERROR] --message must have no pulse or gap shorter than " << shortest << " microseconds!"
                       << std::endl;
             return rpitx::cli::ParseResult::Error;
         }
@@ -307,8 +334,11 @@ namespace piook {
             rpitx::clock::checkCarrierPll(params.transmissionFrequency, 0);
             RunLengthOokBurst burst{params.transmissionFrequency, runs};
 
-            // The DMA engine times the whole chain by itself; wait for its end or for a stop request.
-            burst.start();
+            // The DMA engine times the whole chain by itself; wait for its end or for a stop request. A request
+            // that came during the set-up leaves the chain unsent.
+            if (running.load(std::memory_order_relaxed) != 0) {
+                burst.start();
+            }
             while (burst.isrunning() && running.load(std::memory_order_relaxed)) {
                 std::this_thread::sleep_for(STOP_CHECK_INTERVAL);
             }
