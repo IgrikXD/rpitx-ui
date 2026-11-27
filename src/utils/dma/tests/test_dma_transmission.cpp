@@ -48,6 +48,8 @@ namespace {
      */
     std::vector<DrainTailTestCase> makeDrainTailTestCases() {
         return {
+            DrainTailTestCase{"Ring1024", 1024},
+            DrainTailTestCase{"Ring2048", 2048},
             DrainTailTestCase{"Ring4096", 4096},
             DrainTailTestCase{"Ring8192", 8192},
             DrainTailTestCase{"Ring16384", 16384},

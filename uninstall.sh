@@ -12,7 +12,7 @@ if [ -z "${BASH_VERSION:-}" ] && [ "${0##*/}" = uninstall.sh ]; then
 fi
 
 # rpitx-ui package version
-PACKAGE_VERSION='1.37'
+PACKAGE_VERSION='1.38'
 
 # Installed resource directory
 RESOURCE_INSTALL_DIR='/usr/share/rpitx-ui'
@@ -75,11 +75,11 @@ print_banner "$COLOR_GREEN" "Uninstalling rpitx-ui-${PACKAGE_VERSION}!"
 # Remove rpitx-ui binaries from /usr/bin
 print_banner "$COLOR_CYAN" 'Removing rpitx-ui binaries...'
 REQUIRED_BINARIES=(
-  piam pichirp pifmrds pifoxhunt pimorse pinfm piopera pipocsag
-  pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
+  piam pichirp pifmrds pifoxhunt pifsq pimorse pinfm piopera
+  pipocsag pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
 )
 OPTIONAL_BINARIES=(
-  dvbrf pifsq pift8 rpitx sendook
+  dvbrf pift8 rpitx sendook
 )
 
 for BIN in "${REQUIRED_BINARIES[@]}" "${OPTIONAL_BINARIES[@]}"; do
