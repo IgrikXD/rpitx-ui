@@ -12,17 +12,17 @@
 #   --message  : a message with a character outside printable ASCII is refused.
 #   --mode     : 2 (default) | 3 | 4.5 | 6 - the nominal baud rate of the FSQ mode.
 #   --type     : directed (default) | undirected.
-#   --to       : passed with a directed message; callsign of its destination, allcall (default) for all stations.
+#   --to       : passed when a destination is given; without it pifsq directs the message to all stations (allcall).
 FREQ="$1"
 CALLSIGN="$2"
 MESSAGE="$3"
 MODE="${4:-2}"
 TYPE="${5:-directed}"
-DESTINATION="${6:-allcall}"
+DESTINATION="$6"
 
-# A bash array keeps the optional argument properly quoted and only present for a directed message.
+# A bash array keeps the optional argument properly quoted and only present when it is given.
 DESTINATION_FLAG=()
-if [ "${TYPE,,}" != "undirected" ]; then
+if [ -n "$DESTINATION" ]; then
   DESTINATION_FLAG=(--to "$DESTINATION")
 fi
 

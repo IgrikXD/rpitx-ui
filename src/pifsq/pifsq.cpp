@@ -10,7 +10,8 @@
  * sentence. FSQ is a sequence of audio tones sent over single sideband, so every
  * tone is transmitted as the carrier shifted above the requested frequency: a
  * receiver tuned to it in USB mode hears the tones at 1350 - 1631 Hz, where FSQ
- * decoders look for them. Transmission ends with the message, or on a stop signal.
+ * decoders look for them by default. Transmission ends with the message, or on a
+ * stop signal.
  *
  * @note Usage: pifsq --freq <Hz> --callsign <callsign> --message "<text>" [--mode 2|3|4.5|6]
  *               [--type directed|undirected] [--to <callsign>] [-h | --help]
@@ -118,7 +119,7 @@ namespace pifsq {
         app.add_option("--type",
                        type,
                        "Message type: directed (default, a sentence of the FSQCall protocol for the station of "
-                       "--to) | undirected (an FSQ sentence for every station)")
+                       "--to) | undirected (an FSQ sentence, printed by the stations that have FSQCall switched off)")
             ->transform(CLI::IsMember(typeNames, CLI::ignore_case).description(""));
         const auto* destinationOption{
             app.add_option("--to",

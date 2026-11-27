@@ -45,7 +45,9 @@ namespace pifsq {
      * @brief Whether callsign is 1 - MAX_CALLSIGN_LENGTH letters, digits or /.
      *
      * These are the characters both programs accept in the callsign of the sender and none of
-     * them ends the callsign of the destination.
+     * them ends the callsign of the destination. fldigi takes a sender only when it also looks
+     * like a callsign: 3 or more characters with a digit that follows a letter or / and is not
+     * the last one.
      */
     [[nodiscard]] bool isCallsign(std::string_view callsign) noexcept;
 

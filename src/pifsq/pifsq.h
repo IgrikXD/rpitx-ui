@@ -53,7 +53,8 @@ namespace pifsq {
     inline constexpr float IDLE_DEVIATION_HZ{0.0F};
 
     /**
-     * @brief Frequency of the lowest tone above the carrier in Hz, where the FSQCall program sends it.
+     * @brief Frequency of the lowest tone above the carrier in Hz: its place in the 1500 Hz setting, the
+     *        default of the FSQCall program and fldigi.
      */
     inline constexpr float BASE_TONE_HZ{1'350.0F};
 

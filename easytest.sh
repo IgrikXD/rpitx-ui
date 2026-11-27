@@ -535,7 +535,7 @@ fi
 # Message type
 if ! FSQ_TYPE=$(whiptail --default-item "$DEFAULT_FSQ_TYPE" --title "FSQ message type" --menu "Select FSQ message type:" 15 78 2 \
 	"Directed" "Message for a station or for all stations (FSQCall)" \
-	"Undirected" "Message for every station (FSQ chat)" \
+	"Undirected" "Message for stations with FSQCall off (FSQ chat)" \
 	3>&1 1>&2 2>&3); then
 	abort_action=1
 	return
