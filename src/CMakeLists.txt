@@ -112,6 +112,20 @@ target_link_libraries(pinfm
         librpitx::librpitx
 )
 
+# --- piook (keying sequence -> librpitx ookburst, self-contained) ---
+add_executable(piook
+    piook/ook_sequence.cpp
+    piook/piook.cpp
+)
+target_link_libraries(piook
+    PRIVATE
+        rpitx_cli_utils
+        rpitx_clock_utils
+        rpitx_dma_utils
+        rpitx_realtime_utils
+        librpitx::librpitx
+)
+
 # --- piopera (callsign -> librpitx iqdmasync, self-contained) ---
 add_executable(piopera
     piopera/opera_encoder.cpp
@@ -249,11 +263,6 @@ if(BUILD_OPTIONAL_TARGETS)
     add_executable(rpitx rpitxv1/rpitx.cpp)
     target_compile_options(rpitx PRIVATE -Wno-write-strings)
     target_link_libraries(rpitx PRIVATE librpitx::librpitx)
-
-    # --- sendook ---
-    add_executable(sendook ook/sendook.cpp ook/optparse.c)
-    target_compile_options(sendook PRIVATE -Wno-write-strings)
-    target_link_libraries(sendook PRIVATE librpitx::librpitx)
 else()
     message(STATUS "Optional targets build disabled - skipping targets not used by easytest.sh")
 endif()
@@ -263,12 +272,12 @@ endif()
 # ----------------------------------------------------------
 # Install required targets
 set(INSTALL_TARGETS
-    piam pichirp pifmrds pifoxhunt pifsq pimorse pinfm piopera
+    piam pichirp pifmrds pifoxhunt pifsq pimorse pinfm piook piopera
     pipocsag pirfgen pirtty pispectrumpaint pissb pisstv pitune sendiq
 )
 
 # Install optional targets if they were built successfully
-foreach(OPTIONAL_TARGET dvbrf pift8 rpitx sendook)
+foreach(OPTIONAL_TARGET dvbrf pift8 rpitx)
     if(TARGET ${OPTIONAL_TARGET})
         list(APPEND INSTALL_TARGETS ${OPTIONAL_TARGET})
     endif()
@@ -299,7 +308,7 @@ endif()
 # Helper scripts in the scripts/ subdirectory
 set(SCRIPTS_DIR_SCRIPTS
     fm2ssb.sh snap2spectrum.sh testam.sh testchirp.sh testfmrds.sh testfoxhunt.sh
-    testfsq.sh testmorse.sh testnfm.sh testopera.sh testpocsag.sh testrfgen.sh
+    testfsq.sh testmorse.sh testnfm.sh testook.sh testopera.sh testpocsag.sh testrfgen.sh
     testrtty.sh testspectrum.sh testssb.sh testsstv.sh testtune.sh transponder.sh
 )
 
